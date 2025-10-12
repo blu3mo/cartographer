@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id         String      @id @default(uuid()) @db.Uuid
+  title      String
+  context    String
+  hostUserId String      @map("host_user_id") @db.Uuid
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  statements Statement[]
+  participants Participant[]
+
+  @@map("sessions")
+}
+
+model Statement {
+  id         String     @id @default(uuid()) @db.Uuid
+  sessionId  String     @map("session_id") @db.Uuid
+  text       String
+  orderIndex Int        @default(0) @map("order_index")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  session    Session    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  responses  Response[]
+
+  @@map("statements")
+}
+
+model Participant {
+  id        String     @id @db.Uuid
+  sessionId String     @map("session_id") @db.Uuid
+  name      String     @db.VarChar(255)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  session   Session    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  responses Response[]
+
+  @@unique([id, sessionId])
+  @@map("participants")
+}
+
+model Response {
+  id            String      @id @default(uuid()) @db.Uuid
+  participantId String      @map("participant_id") @db.Uuid
+  statementId   String      @map("statement_id") @db.Uuid
+  value         Int
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  statement     Statement   @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, statementId])
+  @@map("responses")
+}

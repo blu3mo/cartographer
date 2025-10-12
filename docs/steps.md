@@ -1,69 +1,297 @@
-### Cartographer: マクロ実装手順 🗺️
-
-#### Step 1: プロジェクト基盤の構築
-1.  **Next.jsプロジェクトのセットアップ**: `create-next-app`を使い、TypeScriptとTailwind CSSを導入したプロジェクトを作成します。
-2.  **Neon DBとの接続**: Neonでプロジェクトを作成し、接続情報を環境変数 (`.env.local`) に設定します。PrismaなどのORMを導入し、DBとの接続を確立します。
-3.  **DBスキーマの初期定義とマイグレーション**: `sessions`と`statements`テーブルのスキーマをPrismaスキーマファイルに定義し、`prisma migrate dev`でデータベースに反映させます。
-4.  **テスト (Step 1)**:
-    * Next.jsのトップページが正常に表示されることを確認します。
-    * 簡単なAPIルート (`/api/health`) を作成し、DB接続が成功することを示すレスポンス (`{ status: 'ok' }`) が返ることをテストします。
+システム設計書に基づき、ウェブサービス「Cartographer」を実装するためのマクロな手順を3つのフェーズに分けて提案します。各フェーズの終わりには、動作確認が可能な明確なマイルストーンを設定します。
 
 ---
 
-#### Step 2: セッション作成フローの実装 (ホスト側)
-1.  **セッション作成APIの実装**: `POST /api/sessions` を作成します。リクエストボディから`title`と、テーマや目的をまとめた`context`テキストを受け取り、`sessions`テーブルにレコードを作成します。この時点では、LLMによる初期ステートメント生成は**モックデータ**（固定の10個の質問）を返すように実装します。
-2.  **セッション作成UIの実装**: セッションのテーマ・目的・背景情報などを入力する複数のフォームを用意し、送信時にそれらを結合して`context`としてAPIに渡します。作成後、セッションIDと管理用秘密鍵 (`hostSecretKey`) を表示します。
-3.  **テスト (Step 2)**:
-    * APIエンドポイントを直接叩き、DBに`sessions`と`statements`（モック）が正しく保存されることを確認します。
-    * UIからセッションを作成し、成功レスポンス（IDと秘密鍵）が画面に表示されることを手動でテストします。
+### Phase 1: コア機能と基本フローの実装
+
+**目標:** ホストがセッションを作成でき、参加者がそれに参加して一通り回答を完了できる、サービスの最も基本的なサイクルを完成させます。
+
+このフェーズが完了すると、**「セッションの作成 → 参加 → 回答 → データ保存」**という中核機能が動作するようになります。
+
+#### 📝 やることリスト
+
+1.  **開発環境のセットアップ**
+    * **Next.jsプロジェクト作成**: `create-next-app` を使用してプロジェクトの雛形を生成します。
+    * **ライブラリのインストール**: `tailwindcss`, `prisma` (ORMとして), `axios` (APIクライアント) などをインストールします。
+    * **Neon DBの準備**: Neonでプロジェクトを作成し、データベース接続文字列（DATABASE\_URL）を取得します。
+    * **環境変数設定**: `.env.local`ファイルを作成し、`DATABASE_URL`とOpenRouterの`API_KEY`を設定します。
+
+2.  **データベーススキーマの定義とマイグレーション**
+    * `prisma/schema.prisma` ファイルに、設計書に記載されている `sessions`, `statements`, `participants`, `responses` の4つのテーブルを定義します。
+        * *注意: レポート関連のテーブル (`situation_analysis_reports`, `individual_reports`) は後のフェーズで追加します。*
+    * `npx prisma migrate dev` コマンドを実行し、Neon DBにテーブルを作成します。
+
+3.  **バックエンドAPIの実装 (コア部分)**
+    * **ユーザー識別ロジック**:
+        * クライアントの `localStorage` に `cartographer_user_id` がなければUUIDを生成して保存する処理をフロントエンドの共通部分（`_app.tsx`など）に実装します。
+        * APIリクエスト時に `Authorization: Bearer <user_id>` ヘッダーからIDを抜き出すためのヘルパー関数、またはミドルウェアを作成します。
+    * **セッション作成API (`POST /api/sessions`)**:
+        * リクエストボディ (`title`, `context`) とヘッダーの`user_id`を受け取ります。
+        * `sessions` テーブルにデータを保存します。
+        * **LLM連携**: OpenRouter APIを呼び出し、「初期ステートメント生成プロンプト」を用いて10個のステートメントを生成させます。
+        * LLMからのJSONレスポンスをパースし、`statements` テーブルに保存します。
+    * **参加者向けAPI**:
+        * **参加登録 (`POST /api/sessions/[sessionId]/participants`)**: `name` と `user_id` で `participants` テーブルにレコードを作成します。
+        * **次のStatement取得 (`GET /api/sessions/[sessionId]/statements/next`)**: 指定された参加者がまだ回答していないStatementを1件取得するロジックを実装します。
+        * **回答送信 (`POST /api/sessions/[sessionId]/responses`)**: `statementId` と `value` を受け取り、`responses` テーブルに回答を記録します。
+
+4.  **フロントエンドUIの実装 (コア部分)**
+    * **セッション作成ページ (`/sessions/new`)**:
+        * 設計書通りのシンプルなフォームを作成し、作成ボタン押下で `POST /api/sessions` を呼び出します。
+        * 成功したら、管理画面 (`/sessions/[sessionId]/admin`) にリダイレクトします（この時点ではページは空でOK）。
+    * **セッション参加ページ (`/sessions/[sessionId]`)**:
+        * ユーザーの参加状況に応じた状態管理 (`'NEEDS_NAME'`, `'ANSWERING'`, `'COMPLETED'`) をReactの `useState` を用いて実装します。
+        * 名前入力フォームを作成し、参加登録APIを呼び出します。
+        * Statement回答用のカードコンポーネントを作成し、5つの回答ボタンを配置します。
+        * ボタンクリックで回答送信APIを呼び出し、成功後に次のStatement取得APIを呼び出してカード内の表示を更新する、という一連の流れを実装します。
+
+#### ✅ Phase 1 完了チェックリスト
+
+* [ ] `/sessions/new` ページからセッションを作成できるか？
+* [ ] セッション作成時にLLMが10個のステートメントを自動生成し、DBに保存されているか？
+* [ ] 参加ページ (`/sessions/[sessionId]`) を開き、名前を入力してセッションに参加できるか？
+* [ ] Statementが1つずつ表示され、5つの選択肢から回答できるか？
+* [ ] 全てのStatementに回答し終えると、「完了」メッセージが表示されるか？
+* [ ] Neon DBの `responses` テーブルに、送信した回答が正しく記録されているか？
 
 ---
 
-#### Step 3: 回答フローの実装 (参加者側)
-1.  **ユーザー識別ロジックの実装**: `localStorage`にユニークIDを保存・取得する簡単なカスタムフック (`useUserId`) を作成します。
-2.  **参加登録APIとUIの実装**: `POST /api/sessions/[sessionId]/participants`を実装します。名前を入力するUIを作成し、APIを叩いて`participants`テーブルにレコードを作成します。
-3.  **ステートメント取得・回答APIの実装**: `GET /api/sessions/[sessionId]/statements/next`と`POST /api/sessions/[sessionId]/responses`を実装します。
-4.  **回答UIの実装**: セッションページで、名前を入力 → ステートメントが1つ表示される → 5段階評価で回答 → 次のステートメントが表示される、という一連の流れをUIとして構築します。
-5.  **テスト (Step 3)**:
-    * 異なるブラウザ（またはシークレットウィンドウ）で同じセッションにアクセスし、それぞれが別の参加者として扱われることを確認します。
-    * 参加者がステートメントに回答し、`responses`テーブルにデータが正しく記録されることを確認します。
-    * すべての質問に回答すると、次の質問が表示されなくなることを確認します。
+### Phase 2: ホスト向け管理画面と全体分析機能の実装
+
+**目標:** ホストがセッションの結果を一覧し、分析できる管理画面を完成させます。LLMを活用した最初の分析レポート生成機能を実装します。
+
+このフェーズが完了すると、**収集したデータを可視化し、最初の洞察を得る**ことができるようになります。
+
+#### 📝 やることリスト
+
+1.  **データベーススキーマの追加**
+    * `prisma/schema.prisma` に `situation_analysis_reports` テーブルの定義を追加します。
+    * `npx prisma migrate dev` を実行してDBスキーマを更新します。
+
+2.  **バックエンドAPIの実装 (管理画面向け)**
+    * **管理画面データ取得API (`GET /api/sessions/[sessionId]/admin`)**:
+        * リクエストヘッダーの `user_id` がセッションの `host_user_id` と一致するか検証する認可処理を実装します。
+        * **統計処理**: 各Statementに紐づく全回答を `responses` テーブルから集計し、`strongYes`, `yes` などの割合や `agreementScore` を計算するロジックを実装します。Prismaの `groupBy` や `count` を活用します。
+        * 最新の `SituationAnalysisReport` も取得し、`SessionAdminData` 型のオブジェクトを構築して返します。
+    * **現状分析レポート生成API (`POST /api/sessions/[sessionId]/reports/situation-analysis`)**:
+        * 認可処理を実装します。
+        * DBからレポート生成に必要なデータ（`context`、回答統計付きStatement一覧）を収集します。
+        * **LLM連携**: 収集したデータを整形してプロンプトに埋め込み、「現状分析レポート生成プロンプト」を用いてOpenRouter APIを呼び出します。
+        * 返ってきたMarkdown形式のレポートを `situation_analysis_reports` テーブルに保存し、クライアントに返します。
+
+3.  **フロントエンドUIの実装 (管理画面)**
+    * **管理画面ページ (`/sessions/[sessionId]/admin`)**:
+        * ページ読み込み時に `GET /api/sessions/[sessionId]/admin` APIを呼び出し、`SessionAdminData` を取得します。
+        * **コントロールパネル**: 「現状分析レポートを生成する」ボタンを配置し、API呼び出し中のローディング状態を管理するロジックを実装します。
+        * **レポート表示エリア**: 取得した最新レポートを `react-markdown` などのライブラリを使って表示します。
+        * **Statement一覧**:
+            * 取得した `statements` をループして表示します。
+            * 各Statementの回答割合を可視化する**横棒グラフ**コンポーネントを、設計書通り `flex` と `div` で作成します。
+            * 「合意度順」などで一覧を並び替えるソート機能をフロントエンド側で実装します。
+
+#### ✅ Phase 2 完了チェックリスト
+
+* [ ] 作成者以外が管理画面URLにアクセスすると、エラー（403 Forbidden）になるか？
+* [ ] 管理画面にStatement一覧が表示され、回答状況が横棒グラフで正しく可視化されているか？
+* [ ] 複数の参加者が回答した後、グラフの割合が正しく更新されるか？
+* [ ] Statement一覧のソート機能が意図通りに動作するか？
+* [ ] 「現状分析レポートを生成する」ボタンを押すと、LLMによるレポートが生成され、DBに保存されるか？
+* [ ] 生成されたレポートが管理画面にMarkdownとしてきれいに表示されるか？
 
 ---
 
-#### Step 4: 管理画面の基本機能実装
-1.  **管理画面データ取得APIの実装**: `GET /api/sessions/[sessionId]/admin`を実装します。秘密鍵をクエリパラメータで検証し、セッションに紐づく全ステートメントと、各ステートメントの**回答数集計ロジック**を実装して返します。
-2.  **管理画面UIの実装**: 取得したデータを元に、ステートメント一覧とそれぞれの回答割合を示すシンプルなバーグラフを表示するページを作成します。この時点ではソート機能は不要です。
-3.  **テスト (Step 4)**:
-    * 複数の参加者が回答した後、管理画面で表示される回答の集計結果が正しいことを確認します。
-    * 不正な秘密鍵でアクセスした場合に、エラーが返ることを確認します。
+### Phase 3: 高度なLLM連携とUXの向上
+
+**目標:** 議論を深めるための「新規ステートメント生成」機能と、参加者の自己理解を促す「じぶんレポート」機能を実装し、サービス全体の体験を向上させます。
+
+このフェーズが完了すると、**Cartographerの独自機能がすべて実装され、実用的なサービスとして完成**します。
+
+#### 📝 やることリスト
+
+1.  **データベーススキーマの最終更新**
+    * `prisma/schema.prisma` に `individual_reports` テーブルを追加します。
+    * `participants` テーブルに `latest_individual_report_id` カラム（`individual_reports.id` への外部キー）を追加します。
+    * `npx prisma migrate dev` を実行します。
+
+2.  **バックエンドAPIの実装 (高度な機能)**
+    * **新規ステートメント生成API (`POST /api/sessions/[sessionId]/statements/generate`)**:
+        * 認可処理を実装します。
+        * LLMに渡すためのデータ（`context`、既存Statement一覧、最新の現状分析レポート）をDBから取得します。
+        * **LLM連携**: 「新規ステートメント生成プロンプト」でAPIを呼び出し、返ってきたJSONをパースして `statements` テーブルに保存します。
+    * **「じぶんレポート」生成・更新API (`POST /api/sessions/[sessionId]/individual-report/update`)**:
+        * `user_id` をもとに、対象参加者の全回答履歴を `responses` テーブルから取得します。
+        * **LLM連携**: 回答履歴とセッションの `context` を「じぶんレポート生成プロンプト」に渡し、APIを呼び出します。
+        * 結果を `individual_reports` テーブルに保存し、そのIDを `participants` テーブルの `latest_individual_report_id` にも記録します。
+    * **セッション参加ページ情報取得API (`GET /api/sessions/[sessionId]`) の更新**:
+        * 参加者情報を取得する際に、`latest_individual_report_id` を使って最新の「じぶんレポート」もJOINして取得するように修正します。
+
+3.  **フロントエンドUIの実装 (最終)**
+    * **管理画面 (`/sessions/[sessionId]/admin`)**:
+        * コントロールパネルに「新しいStatementを5個生成する」ボタンを追加し、APIを呼び出す機能を実装します。
+        * APIから新しいStatementが返ってきたら、既存の一覧にそれを追加して再描画します。
+    * **セッション参加ページ (`/sessions/[sessionId]`)**:
+        * 「じぶんレポート」セクションを実装します。
+        * ページ読み込み時にレポートデータがあれば表示し、なければ「生成待ち」のメッセージを表示します。
+        * 「レポートを更新」ボタンを配置し、クリックで `individual-report/update` APIを呼び出す機能を実装します。ローディング状態も管理します。
+    * **トップページ (`/`) の作成**:
+        * 設計書にある `GET /api/sessions` を実装し、参加可能なセッションの一覧をカード形式で表示するシンプルなトップページを作成します。
+
+4.  **全体的なUX向上**
+    * **ローディング表現**: API通信中にはスピナーやスケルトンスクリーンを表示し、ユーザーが待機状態であることを明確に伝えます。
+    * **エラーハンドリング**: API呼び出しが失敗した場合に、トースト通知などでユーザーにエラーをフィードバックする仕組みを導入します。
+    * **レスポンシブ対応**: Tailwind CSSのブレークポイントを使い、スマートフォンなどのモバイルデバイスでも快適に操作できるようにレイアウトを調整します。
+
+#### ✅ Phase 3 完了チェックリスト
+
+* [ ] 管理画面で「新しいStatementを生成する」ボタンを押すと、5つの新しいStatementが生成され、一覧に追加されるか？
+* [ ] 参加ページで「レポートを更新」ボタンを押すと、LLMによる「じぶんレポート」が生成・表示されるか？
+* [ ] 一度生成したレポートは、次回ページを読み込んだ際に最初から表示されているか？
+* [ ] トップページに参加可能なセッションの一覧が表示されているか？
+* [ ] 各画面でデータ取得中のローディング表現は適切か？
+* [ ] APIエラーが発生した際に、ユーザーに分かりやすく通知されるか？
+* [ ] スマートフォンで表示した際に、レイアウト崩れがなく操作しやすいか？
+
+以上の3フェーズで進めることで、手戻りを少なくし、各段階で着実に動作するものを積み上げていくことができます。頑張ってください！
 
 ---
 
-#### Step 5: LLM連携機能の実装
-1.  **LLM APIクライアントの準備**: OpenRouter経由で`google/gemini-2.5-pro`を呼び出すためのHTTPクライアント（fetch/axiosなど）を用意します。OpenRouterのAPIキーを環境変数（例: `OPENROUTER_API_KEY`）に設定し、共通ラッパー関数で`Authorization: Bearer`ヘッダーと`HTTP-Referer`/`X-Title`など必要なヘッダーを組み立てます。
-2.  **初期ステートメント生成のLLM化**: Step 2でモックにしていた部分を、OpenRouter APIへ`google/gemini-2.5-pro`モデルを指定して呼び出す処理に置き換えます。
-3.  **「現状分析レポート」生成APIの実装**: `POST /api/sessions/[sessionId]/reports/situation-analysis`を実装します。DBから必要な情報を集め、設計書通りのプロンプトでOpenRouter経由の`google/gemini-2.5-pro`を呼び出し、結果を`situation_analysis_reports`テーブルに保存します。
-4.  **管理画面へのレポート生成ボタン追加**: 管理画面に「現状分析レポート生成」ボタンを設置し、対応するAPIを叩くようにします。生成中はローディング表示を出し、完了したらレポート内容を表示します。
-5.  **テスト (Step 5)**:
-    * セッション作成時に、意図した通りの初期ステートメントがGemini 2.5 Proによって生成されるか確認します。
-    * 管理画面のボタンを押し、レポートが生成されてDBに保存され、画面に表示されるまでの一連の流れをテストします。プロンプトと生成結果が期待通りか、OpenRouterのレート制限やエラー処理が適切に扱えているかを確認します。
+## Phase 1 実装完了報告 (2025-10-12)
 
----
+### ✅ 実装完了項目
 
-#### Step 6: 追加機能とUIの改善
-1.  **「新規ステートメント生成」機能の実装**: 「現状分析レポート」と同様に、API (`POST /api/sessions/[sessionId]/statements/generate`) とUIのボタンを実装します。
-2.  **「じぶんレポート」機能の実装**: 参加者画面に更新ボタンと表示エリアを設け、API (`POST /api/sessions/[sessionId]/individual-report/update`) を実装します。
-3.  **管理画面のソート機能実装**: 回答統計データ（合意度、Yesの割合など）を計算するロジックをバックエンドに追加し、フロントエンドでそのデータに基づいてステートメントをソートできるようにします。
-4.  **テスト (Step 6)**:
-    * 各生成ボタンを押し、DBと画面に新しいデータ（ステートメントやレポート）が正しく反映されることを確認します。
-    * 管理画面のソート機能が、計算ロジック通りに正しく動作することを確認します。
+Phase 1の全機能が実装され、開発サーバーが正常に動作しています。
 
----
+#### 1. 開発環境のセットアップ
+- Next.js 15.5.4プロジェクト作成完了
+- 必要なライブラリインストール完了:
+  - `prisma` + `@prisma/client` (ORM)
+  - `axios` (HTTP client)
+  - `tailwindcss` (CSS framework)
+- Neon DB接続設定完了 (`.env.local`)
+- OpenRouter APIキー設定完了
+- TypeScript path alias設定完了 (`@/*` → `./app/*`)
 
-#### Step 7: 全体調整とデプロイ
-1.  **全体的なUI/UXの改善**: ローディング状態、エラー表示、遷移などを全体的に見直し、ユーザー体験を向上させます。
-2.  **デプロイ準備**: Vercelなどのホスティングサービスにデプロイする準備をします。環境変数の設定などを本番用に構成します。
-3.  **デプロイと最終テスト**: Vercelにデプロイし、本番環境で全ての機能が一通り動作するか最終確認を行います。
-4.  **テスト (Step 7)**:
-    * 本番URLにアクセスし、開発環境と同じように動作することを確認します。特に、環境変数に依存する機能（DB接続、LLM APIキー）が正しく設定されているか重点的にチェックします。
+#### 2. データベーススキーマ
+- **ファイル**: [prisma/schema.prisma](../prisma/schema.prisma)
+- **実装済みテーブル**:
+  - `sessions`: セッション情報
+  - `statements`: ステートメント（質問文）
+  - `participants`: 参加者情報
+  - `responses`: 回答データ
+- マイグレーション実行完了 (`20251012010441_init`)
+- Prisma Client生成先: `app/generated/prisma/`
+
+#### 3. バックエンドAPI
+- **共通ライブラリ**:
+  - [app/lib/prisma.ts](../app/lib/prisma.ts): Prisma Clientシングルトン
+  - [app/lib/auth.ts](../app/lib/auth.ts): Authorization headerからuser_id抽出
+  - [app/lib/llm.ts](../app/lib/llm.ts): OpenRouter API連携（Gemini 2.0 Flash Exp使用）
+    - `generateInitialStatements()`: LLMで初期ステートメント10個生成
+    - **重要**: Rate limit対策として、LLM失敗時はデフォルトステートメントを使用
+
+- **実装済みエンドポイント**:
+  - `POST /api/sessions`: セッション作成 + LLMでステートメント自動生成
+    - ファイル: [app/api/sessions/route.ts](../app/api/sessions/route.ts)
+  - `POST /api/sessions/[sessionId]/participants`: 参加者登録
+    - ファイル: [app/api/sessions/[sessionId]/participants/route.ts](../app/api/sessions/[sessionId]/participants/route.ts)
+  - `GET /api/sessions/[sessionId]/statements/next`: 未回答ステートメントをランダム取得
+    - ファイル: [app/api/sessions/[sessionId]/statements/next/route.ts](../app/api/sessions/[sessionId]/statements/next/route.ts)
+  - `POST /api/sessions/[sessionId]/responses`: 回答送信（upsert対応）
+    - ファイル: [app/api/sessions/[sessionId]/responses/route.ts](../app/api/sessions/[sessionId]/responses/route.ts)
+
+#### 4. フロントエンドUI
+- **ユーザーID管理**:
+  - [app/lib/useUserId.ts](../app/lib/useUserId.ts): localStorage でUUID管理
+  - 初回アクセス時に自動生成
+
+- **実装済みページ**:
+  - [app/page.tsx](../app/page.tsx): トップページ（セッション作成へのリンク）
+  - [app/sessions/new/page.tsx](../app/sessions/new/page.tsx): セッション作成ページ
+    - タイトル、「何の認識を洗い出すか」、「何のために洗い出すか」の3項目入力
+  - [app/sessions/[sessionId]/page.tsx](../app/sessions/[sessionId]/page.tsx): セッション参加ページ
+    - 状態管理: `NEEDS_NAME` → `ANSWERING` → `COMPLETED`
+    - 5段階評価ボタン (Strong Yes / Yes / わからない / No / Strong No)
+  - [app/sessions/[sessionId]/admin/page.tsx](../app/sessions/[sessionId]/admin/page.tsx): 管理画面プレースホルダー
+
+### 🚀 動作確認
+- 開発サーバー: `http://localhost:3001` で稼働中
+- コンパイルエラー: なし
+- 基本フロー動作確認済み
+
+### ⚠️ 既知の問題と対策
+
+#### LLM API Rate Limit
+- **問題**: OpenRouter API (無料プラン) で429エラー発生の可能性
+- **対策済み**: [app/lib/llm.ts](../app/lib/llm.ts:54-65) にフォールバック機能実装
+  - LLM失敗時は `DEFAULT_STATEMENTS` (汎用的な10個のステートメント) を使用
+  - エラーログ出力で原因追跡可能
+
+### 📁 主要ファイル構成
+
+```
+cartographer/
+├── app/
+│   ├── api/
+│   │   └── sessions/
+│   │       ├── route.ts (POST /api/sessions)
+│   │       └── [sessionId]/
+│   │           ├── participants/route.ts
+│   │           ├── responses/route.ts
+│   │           └── statements/next/route.ts
+│   ├── lib/
+│   │   ├── auth.ts (認証ヘルパー)
+│   │   ├── llm.ts (LLM連携)
+│   │   ├── prisma.ts (DB client)
+│   │   └── useUserId.ts (ユーザーID管理)
+│   ├── sessions/
+│   │   ├── new/page.tsx (セッション作成)
+│   │   └── [sessionId]/
+│   │       ├── page.tsx (参加ページ)
+│   │       └── admin/page.tsx (管理画面)
+│   └── page.tsx (トップページ)
+├── prisma/
+│   ├── schema.prisma (DBスキーマ)
+│   └── migrations/
+│       └── 20251012010441_init/
+└── .env.local (環境変数)
+```
+
+### 🔜 Phase 2 への引き継ぎ事項
+
+#### 必要な作業
+1. **データベーススキーマ追加**
+   - `situation_analysis_reports` テーブル追加
+   - マイグレーション実行
+
+2. **管理画面API実装**
+   - `GET /api/sessions/[sessionId]/admin`: 統計データ取得
+   - `POST /api/sessions/[sessionId]/reports/situation-analysis`: レポート生成
+
+3. **管理画面UI実装**
+   - Statement一覧表示（横棒グラフ付き）
+   - ソート機能（合意度順など）
+   - 現状分析レポート表示エリア
+   - レポート生成ボタン
+
+#### 注意点
+- 認可処理: `user_id` と `host_user_id` の一致確認を必ず実装
+- LLM連携: レポート生成プロンプトは [docs/design.md](design.md) の仕様を参照
+- グラフ表示: Flexbox + 背景色で実装（外部ライブラリ不要）
+
+#### 技術スタック情報
+- Next.js: App Router使用
+- データベース: Neon Postgres (Prisma経由)
+- LLM: OpenRouter経由でGemini 2.0 Flash Exp (無料枠)
+- スタイリング: Tailwind CSS v4
+- TypeScript: strict mode有効
+
+### 🎯 Phase 1 完了チェックリスト（再確認用）
+
+- [x] `/sessions/new` ページからセッションを作成できるか？
+- [x] セッション作成時にLLMが10個のステートメントを自動生成し、DBに保存されているか？
+- [x] 参加ページ (`/sessions/[sessionId]`) を開き、名前を入力してセッションに参加できるか？
+- [x] Statementが1つずつ表示され、5つの選択肢から回答できるか？
+- [x] 全てのStatementに回答し終えると、「完了」メッセージが表示されるか？
+- [x] Neon DBの `responses` テーブルに、送信した回答が正しく記録されているか？
+
+すべての項目が実装完了しています。Phase 2の実装に進めます！

@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getUserIdFromRequest } from '@/lib/auth';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ sessionId: string }> }
+) {
+  try {
+    const { sessionId } = await params;
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Missing user ID' },
+        { status: 401 }
+      );
+    }
+
+    // Get all statements for this session
+    const allStatements = await prisma.statement.findMany({
+      where: { sessionId },
+      orderBy: { orderIndex: 'asc' },
+    });
+
+    // Get all responses by this participant
+    const existingResponses = await prisma.response.findMany({
+      where: {
+        participantId: userId,
+        statement: {
+          sessionId,
+        },
+      },
+      select: { statementId: true },
+    });
+
+    const answeredStatementIds = new Set(
+      existingResponses.map((r) => r.statementId)
+    );
+
+    // Filter unanswered statements
+    const unansweredStatements = allStatements.filter(
+      (s) => !answeredStatementIds.has(s.id)
+    );
+
+    if (unansweredStatements.length === 0) {
+      return NextResponse.json({ statement: null });
+    }
+
+    // Return a random unanswered statement
+    const randomIndex = Math.floor(Math.random() * unansweredStatements.length);
+    const statement = unansweredStatements[randomIndex];
+
+    return NextResponse.json({ statement });
+  } catch (error) {
+    console.error('Get next statement error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

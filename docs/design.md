@@ -25,7 +25,7 @@ Cartographerは、特定のテーマ（例：「このプロジェクトの現�
       * `id` (UUID, Primary Key): セッションの一意なID
       * `title` (TEXT, NOT NULL): セッションのタイトル
       * `context` (TEXT, NOT NULL): セッションのテーマや目的など、LLMに渡す前提情報をまとめたテキスト
-      * `host_secret_key` (UUID, NOT NULL, UNIQUE): ホストユーザーが管理画面にアクセスするための秘密鍵
+      * `host_user_id` (UUID, NOT NULL): セッションを作成したユーザーのID（localStorageから取得）
       * `created_at` (TIMESTAMPTZ, default: now())
       * `updated_at` (TIMESTAMPTZ, default: now())
 
@@ -175,33 +175,38 @@ LLMへのリクエストはOpenRouter API経由で行い、ターゲットモデ
 #### 4.1 ユーザー識別
 
   * クライアント側で初めてサイトにアクセスした際にUUIDを生成し、`localStorage`に`cartographer_user_id`のようなキーで保存します。
-  * 以降のAPIリクエストでは、このIDを`Authorization: Bearer <user_id>`ヘッダーに含めて送信します。サーバー側ではこのIDを`participant.id`として扱います。
+  * 以降のAPIリクエストでは、このIDを`Authorization: Bearer <user_id>`ヘッダーに含めて送信します。
+  * セッション作成時はこのIDを`host_user_id`として記録し、管理画面へのアクセス時に作成者本人かどうかを判定します。
+  * 参加者として回答する際は、このIDを`participant.id`として扱います。
 
 #### 4.2 ホストユーザー向けAPI
 
   * **セッション作成**
 
       * `POST /api/sessions`
+      * Header: `Authorization: Bearer <user_id>`
       * Request Body: `{ title: string, context: string }`
       * 処理:
-        1.  `sessions`テーブルにデータを保存。`host_secret_key`も生成。
+        1.  `sessions`テーブルにデータを保存。`host_user_id`として`user_id`を記録。
         2.  LLMを呼び出し、初期ステートメントを10個生成。
         3.  生成されたステートメントを`statements`テーブルに保存。
-      * Response Body: `{ session: Session, hostSecretKey: string }`
+      * Response Body: `{ session: Session }`
 
   * **管理画面データ取得**
 
-      * `GET /api/sessions/[sessionId]/admin?secret_key=[hostSecretKey]`
+      * `GET /api/sessions/[sessionId]/admin`
+      * Header: `Authorization: Bearer <user_id>`
       * 処理:
-        1.  `secret_key`を検証。
+        1.  `user_id`がセッションの`host_user_id`と一致するか検証。不一致の場合は403エラー。
         2.  セッション情報、紐づく全ステートメント、各ステートメントの回答統計（集計処理が必要）、最新の現状分析レポートを取得。
       * Response Body: `{ data: SessionAdminData }`
 
   * **現状分析レポート生成**
 
-      * `POST /api/sessions/[sessionId]/reports/situation-analysis?secret_key=[hostSecretKey]`
+      * `POST /api/sessions/[sessionId]/reports/situation-analysis`
+      * Header: `Authorization: Bearer <user_id>`
       * 処理 (非同期):
-        1.  `secret_key`を検証。
+        1.  `user_id`がセッションの`host_user_id`と一致するか検証。不一致の場合は403エラー。
         2.  LLMに渡すためのデータをDBから取得・整形。
               * セッションのコンテキスト (`context`)
               * 全参加者の最新「じぶんレポート」のリスト
@@ -212,9 +217,10 @@ LLMへのリクエストはOpenRouter API経由で行い、ターゲットモデ
 
   * **新規ステートメント生成**
 
-      * `POST /api/sessions/[sessionId]/statements/generate?secret_key=[hostSecretKey]`
+      * `POST /api/sessions/[sessionId]/statements/generate`
+      * Header: `Authorization: Bearer <user_id>`
       * 処理 (非同期):
-        1.  `secret_key`を検証。
+        1.  `user_id`がセッションの`host_user_id`と一致するか検証。不一致の場合は403エラー。
         2.  LLMに渡すためのデータをDBから取得・整形。
               * セッションのコンテキスト (`context`)
               * 既存ステートメントのリスト（回答率付き）
@@ -305,3 +311,103 @@ LLMの性能を最大限に引き出すため、プロンプトは詳細に設�
       * **役割:** あなたは思慮深いコーチまたはカウンセラーです。
       * **入力:** `context`, ある参加者の全回答履歴
       * **指示:** この参加者の回答パターンから、彼/彼女がこのテーマに対してどのような認識を持っているかを分析し、本人向けのフィードバックレポートをMarkdown形式で作成してください。特徴的な回答や、他の人と意見が異なりそうな点を優しく指摘し、自己理解を深める手助けをしてください。
+
+
+### フロントエンド・UI設計
+
+Next.jsとTailwind CSSを前提とし、機能的で直感的なUIを設計します。全体的にシングルカラムレイアウトを基本とし、ユーザーが情報に集中しやすいミニマルなデザインを目指します。
+
+### 1\. 全体的なデザインと共通コンポーネント
+
+  * **レイアウト**: モバイルファーストを意識した、中央揃えのシングルカラムレイアウトを基本とします。`max-w-3xl mx-auto px-4`のようなクラスを使い、コンテンツ幅を制限して可読性を高めます。
+  * **タイポグラフィ**: `font-sans`を基本とし、見出しと本文でフォントサイズやウェイトに差をつけ、階層を明確にします。
+  * **配色**: 基本は白背景に黒のテキストとし、アクセントカラー（例: `bg-blue-600`, `hover:bg-blue-700`）をボタンやインタラクティブな要素に限定的に使用します。
+  * **共通コンポーネント**:
+      * **Button**: `px-4 py-2 bg-gray-800 text-white rounded-lg shadow-sm hover:bg-gray-700 transition-colors`のようなスタイルを適用した、再利用可能なボタンコンポーネント。
+      * **Card**: `bg-white border border-gray-200 rounded-lg shadow-sm p-6`のようなスタイルを持つ、コンテンツを囲むためのカードコンポーネント。
+      * **MarkdownRenderer**: `react-markdown`などのライブラリを使用し、レポートのMarkdownコンテンツをHTMLに変換して表示するコンポーネント。見出しやリスト、コードブロックなどに適切なスタイルを適用します。
+
+### 2\. 参加ユーザーのUI/UX
+
+#### 2.1 トップページ (`/`) - セッション一覧
+
+  * **レイアウト**: ページタイトル「参加可能なセッション」の下に、セッションがカード形式で縦に並びます。
+  * **コンポーネント**:
+      * `SessionCard`: 各セッションの情報を表示するカード。
+          * 中にはセッションのタイトル (`title`) と目的 (`purpose`) を表示します。
+          * クリックすると、該当するセッションページ (`/sessions/[sessionId]`) に遷移します。
+  * 
+#### 2.2 セッションページ (`/sessions/[sessionId]`)
+
+ワンカラムで上から下に情報が流れる構成です。
+
+1.  **ヘッダー**:
+
+      * セッションのテーマ名 (`title`) が大きな見出しで表示されます。
+
+2.  **インタラクションエリア**:
+
+      * このエリアの状態は、ユーザーの参加状況によって動的に変化します。Reactの`useState`で現在の状態（`'NEEDS_NAME'`, `'ANSWERING'`, `'COMPLETED'`など）を管理します。
+      * **状態1: 名前入力 (`'NEEDS_NAME'`)**
+          * 「参加するには、まず名前を入力してください」というメッセージと共に、テキスト入力フィールドと「参加する」ボタンを表示します。
+          * 入力してボタンを押すと、参加登録APIが呼ばれ、成功したら状態が`'ANSWERING'`に遷移します。
+      * **状態2: ステートメント回答 (`'ANSWERING'`)**
+          * `StatementCard`コンポーネントが表示されます。
+          * **カード上部**: ステートメントのテキスト (`statement.text`) が表示されます。
+          * **カード下部**: 5つの回答ボタンが横一列に並びます。
+              * `Strong Yes` / `Yes` / `わからない` / `No` / `Strong No`
+              * ボタンは`hover`や`active`時のスタイルを変え、操作感を良くします。
+              * いずれかのボタンをクリックすると、回答送信APIが呼ばれ、次のステートメントを取得するAPIが自動的に呼ばれます。取得中はカード全体を少し半透明にするなどのローディング表現を入れます。新しいステートメントが取得できたら、カードの内容がアニメーション（例: フェードイン）付きで切り替わります。
+      * **状態3: 回答完了 (`'COMPLETED'`)**
+          * 全てのステートメントに回答し終えたら、「全ての質問への回答が完了しました。お疲れ様でした！」といったメッセージを表示します。
+
+3.  **じぶんレポート (`IndividualReport`) セクション**:
+
+      * **初期状態**: レポートがまだ生成されていない場合、「回答を進めると、あなた専用の分析レポートがここに表示されます」といったメッセージを表示します。
+      * **レポート表示**: レポートが生成されると、`MarkdownRenderer`コンポーネントを使ってここに表示されます。
+      * **更新ボタン**: レポートエリアの右上に「レポートを更新」ボタンを配置します。クリックするとAPIを叩き、更新中はローディングスピナーを表示します。
+
+### 3\. ホストユーザーのUI/UX
+
+#### 3.1 セッション作成ページ (`/sessions/new`)
+
+  * **レイアウト**: シンプルなフォームページ。
+  * **フォーム要素**:
+      * セッションのタイトル (`title`)
+      * 「何の認識を」洗い出すか (`what_to_clarify`) - `textarea`
+      * 「何のために」洗い出すか (`purpose`) - `textarea`
+      * 「作成する」ボタン
+  * 作成後、管理画面のURL (`/sessions/[sessionId]/admin`) に自動的に遷移します。
+
+#### 3.2 管理画面 (`/sessions/[sessionId]/admin`)
+
+管理者向けのダッシュボードです。
+
+1.  **コントロールパネル**:
+
+      * ページ上部に配置されたセクション。
+      * 「現状分析レポートを生成する」ボタン
+      * 「新しいStatementを5個生成する」ボタン
+      * これらのボタンは非同期処理のため、クリックするとローディング状態になり、処理が完了するまで無効化 (`disabled`) します。
+
+2.  **最新の現状分析レポート**:
+
+      * コントロールパネルの下に、最新の現状分析レポートが`MarkdownRenderer`で表示されます。まだレポートがない場合はその旨を表示します。
+      * 
+3.  **Statement一覧**:
+
+      * **ソート機能**: 一覧の上にドロップダウンメニューまたはボタン群を配置。「合意度順」「Yesの割合順」「わからないの割合順」「Noの割合順」で一覧を並び替えられるようにします。このソートはフロントエンド側で実行します。
+      * **一覧表示**: 各Statementがリストアイテムとして並びます。
+          * **StatementListItemコンポーネント**:
+              * **テキスト**: Statementのテキストを表示します。
+              * **回答可視化バー**: テキストの下に、回答の割合を示す**横棒グラフ**を表示します。これは`<canvas>`を使わず、複数の`<div>`要素を`flex`で並べて実装します。
+                ```html
+                <div class="flex w-full h-4 rounded-full overflow-hidden">
+                  <div class="bg-green-600" style="width: 20%"></div>
+                  <div class="bg-green-400" style="width: 40%"></div>
+                  <div class="bg-gray-400"  style="width: 10%"></div>
+                  <div class="bg-red-400"   style="width: 20%"></div>
+                  <div class="bg-red-600"   style="width: 10%"></div>
+                </div>
+                ```
+              * 各色の割合（%）や回答の絶対数もバーの横にテキストで表示します。
