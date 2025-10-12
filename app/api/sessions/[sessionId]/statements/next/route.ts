@@ -26,10 +26,8 @@ export async function GET(
     // Get all responses by this participant
     const existingResponses = await prisma.response.findMany({
       where: {
-        participantId: userId,
-        statement: {
-          sessionId,
-        },
+        participantUserId: userId,
+        sessionId,
       },
       select: { statementId: true },
     });

@@ -23,6 +23,7 @@ model Session {
   updatedAt  DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   statements Statement[]
   participants Participant[]
+  situationAnalysisReports SituationAnalysisReport[]
 
   @@map("sessions")
 }
@@ -40,27 +41,53 @@ model Statement {
 }
 
 model Participant {
-  id        String     @id @db.Uuid
-  sessionId String     @map("session_id") @db.Uuid
-  name      String     @db.VarChar(255)
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  session   Session    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  responses Response[]
+  userId                    String            @map("user_id") @db.Uuid
+  sessionId                 String            @map("session_id") @db.Uuid
+  name                      String            @db.VarChar(255)
+  latestIndividualReportId  String?           @map("latest_individual_report_id") @db.Uuid
+  createdAt                 DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  session                   Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  responses                 Response[]
+  individualReports         IndividualReport[]
+  latestIndividualReport    IndividualReport? @relation("LatestReport", fields: [latestIndividualReportId], references: [id])
 
-  @@unique([id, sessionId])
+  @@id([userId, sessionId])
   @@map("participants")
 }
 
 model Response {
-  id            String      @id @default(uuid()) @db.Uuid
-  participantId String      @map("participant_id") @db.Uuid
-  statementId   String      @map("statement_id") @db.Uuid
-  value         Int
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  statement     Statement   @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  id                String      @id @default(uuid()) @db.Uuid
+  participantUserId String      @map("participant_user_id") @db.Uuid
+  sessionId         String      @map("session_id") @db.Uuid
+  statementId       String      @map("statement_id") @db.Uuid
+  value             Int
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  participant       Participant @relation(fields: [participantUserId, sessionId], references: [userId, sessionId], onDelete: Cascade)
+  statement         Statement   @relation(fields: [statementId], references: [id], onDelete: Cascade)
 
-  @@unique([participantId, statementId])
+  @@unique([participantUserId, sessionId, statementId])
   @@map("responses")
+}
+
+model SituationAnalysisReport {
+  id              String   @id @default(uuid()) @db.Uuid
+  sessionId       String   @map("session_id") @db.Uuid
+  contentMarkdown String   @map("content_markdown")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("situation_analysis_reports")
+}
+
+model IndividualReport {
+  id                String        @id @default(uuid()) @db.Uuid
+  participantUserId String        @map("participant_user_id") @db.Uuid
+  sessionId         String        @map("session_id") @db.Uuid
+  contentMarkdown   String        @map("content_markdown")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  participant       Participant   @relation(fields: [participantUserId, sessionId], references: [userId, sessionId], onDelete: Cascade)
+  latestForParticipants Participant[] @relation("LatestReport")
+
+  @@map("individual_reports")
 }

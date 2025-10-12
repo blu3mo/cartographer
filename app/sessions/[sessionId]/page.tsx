@@ -4,12 +4,21 @@ import { use, useEffect, useState } from 'react';
 import { useUserId } from '@/lib/useUserId';
 import { createAuthorizationHeader } from '@/lib/auth';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
 
 type Statement = {
   id: string;
   text: string;
   sessionId: string;
   orderIndex: number;
+};
+
+type IndividualReport = {
+  id: string;
+  participantUserId: string;
+  sessionId: string;
+  contentMarkdown: string;
+  createdAt: string;
 };
 
 type SessionState = 'NEEDS_NAME' | 'ANSWERING' | 'COMPLETED';
@@ -26,6 +35,8 @@ export default function SessionPage({
   const [currentStatement, setCurrentStatement] = useState<Statement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [individualReport, setIndividualReport] = useState<IndividualReport | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   useEffect(() => {
     if (!userId || userLoading) return;
@@ -58,6 +69,36 @@ export default function SessionPage({
     checkParticipation();
   }, [userId, userLoading, sessionId]);
 
+  useEffect(() => {
+    if (!userId || userLoading) return;
+    if (state === 'NEEDS_NAME') return;
+
+    const fetchIndividualReport = async () => {
+      try {
+        const response = await axios.get(
+          `/api/sessions/${sessionId}/individual-report`,
+          { headers: createAuthorizationHeader(userId) }
+        );
+        setIndividualReport(response.data.report);
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          // 403 means not a participant; 404 is handled as no report yet.
+          if (err.response?.status === 403) {
+            setIndividualReport(null);
+            return;
+          }
+          if (err.response?.status === 404) {
+            setIndividualReport(null);
+            return;
+          }
+        }
+        console.error('Failed to fetch individual report:', err);
+      }
+    };
+
+    fetchIndividualReport();
+  }, [userId, userLoading, sessionId, state]);
+
   const handleJoinSession = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
@@ -86,7 +127,11 @@ export default function SessionPage({
       }
     } catch (err) {
       console.error('Failed to join session:', err);
-      setError('セッションへの参加に失敗しました。');
+      if (axios.isAxiosError(err) && err.response?.data?.error) {
+        setError(`エラー: ${err.response.data.error}`);
+      } else {
+        setError('セッションへの参加に失敗しました。');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -120,9 +165,39 @@ export default function SessionPage({
       }
     } catch (err) {
       console.error('Failed to submit answer:', err);
-      setError('回答の送信に失敗しました。');
+      if (axios.isAxiosError(err) && err.response?.data?.error) {
+        setError(`エラー: ${err.response.data.error}`);
+      } else {
+        setError('回答の送信に失敗しました。');
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    if (!userId) return;
+
+    setIsGeneratingReport(true);
+    setError(null);
+
+    try {
+      const response = await axios.post(
+        `/api/sessions/${sessionId}/individual-report`,
+        {},
+        { headers: createAuthorizationHeader(userId) }
+      );
+
+      setIndividualReport(response.data.report);
+    } catch (err) {
+      console.error('Failed to generate report:', err);
+      if (axios.isAxiosError(err) && err.response?.data?.error) {
+        setError(`エラー: ${err.response.data.error}`);
+      } else {
+        setError('レポートの生成に失敗しました。');
+      }
+    } finally {
+      setIsGeneratingReport(false);
     }
   };
 
@@ -222,9 +297,37 @@ export default function SessionPage({
             <p className="text-xl text-gray-900 mb-4">
               全ての質問への回答が完了しました。お疲れ様でした！
             </p>
-            <p className="text-gray-600">
-              じぶんレポート機能はPhase 3で実装されます。
-            </p>
+          </div>
+        )}
+
+        {/* Individual Report Section - Show after joining */}
+        {(state === 'ANSWERING' || state === 'COMPLETED') && (
+          <div className="mt-8">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  じぶんレポート
+                </h2>
+                <button
+                  onClick={handleGenerateReport}
+                  disabled={isGeneratingReport}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 text-sm"
+                >
+                  {isGeneratingReport ? '生成中...' : individualReport ? 'レポートを更新' : 'レポートを生成'}
+                </button>
+              </div>
+
+              {individualReport ? (
+                <div className="prose max-w-none">
+                  <ReactMarkdown>{individualReport.contentMarkdown}</ReactMarkdown>
+                </div>
+              ) : (
+                <p className="text-gray-600">
+                  回答を進めると、あなた専用の分析レポートがここに表示されます。
+                  上の「レポートを生成」ボタンをクリックしてください。
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>

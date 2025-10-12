@@ -42,8 +42,8 @@ export async function POST(
     // Check if participant already exists
     const existingParticipant = await prisma.participant.findUnique({
       where: {
-        id_sessionId: {
-          id: userId,
+        userId_sessionId: {
+          userId: userId,
           sessionId,
         },
       },
@@ -59,7 +59,7 @@ export async function POST(
     // Create participant
     const participant = await prisma.participant.create({
       data: {
-        id: userId,
+        userId: userId,
         sessionId,
         name,
       },

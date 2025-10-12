@@ -3,6 +3,53 @@ import { prisma } from '@/lib/prisma';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { generateInitialStatements } from '@/lib/llm';
 
+export async function GET(request: NextRequest) {
+  try {
+    const userId = getUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Missing user ID' },
+        { status: 401 }
+      );
+    }
+
+    // Get all sessions where user is the host or a participant
+    const sessions = await prisma.session.findMany({
+      where: {
+        OR: [
+          { hostUserId: userId },
+          {
+            participants: {
+              some: {
+                userId: userId,
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        _count: {
+          select: {
+            participants: true,
+            statements: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return NextResponse.json({ sessions });
+  } catch (error) {
+    console.error('Sessions fetch error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);

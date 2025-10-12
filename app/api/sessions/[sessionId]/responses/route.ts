@@ -53,8 +53,8 @@ export async function POST(
     // Verify participant exists in session
     const participant = await prisma.participant.findUnique({
       where: {
-        id_sessionId: {
-          id: userId,
+        userId_sessionId: {
+          userId: userId,
           sessionId,
         },
       },
@@ -70,13 +70,15 @@ export async function POST(
     // Create or update response
     const response = await prisma.response.upsert({
       where: {
-        participantId_statementId: {
-          participantId: userId,
+        participantUserId_sessionId_statementId: {
+          participantUserId: userId,
+          sessionId,
           statementId,
         },
       },
       create: {
-        participantId: userId,
+        participantUserId: userId,
+        sessionId,
         statementId,
         value,
       },
