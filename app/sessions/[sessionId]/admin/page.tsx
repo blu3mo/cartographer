@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useUserId } from '@/lib/useUserId';
 import axios from 'axios';
 
@@ -228,8 +229,10 @@ export default function AdminPage({
         {data.latestSituationAnalysisReport && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
             <h2 className="text-xl font-semibold mb-4">最新の現状分析レポート</h2>
-            <div className="prose prose-sm max-w-none">
-              <ReactMarkdown>{data.latestSituationAnalysisReport.contentMarkdown}</ReactMarkdown>
+            <div className="markdown-body">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {data.latestSituationAnalysisReport.contentMarkdown}
+              </ReactMarkdown>
             </div>
             <p className="text-sm text-gray-500 mt-4">
               生成日時: {new Date(data.latestSituationAnalysisReport.createdAt).toLocaleString('ja-JP')}
@@ -295,7 +298,7 @@ function StatementCard({ statement }: { statement: StatementWithStats }) {
             )}
             {responses.dontKnow > 0 && (
               <div
-                className="bg-gray-400"
+                className="bg-yellow-400"
                 style={{ width: `${responses.dontKnow}%` }}
                 title={`わからない: ${responses.dontKnow.toFixed(1)}%`}
               />
@@ -327,7 +330,7 @@ function StatementCard({ statement }: { statement: StatementWithStats }) {
               {responses.yes.toFixed(1)}%
             </div>
             <div>
-              <span className="font-medium text-gray-600">わからない:</span>{' '}
+              <span className="font-medium text-yellow-600">わからない:</span>{' '}
               {responses.dontKnow.toFixed(1)}%
             </div>
             <div>

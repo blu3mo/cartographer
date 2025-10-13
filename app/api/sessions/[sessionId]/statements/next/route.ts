@@ -17,6 +17,23 @@ export async function GET(
       );
     }
 
+    // Check if user is a participant in this session
+    const participant = await prisma.participant.findUnique({
+      where: {
+        userId_sessionId: {
+          userId,
+          sessionId,
+        },
+      },
+    });
+
+    if (!participant) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Not a participant in this session' },
+        { status: 401 }
+      );
+    }
+
     // Get all statements for this session
     const allStatements = await prisma.statement.findMany({
       where: { sessionId },

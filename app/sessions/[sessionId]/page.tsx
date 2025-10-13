@@ -5,6 +5,7 @@ import { useUserId } from '@/lib/useUserId';
 import { createAuthorizationHeader } from '@/lib/auth';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Statement = {
   id: string;
@@ -253,35 +254,35 @@ export default function SessionPage({
               <button
                 onClick={() => handleAnswer(2)}
                 disabled={isLoading}
-                className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 text-sm"
+                className="px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:bg-gray-400 text-sm font-medium"
               >
                 Strong Yes
               </button>
               <button
                 onClick={() => handleAnswer(1)}
                 disabled={isLoading}
-                className="px-4 py-3 bg-green-400 text-white rounded-lg hover:bg-green-500 transition-colors disabled:bg-gray-400 text-sm"
+                className="px-4 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:bg-gray-400 text-sm font-medium"
               >
                 Yes
               </button>
               <button
                 onClick={() => handleAnswer(0)}
                 disabled={isLoading}
-                className="px-4 py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors disabled:bg-gray-300 text-sm"
+                className="px-4 py-3 bg-amber-400 text-gray-900 rounded-lg hover:bg-amber-500 transition-colors disabled:bg-gray-300 text-sm font-medium"
               >
                 わからない
               </button>
               <button
                 onClick={() => handleAnswer(-1)}
                 disabled={isLoading}
-                className="px-4 py-3 bg-red-400 text-white rounded-lg hover:bg-red-500 transition-colors disabled:bg-gray-400 text-sm"
+                className="px-4 py-3 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors disabled:bg-gray-400 text-sm font-medium"
               >
                 No
               </button>
               <button
                 onClick={() => handleAnswer(-2)}
                 disabled={isLoading}
-                className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 text-sm"
+                className="px-4 py-3 bg-rose-700 text-white rounded-lg hover:bg-rose-800 transition-colors disabled:bg-gray-400 text-sm font-medium"
               >
                 Strong No
               </button>
@@ -318,8 +319,10 @@ export default function SessionPage({
               </div>
 
               {individualReport ? (
-                <div className="prose max-w-none">
-                  <ReactMarkdown>{individualReport.contentMarkdown}</ReactMarkdown>
+                <div className="markdown-body">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {individualReport.contentMarkdown}
+                  </ReactMarkdown>
                 </div>
               ) : (
                 <p className="text-gray-600">
