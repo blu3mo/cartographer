@@ -5,6 +5,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useUserId } from '@/lib/useUserId';
 import axios from 'axios';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Sparkles, Plus } from 'lucide-react';
 
 interface ResponseStats {
   strongYes: number;
@@ -55,6 +58,7 @@ export default function AdminPage({
   const [generating, setGenerating] = useState(false);
   const [generatingStatements, setGeneratingStatements] = useState(false);
   const [sortType, setSortType] = useState<SortType>('agreement');
+  const [isReportExpanded, setIsReportExpanded] = useState(false);
 
   useEffect(() => {
     if (isUserIdLoading || !userId) return;
@@ -164,21 +168,21 @@ export default function AdminPage({
 
   if (isUserIdLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center">読み込み中...</div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
-            {error}
-          </div>
+      <div className="min-h-screen bg-background">
+        <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <p className="text-destructive">{error}</p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -186,10 +190,8 @@ export default function AdminPage({
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center">セッションが見つかりません。</div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">セッションが見つかりません。</p>
       </div>
     );
   }
@@ -197,74 +199,120 @@ export default function AdminPage({
   const sortedStatements = getSortedStatements();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          {data.title}
-        </h1>
-        <p className="text-gray-600 mb-8">管理画面</p>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight mb-2">
+            {data.title}
+          </h1>
+          <p className="text-muted-foreground">管理画面</p>
+        </div>
 
         {/* Control Panel */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">コントロールパネル</h2>
-          <div className="flex gap-4">
-            <button
-              onClick={generateReport}
-              disabled={generating}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {generating ? '生成中...' : '現状分析レポートを生成する'}
-            </button>
-            <button
-              onClick={generateNewStatements}
-              disabled={generatingStatements}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {generatingStatements ? '生成中...' : '新しいStatementを5つ生成する'}
-            </button>
-          </div>
-        </div>
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>コントロールパネル</CardTitle>
+            <CardDescription>
+              レポートの生成と新しいステートメントの追加
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={generateReport}
+                disabled={generating}
+                isLoading={generating}
+                variant="default"
+              >
+                <Sparkles className="h-4 w-4" />
+                現状分析レポートを生成
+              </Button>
+              <Button
+                onClick={generateNewStatements}
+                disabled={generatingStatements}
+                isLoading={generatingStatements}
+                variant="secondary"
+              >
+                <Plus className="h-4 w-4" />
+                新しいStatementを5つ生成
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Latest Report */}
         {data.latestSituationAnalysisReport && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4">最新の現状分析レポート</h2>
-            <div className="markdown-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {data.latestSituationAnalysisReport.contentMarkdown}
-              </ReactMarkdown>
-            </div>
-            <p className="text-sm text-gray-500 mt-4">
-              生成日時: {new Date(data.latestSituationAnalysisReport.createdAt).toLocaleString('ja-JP')}
-            </p>
-          </div>
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>最新の現状分析レポート</CardTitle>
+              <CardDescription>
+                生成日時: {new Date(data.latestSituationAnalysisReport.createdAt).toLocaleString('ja-JP')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className={`relative ${!isReportExpanded ? 'max-h-32 overflow-hidden' : ''}`}>
+                <div className="markdown-body prose prose-sm max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {data.latestSituationAnalysisReport.contentMarkdown}
+                  </ReactMarkdown>
+                </div>
+                {!isReportExpanded && (
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 30%, hsl(var(--background)) 100%)'
+                    }}
+                  />
+                )}
+              </div>
+              <div className="mt-3 text-center">
+                <button
+                  onClick={() => setIsReportExpanded(!isReportExpanded)}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent"
+                >
+                  {isReportExpanded ? '▲ 折りたたむ' : '▼ 全文を表示'}
+                </button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Statements List */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold">ステートメント一覧</h2>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">並び替え:</span>
-              <select
-                value={sortType}
-                onChange={(e) => setSortType(e.target.value as SortType)}
-                className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="agreement">合意度順</option>
-                <option value="yes">Yesの割合順</option>
-                <option value="dontKnow">わからないの割合順</option>
-                <option value="no">Noの割合順</option>
-              </select>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>ステートメント一覧</CardTitle>
+                <CardDescription>
+                  全{sortedStatements.length}件のステートメント
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="sort-select" className="text-sm text-muted-foreground">
+                  並び替え:
+                </label>
+                <select
+                  id="sort-select"
+                  value={sortType}
+                  onChange={(e) => setSortType(e.target.value as SortType)}
+                  className="px-3 py-1.5 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="agreement">合意度順</option>
+                  <option value="yes">Yesの割合順</option>
+                  <option value="dontKnow">わからないの割合順</option>
+                  <option value="no">Noの割合順</option>
+                </select>
+              </div>
             </div>
-          </div>
-
-          <div className="space-y-6">
-            {sortedStatements.map((statement) => (
-              <StatementCard key={statement.id} statement={statement} />
-            ))}
-          </div>
-        </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {sortedStatements.map((statement) => (
+                <StatementCard key={statement.id} statement={statement} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -275,80 +323,73 @@ function StatementCard({ statement }: { statement: StatementWithStats }) {
   const hasResponses = responses.totalCount > 0;
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4">
-      <p className="text-gray-900 mb-3">{statement.text}</p>
+    <div className="border rounded-lg p-4 bg-card hover:shadow-sm transition-shadow">
+      <p className="text-sm font-medium mb-3 leading-relaxed">{statement.text}</p>
 
       {hasResponses ? (
         <>
-          {/* Horizontal Bar Chart */}
-          <div className="flex w-full h-6 rounded-full overflow-hidden mb-2">
+          {/* Horizontal Bar Chart with Tooltip */}
+          <div className="flex w-full h-2 rounded-full overflow-visible mb-3 bg-muted">
             {responses.strongYes > 0 && (
               <div
-                className="bg-green-600"
+                className="bg-emerald-600 hover:bg-emerald-700 transition-colors relative group cursor-pointer"
                 style={{ width: `${responses.strongYes}%` }}
-                title={`Strong Yes: ${responses.strongYes.toFixed(1)}%`}
-              />
+              >
+                <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-2 px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-lg whitespace-nowrap pointer-events-none transition-opacity">
+                  👍 強く賛成: {responses.strongYes.toFixed(1)}%
+                </div>
+              </div>
             )}
             {responses.yes > 0 && (
               <div
-                className="bg-green-400"
+                className="bg-green-500 hover:bg-green-600 transition-colors relative group cursor-pointer"
                 style={{ width: `${responses.yes}%` }}
-                title={`Yes: ${responses.yes.toFixed(1)}%`}
-              />
+              >
+                <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-2 px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-lg whitespace-nowrap pointer-events-none transition-opacity">
+                  ✓ 賛成: {responses.yes.toFixed(1)}%
+                </div>
+              </div>
             )}
             {responses.dontKnow > 0 && (
               <div
-                className="bg-yellow-400"
+                className="bg-amber-400 hover:bg-amber-500 transition-colors relative group cursor-pointer"
                 style={{ width: `${responses.dontKnow}%` }}
-                title={`わからない: ${responses.dontKnow.toFixed(1)}%`}
-              />
+              >
+                <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-2 px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-lg whitespace-nowrap pointer-events-none transition-opacity">
+                  🤔 わからない: {responses.dontKnow.toFixed(1)}%
+                </div>
+              </div>
             )}
             {responses.no > 0 && (
               <div
-                className="bg-red-400"
+                className="bg-rose-500 hover:bg-rose-600 transition-colors relative group cursor-pointer"
                 style={{ width: `${responses.no}%` }}
-                title={`No: ${responses.no.toFixed(1)}%`}
-              />
+              >
+                <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-2 px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-lg whitespace-nowrap pointer-events-none transition-opacity">
+                  ✗ 反対: {responses.no.toFixed(1)}%
+                </div>
+              </div>
             )}
             {responses.strongNo > 0 && (
               <div
-                className="bg-red-600"
+                className="bg-red-600 hover:bg-red-700 transition-colors relative group cursor-pointer"
                 style={{ width: `${responses.strongNo}%` }}
-                title={`Strong No: ${responses.strongNo.toFixed(1)}%`}
-              />
+              >
+                <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-2 px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-lg whitespace-nowrap pointer-events-none transition-opacity">
+                  👎 強く反対: {responses.strongNo.toFixed(1)}%
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Statistics Text */}
-          <div className="grid grid-cols-5 gap-2 text-xs text-gray-600">
-            <div>
-              <span className="font-medium text-green-600">Strong Yes:</span>{' '}
-              {responses.strongYes.toFixed(1)}%
-            </div>
-            <div>
-              <span className="font-medium text-green-500">Yes:</span>{' '}
-              {responses.yes.toFixed(1)}%
-            </div>
-            <div>
-              <span className="font-medium text-yellow-600">わからない:</span>{' '}
-              {responses.dontKnow.toFixed(1)}%
-            </div>
-            <div>
-              <span className="font-medium text-red-500">No:</span>{' '}
-              {responses.no.toFixed(1)}%
-            </div>
-            <div>
-              <span className="font-medium text-red-600">Strong No:</span>{' '}
-              {responses.strongNo.toFixed(1)}%
-            </div>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span>回答者数: {responses.totalCount}人</span>
+            <span className="h-1 w-1 rounded-full bg-muted-foreground" />
+            <span>合意度スコア: {statement.agreementScore}</span>
           </div>
-
-          <p className="text-xs text-gray-500 mt-2">
-            回答者数: {responses.totalCount}人 | 合意度スコア: {statement.agreementScore}
-          </p>
         </>
       ) : (
-        <p className="text-sm text-gray-500">まだ回答がありません。</p>
+        <p className="text-sm text-muted-foreground">まだ回答がありません</p>
       )}
     </div>
   );

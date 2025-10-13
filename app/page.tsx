@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { useUserId } from "@/lib/useUserId";
 import { createAuthorizationHeader } from "@/lib/auth";
 import axios from "axios";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Users, FileText, Calendar, Loader2 } from "lucide-react";
 
 type Session = {
   id: string;
@@ -47,86 +50,120 @@ export default function Home() {
 
   if (userLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center">読み込み中...</div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Cartographer
-        </h1>
-        <p className="text-lg text-gray-700 mb-8">
-          認識を可視化し、合意形成を促進するウェブサービス
-        </p>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        {/* Hero Section */}
+        <div className="mb-12">
+          <h1 className="text-4xl font-bold tracking-tight mb-3">
+            Cartographer
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            認識を可視化し、合意形成を促進するワークショップツール
+          </p>
+        </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900">
-              セッション一覧
-            </h2>
-            <Link
-              href="/sessions/new"
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg shadow-sm hover:bg-gray-700 transition-colors"
-            >
-              新規作成
-            </Link>
-          </div>
+        {/* Header with CTA */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            セッション
+          </h2>
+          <Link href="/sessions/new">
+            <Button>
+              <Plus className="h-4 w-4" />
+              新しいセッション
+            </Button>
+          </Link>
+        </div>
 
-          {error && (
-            <p className="text-red-600 mb-4">{error}</p>
-          )}
+        {error && (
+          <Card className="mb-6 border-destructive">
+            <CardContent className="pt-6">
+              <p className="text-sm text-destructive">{error}</p>
+            </CardContent>
+          </Card>
+        )}
 
-          {sessions.length === 0 ? (
-            <p className="text-gray-600">
-              まだセッションがありません。新しいセッションを作成してください。
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {sessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
-                >
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {session.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                    {session.context}
+        {/* Sessions List */}
+        {sessions.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6 pb-6 text-center">
+              <div className="flex flex-col items-center gap-3 py-12">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <FileText className="h-8 w-8 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-base font-semibold">セッションがありません</p>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    新しいセッションを作成して、チームとの対話を始めましょう
                   </p>
+                </div>
+                <Link href="/sessions/new" className="mt-2">
+                  <Button>
+                    <Plus className="h-4 w-4" />
+                    最初のセッションを作成
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {sessions.map((session) => (
+              <Card
+                key={session.id}
+                className="hover:shadow-md transition-shadow cursor-pointer"
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold">
+                    {session.title}
+                  </CardTitle>
+                  <CardDescription className="line-clamp-2">
+                    {session.context}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>{session._count.participants}人参加</span>
-                      <span>{session._count.statements}問</span>
-                      <span>{new Date(session.createdAt).toLocaleDateString('ja-JP')}</span>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="h-4 w-4" />
+                        <span>{session._count.participants}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="h-4 w-4" />
+                        <span>{session._count.statements}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(session.createdAt).toLocaleDateString('ja-JP')}</span>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       {session.hostUserId === userId && (
-                        <Link
-                          href={`/sessions/${session.id}/admin`}
-                          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                        >
-                          管理
+                        <Link href={`/sessions/${session.id}/admin`}>
+                          <Button variant="secondary" size="sm">
+                            管理
+                          </Button>
                         </Link>
                       )}
-                      <Link
-                        href={`/sessions/${session.id}`}
-                        className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                      >
-                        参加
+                      <Link href={`/sessions/${session.id}`}>
+                        <Button size="sm">
+                          参加
+                        </Button>
                       </Link>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

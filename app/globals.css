@@ -1,2 +1,54 @@
 @import "tailwindcss";
 @import "github-markdown-css/github-markdown-light.css";
+
+:root {
+  /* Background colors */
+  --background: 0 0% 98%;
+  --foreground: 222 47% 11%;
+
+  /* Card colors */
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+
+  /* Popover colors */
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  /* Primary button - Dark slate blue */
+  --primary: 222 47% 11%;
+  --primary-foreground: 0 0% 98%;
+
+  /* Secondary button - Light gray */
+  --secondary: 210 17% 94%;
+  --secondary-foreground: 222 47% 11%;
+
+  /* Muted colors */
+  --muted: 210 17% 94%;
+  --muted-foreground: 215 16% 47%;
+
+  /* Accent colors */
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
+
+  /* Destructive colors */
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+
+  /* Border and input */
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 222 47% 11%;
+
+  /* Border radius */
+  --radius: 0.5rem;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+.markdown-body {
+  background-color: transparent !important;
+}

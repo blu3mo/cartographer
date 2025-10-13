@@ -1,60 +1,60 @@
-import { motion } from 'framer-motion';
-import { clsx } from 'clsx';
-import { Loader2 } from 'lucide-react';
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { Loader2 } from "lucide-react"
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'answer';
-  size?: 'sm' | 'md' | 'lg';
-  isLoading?: boolean;
-  children: React.ReactNode;
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  {
+    variants: {
+      variant: {
+        default:
+          "bg-slate-900 text-white shadow hover:bg-slate-800 hover:shadow-md active:scale-[0.98]",
+        destructive:
+          "bg-red-600 text-white shadow hover:bg-red-700 hover:shadow-md active:scale-[0.98]",
+        outline:
+          "border-2 border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:scale-[0.98]",
+        secondary:
+          "bg-gray-200 text-gray-900 border border-gray-300 shadow-sm hover:bg-gray-300 hover:shadow active:scale-[0.98]",
+        ghost: "hover:bg-gray-100 hover:text-gray-900",
+        link: "text-slate-900 underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3 text-xs",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  isLoading?: boolean
 }
 
-export function Button({
-  variant = 'primary',
-  size = 'md',
-  isLoading = false,
-  children,
-  className,
-  disabled,
-  ...props
-}: ButtonProps) {
-  return (
-    <motion.button
-      whileHover={{ scale: disabled || isLoading ? 1 : 1.02 }}
-      whileTap={{ scale: disabled || isLoading ? 1 : 0.98 }}
-      disabled={disabled || isLoading}
-      className={clsx(
-        'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200',
-        'focus:outline-none focus:ring-2 focus:ring-offset-2',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
-        {
-          // Primary variant (main CTA)
-          'bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-900 shadow-sm':
-            variant === 'primary',
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, isLoading, children, disabled, ...props }, ref) => {
+    return (
+      <button
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        disabled={disabled || isLoading}
+        {...props}
+      >
+        {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {children}
+      </button>
+    )
+  }
+)
+Button.displayName = "Button"
 
-          // Secondary variant
-          'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 focus:ring-gray-900 shadow-sm':
-            variant === 'secondary',
-
-          // Ghost variant
-          'bg-transparent text-gray-700 hover:bg-gray-50 focus:ring-gray-300':
-            variant === 'ghost',
-
-          // Answer variant (for participant answers)
-          'bg-white text-gray-900 border-2 border-gray-200 hover:border-gray-900 focus:ring-gray-900 shadow-sm font-semibold':
-            variant === 'answer',
-
-          // Sizes
-          'px-3 py-1.5 text-sm': size === 'sm',
-          'px-5 py-2.5 text-base': size === 'md',
-          'px-6 py-3.5 text-lg': size === 'lg',
-        },
-        className
-      )}
-      {...props}
-    >
-      {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-      {children}
-    </motion.button>
-  );
-}
+export { Button, buttonVariants }

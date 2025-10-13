@@ -13,6 +13,7 @@
     "@prisma/client": "^6.17.1",
     "@tailwindcss/typography": "^0.5.19",
     "axios": "^1.12.2",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",
     "github-markdown-css": "^5.8.1",
@@ -22,7 +23,8 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",

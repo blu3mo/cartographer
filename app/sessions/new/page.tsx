@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useUserId } from '@/lib/useUserId';
 import { createAuthorizationHeader } from '@/lib/auth';
 import axios from 'axios';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Loader2, Sparkles } from 'lucide-react';
 
 export default function NewSessionPage() {
   const router = useRouter();
@@ -48,78 +52,105 @@ export default function NewSessionPage() {
   if (userLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-600">読み込み中...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">
-          新しいセッションを作成
-        </h1>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-2xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight mb-2">
+            新しいセッションを作成
+          </h1>
+          <p className="text-muted-foreground">
+            チームの認識を可視化し、合意形成を促進しましょう
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6 space-y-6">
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-              セッションのタイトル
-            </label>
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="例: プロジェクトXの現状認識"
-            />
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>セッション情報</CardTitle>
+            <CardDescription>
+              セッションの目的と範囲を明確にしてください
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label htmlFor="title" className="text-sm font-medium">
+                  セッションのタイトル
+                </label>
+                <Input
+                  type="text"
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  placeholder="例: プロジェクトXの現状認識"
+                />
+                <p className="text-xs text-muted-foreground">
+                  セッションを識別しやすいタイトルを付けましょう
+                </p>
+              </div>
 
-          <div>
-            <label htmlFor="whatToClarify" className="block text-sm font-medium text-gray-700 mb-2">
-              何の認識を洗い出すか
-            </label>
-            <textarea
-              id="whatToClarify"
-              value={whatToClarify}
-              onChange={(e) => setWhatToClarify(e.target.value)}
-              required
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="例: プロジェクトXの現状、課題、今後の方向性について"
-            />
-          </div>
+              <div className="space-y-2">
+                <label htmlFor="whatToClarify" className="text-sm font-medium">
+                  何の認識を洗い出すか
+                </label>
+                <textarea
+                  id="whatToClarify"
+                  value={whatToClarify}
+                  onChange={(e) => setWhatToClarify(e.target.value)}
+                  required
+                  rows={4}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  placeholder="例: プロジェクトXの現状、課題、今後の方向性について"
+                />
+                <p className="text-xs text-muted-foreground">
+                  洗い出したいトピックや範囲を具体的に記載してください
+                </p>
+              </div>
 
-          <div>
-            <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 mb-2">
-              何のために洗い出すか
-            </label>
-            <textarea
-              id="purpose"
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              required
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
-            />
-          </div>
+              <div className="space-y-2">
+                <label htmlFor="purpose" className="text-sm font-medium">
+                  何のために洗い出すか
+                </label>
+                <textarea
+                  id="purpose"
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  required
+                  rows={4}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
+                />
+                <p className="text-xs text-muted-foreground">
+                  このセッションの目的やゴールを明確にしましょう
+                </p>
+              </div>
 
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600">{error}</p>
-            </div>
-          )}
+              {error && (
+                <Card className="border-destructive">
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-destructive">{error}</p>
+                  </CardContent>
+                </Card>
+              )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full px-6 py-3 bg-gray-800 text-white rounded-lg shadow-sm hover:bg-gray-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? '作成中...' : '作成する'}
-          </button>
-        </form>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                isLoading={isSubmitting}
+                className="w-full"
+              >
+                <Sparkles className="h-4 w-4" />
+                セッションを作成
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
