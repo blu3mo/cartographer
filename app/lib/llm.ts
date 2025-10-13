@@ -14,6 +14,16 @@ export async function callLLM(messages: LLMMessage[]): Promise<string> {
     throw new Error('OPENROUTER_API_KEY is not set');
   }
 
+  // Log input
+  console.log('=== LLM Input ===');
+  console.log('Model:', MODEL);
+  messages.forEach((msg, index) => {
+    console.log(`\n[Message ${index + 1}]`);
+    console.log(`Role: ${msg.role}`);
+    console.log(msg.content);
+  });
+  console.log('\n================\n');
+
   try {
     const response = await axios.post(
       OPENROUTER_API_URL,
@@ -32,7 +42,14 @@ export async function callLLM(messages: LLMMessage[]): Promise<string> {
       }
     );
 
-    return response.data.choices[0].message.content;
+    const output = response.data.choices[0].message.content;
+
+    // Log output
+    console.log('=== LLM Output ===');
+    console.log(output);
+    console.log('==================\n');
+
+    return output;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error('LLM API Error:', {

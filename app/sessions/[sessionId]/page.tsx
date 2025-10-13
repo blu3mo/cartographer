@@ -43,6 +43,7 @@ export default function SessionPage({
   const [individualReport, setIndividualReport] = useState<IndividualReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isCheckingParticipation, setIsCheckingParticipation] = useState(true);
+  const [isLoadingReport, setIsLoadingReport] = useState(true);
 
   useEffect(() => {
     if (!userId || userLoading) return;
@@ -83,6 +84,7 @@ export default function SessionPage({
     if (state === 'NEEDS_NAME') return;
 
     const fetchIndividualReport = async () => {
+      setIsLoadingReport(true);
       try {
         const response = await axios.get(
           `/api/sessions/${sessionId}/individual-report`,
@@ -102,6 +104,8 @@ export default function SessionPage({
           }
         }
         console.error('Failed to fetch individual report:', err);
+      } finally {
+        setIsLoadingReport(false);
       }
     };
 
@@ -149,25 +153,27 @@ export default function SessionPage({
   const handleAnswer = async (value: number) => {
     if (!userId || !currentStatement) return;
 
-    setIsLoading(true);
+    const previousStatement = currentStatement;
     setError(null);
+    setIsLoading(true);
 
     try {
-      // Submit answer
-      await axios.post(
-        `/api/sessions/${sessionId}/responses`,
-        { statementId: currentStatement.id, value },
-        { headers: createAuthorizationHeader(userId) }
-      );
+      // Submit answer and fetch next question in parallel
+      const [, nextResponse] = await Promise.all([
+        axios.post(
+          `/api/sessions/${sessionId}/responses`,
+          { statementId: previousStatement.id, value },
+          { headers: createAuthorizationHeader(userId) }
+        ),
+        axios.get(
+          `/api/sessions/${sessionId}/statements/next`,
+          { headers: createAuthorizationHeader(userId) }
+        ),
+      ]);
 
-      // Fetch next statement
-      const response = await axios.get(
-        `/api/sessions/${sessionId}/statements/next`,
-        { headers: createAuthorizationHeader(userId) }
-      );
-
-      if (response.data.statement) {
-        setCurrentStatement(response.data.statement);
+      // Update to next question
+      if (nextResponse.data.statement) {
+        setCurrentStatement(nextResponse.data.statement);
       } else {
         setState('COMPLETED');
         setCurrentStatement(null);
@@ -368,7 +374,18 @@ export default function SessionPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {individualReport ? (
+              {isLoadingReport ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-4/5" />
+                  <div className="pt-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full mt-3" />
+                    <Skeleton className="h-4 w-3/4 mt-3" />
+                  </div>
+                </div>
+              ) : individualReport ? (
                 <div className="markdown-body prose prose-sm max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {individualReport.contentMarkdown}
