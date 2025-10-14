@@ -73,10 +73,9 @@ const DEFAULT_STATEMENTS = [
 ];
 
 export async function generateInitialStatements(context: string): Promise<string[]> {
-  const prompt = `あなたは優れたファシリテーターです。
+  const prompt = `あなたは優れたファシリテータです。
 
-以下のテーマと目的に基づき、参加者の多様な視点を引き出すための、示唆に富む10個のステートメント（短い断定文）を生成してください。
-YES/NOで答えやすい形式にしてください。
+以下のテーマと目的に基づき、参加者の視点を引き出すための、示唆に富む10個のステートメント（短い断定文）を生成してください。賛否をYES/NOで答えられる形式にしてください。YES/NOの回答を通じて、参加者の立場やその背後にある価値観や利害や優先順位がわかるステートメントが望ましいです。
 
 テーマとコンテキスト:
 ${context}
@@ -117,25 +116,56 @@ interface StatementWithResponses {
     strongNo: number;
     totalCount: number;
   };
+  agreementScore?: number;
+}
+
+interface IndividualResponse {
+  name: string;
+  responses: Array<{
+    statementText: string;
+    value: number;
+  }>;
 }
 
 export async function generateSituationAnalysisReport(
   context: string,
-  statements: StatementWithResponses[]
+  statements: StatementWithResponses[],
+  totalParticipants: number,
+  individualResponses: IndividualResponse[] | null = null
 ): Promise<string> {
-  // Format statements for the prompt
-  const statementsText = statements
+  // Format statements for the prompt (already sorted by agreement score)
+  // Filter out statements with 0 responses
+  const statementsWithResponses = statements.filter(s => s.responses.totalCount > 0);
+
+  const statementsText = statementsWithResponses
     .map((s, i) => {
-      const total = s.responses.totalCount;
-      return `${i + 1}. "${s.text}"
-   - Strong Yes: ${s.responses.strongYes.toFixed(1)}% (${Math.round((s.responses.strongYes / 100) * total)}人)
-   - Yes: ${s.responses.yes.toFixed(1)}% (${Math.round((s.responses.yes / 100) * total)}人)
-   - わからない: ${s.responses.dontKnow.toFixed(1)}% (${Math.round((s.responses.dontKnow / 100) * total)}人)
-   - No: ${s.responses.no.toFixed(1)}% (${Math.round((s.responses.no / 100) * total)}人)
-   - Strong No: ${s.responses.strongNo.toFixed(1)}% (${Math.round((s.responses.strongNo / 100) * total)}人)
-   - 回答者数: ${total}人`;
+      return `${i + 1}. "${s.text}" (回答人数: ${s.responses.totalCount}人)
+   - Strong Yes: ${s.responses.strongYes}%
+   - Yes: ${s.responses.yes}%
+   - わからない: ${s.responses.dontKnow}%
+   - No: ${s.responses.no}%
+   - Strong No: ${s.responses.strongNo}%`;
     })
     .join('\n\n');
+
+  // Format individual responses if applicable
+  let individualResponsesText = '';
+  if (individualResponses && individualResponses.length > 0) {
+    individualResponsesText = '\n\n**個別回答データ（参加者ごと）:**\n\n';
+    individualResponses.forEach((participant) => {
+      individualResponsesText += `**${participant.name}:**\n`;
+      participant.responses.forEach((r) => {
+        const valueLabel =
+          r.value === 2 ? 'Strong Yes' :
+            r.value === 1 ? 'Yes' :
+              r.value === 0 ? 'わからない' :
+                r.value === -1 ? 'No' :
+                  'Strong No';
+        individualResponsesText += `- "${r.statementText}" → ${valueLabel}\n`;
+      });
+      individualResponsesText += '\n';
+    });
+  }
 
   const prompt = `あなたは鋭い洞察力を持つ組織コンサルタントまたは社会調査アナリストです。
 
@@ -144,14 +174,17 @@ export async function generateSituationAnalysisReport(
 **セッションのコンテキスト:**
 ${context}
 
-**ステートメントと回答状況:**
-${statementsText}
+**総回答者数:** ${totalParticipants}人
+
+**ステートメントと回答状況（合意度の高い順）:**
+${statementsText}${individualResponsesText}
 
 **レポート作成の指示:**
-1. 特に「合意が形成されている点」「意見が対立している点」「多くの人がまだ分かっていない、確信が持てない点」を明確に指摘してください
-2. 目的に対して次に行うべきアクションや、検証すべき仮説を提案してください
-3. データに基づいた客観的な分析を行ってください
+1.「合意が形成されている点」「意見が対立している点」「多くの人がまだ分かっていない点」を明確に指摘してください。もし特に意外な合意点があれば指摘してください。
+2. 目的を達成するために、次に参加者群に対する調査によって「明らかにすべき不明点」「検証すべき仮説」を提案してください。本質的に掘るべき点を厳選して挙げてください。
+3. データに基づいた客観的な分析と、深い考察や議論を行ってください
 4. Markdown形式で見やすく構造化してください（見出し、箇条書きなどを活用）
+${individualResponses ? '\n5. 個別回答データも提供されているので、それらから分かる「似た考え方を持つグループ」や「対立する考え方の軸」があれば言及してください' : ''}
 
 Markdownのみを出力し、他の説明文は含めないでください。`;
 
@@ -223,16 +256,17 @@ interface ResponseWithStatement {
 
 export async function generateIndividualReport(
   context: string,
-  responses: ResponseWithStatement[]
+  responses: ResponseWithStatement[],
+  userName: string
 ): Promise<string> {
   const responsesText = responses
     .map((r) => {
       const valueLabel =
         r.value === 2 ? 'Strong Yes' :
-        r.value === 1 ? 'Yes' :
-        r.value === 0 ? 'わからない' :
-        r.value === -1 ? 'No' :
-        'Strong No';
+          r.value === 1 ? 'Yes' :
+            r.value === 0 ? 'わからない' :
+              r.value === -1 ? 'No' :
+                'Strong No';
       return `- "${r.statementText}" → ${valueLabel}`;
     })
     .join('\n');
@@ -242,10 +276,13 @@ export async function generateIndividualReport(
 **セッションのコンテキスト:**
 ${context}
 
+**参加者の名前:**
+${userName}
+
 **この参加者の回答履歴:**
 ${responsesText}
 
-この参加者の回答パターンから、彼/彼女がこのテーマに対してどのような認識を持っているかを分析し、本人向けのフィードバックレポートをMarkdown形式で作成してください。
+この参加者の回答パターンから、${userName}さんがこのテーマに対してどのような認識を持っているかを分析し、本人向けのフィードバックレポートをMarkdown形式で作成してください。
 
 **レポート作成の指示:**
 1. 特徴的な回答や、他の人と意見が異なりそうな点を優しく指摘してください

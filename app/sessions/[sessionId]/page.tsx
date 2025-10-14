@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useRef, useState } from 'react';
 import { useUserId } from '@/lib/useUserId';
 import { createAuthorizationHeader } from '@/lib/auth';
 import axios from 'axios';
@@ -9,7 +9,7 @@ import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { FileText } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 
 type Statement = {
   id: string;
@@ -38,12 +38,14 @@ export default function SessionPage({
   const [state, setState] = useState<SessionState>('NEEDS_NAME');
   const [name, setName] = useState('');
   const [currentStatement, setCurrentStatement] = useState<Statement | null>(null);
+  const [prefetchedStatement, setPrefetchedStatement] = useState<Statement | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [individualReport, setIndividualReport] = useState<IndividualReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isCheckingParticipation, setIsCheckingParticipation] = useState(true);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
+  const hasJustCompletedRef = useRef(false);
 
   useEffect(() => {
     if (!userId || userLoading) return;
@@ -79,6 +81,38 @@ export default function SessionPage({
     checkParticipation();
   }, [userId, userLoading, sessionId]);
 
+  // Prefetch next statement when current statement is displayed
+  useEffect(() => {
+    if (!userId || userLoading) return;
+    if (state !== 'ANSWERING') return;
+    if (!currentStatement) return;
+
+    // Reset prefetch state to undefined (loading state)
+    setPrefetchedStatement(undefined);
+
+    const prefetchNextStatement = async () => {
+      try {
+        const response = await axios.get(
+          `/api/sessions/${sessionId}/statements/next?excludeStatementId=${currentStatement.id}`,
+          { headers: createAuthorizationHeader(userId) }
+        );
+
+        if (response.data.statement) {
+          setPrefetchedStatement(response.data.statement);
+        } else {
+          // null means this is the last question
+          setPrefetchedStatement(null);
+        }
+      } catch (err) {
+        // Silently fail prefetch - keep as undefined to trigger fallback
+        console.error('Prefetch failed:', err);
+        setPrefetchedStatement(undefined);
+      }
+    };
+
+    prefetchNextStatement();
+  }, [userId, userLoading, sessionId, currentStatement, state]);
+
   useEffect(() => {
     if (!userId || userLoading) return;
     if (state === 'NEEDS_NAME') return;
@@ -112,6 +146,49 @@ export default function SessionPage({
     fetchIndividualReport();
   }, [userId, userLoading, sessionId, state]);
 
+  // Auto-generate report when all questions are answered
+  useEffect(() => {
+    if (!userId || userLoading) return;
+    if (state !== 'COMPLETED') return;
+
+    // Only auto-generate if we just transitioned to COMPLETED (not on page reload)
+    if (!hasJustCompletedRef.current) return;
+
+    // Wait for initial report fetch to complete to avoid race condition
+    if (isLoadingReport) return;
+
+    // Reset the flag after using it
+    hasJustCompletedRef.current = false;
+
+    // Automatically generate/update report when user completes all questions
+    const autoGenerateReport = async () => {
+      setIsGeneratingReport(true);
+      setError(null);
+
+      try {
+        const response = await axios.post(
+          `/api/sessions/${sessionId}/individual-report`,
+          {},
+          { headers: createAuthorizationHeader(userId) }
+        );
+
+        setIndividualReport(response.data.report);
+      } catch (err) {
+        console.error('Failed to auto-generate report:', err);
+        // Show error to user so they know auto-generation failed
+        if (axios.isAxiosError(err) && err.response?.data?.error) {
+          setError(`レポートの自動生成に失敗しました: ${err.response.data.error}`);
+        } else {
+          setError('レポートの自動生成に失敗しました。「レポートを生成」ボタンから手動で生成してください。');
+        }
+      } finally {
+        setIsGeneratingReport(false);
+      }
+    };
+
+    autoGenerateReport();
+  }, [userId, userLoading, sessionId, state, isLoadingReport]);
+
   const handleJoinSession = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
@@ -136,6 +213,8 @@ export default function SessionPage({
         setCurrentStatement(response.data.statement);
         setState('ANSWERING');
       } else {
+        // Set flag to trigger auto-generation (edge case: no questions in session)
+        hasJustCompletedRef.current = true;
         setState('COMPLETED');
       }
     } catch (err) {
@@ -151,32 +230,79 @@ export default function SessionPage({
   };
 
   const handleAnswer = async (value: number) => {
-    if (!userId || !currentStatement) return;
+    if (!userId || !currentStatement || isLoading) return;
 
     const previousStatement = currentStatement;
+    const cachedNextStatement = prefetchedStatement;
     setError(null);
-    setIsLoading(true);
 
     try {
-      // Submit answer and fetch next question in parallel
-      const [, nextResponse] = await Promise.all([
+      // undefined: prefetch is still loading or failed
+      // null: this is the last question (no more questions available)
+      // Statement object: next question is ready
+
+      if (cachedNextStatement === null) {
+        // This is the last question - submit answer and show completion
+        setIsLoading(true);
+
+        await axios.post(
+          `/api/sessions/${sessionId}/responses`,
+          { statementId: previousStatement.id, value },
+          { headers: createAuthorizationHeader(userId) }
+        );
+
+        // Set flag to trigger auto-generation
+        hasJustCompletedRef.current = true;
+        setState('COMPLETED');
+        setCurrentStatement(null);
+        setPrefetchedStatement(undefined);
+        setIsLoading(false);
+      } else if (cachedNextStatement) {
+        // We have a prefetched statement - use it immediately for instant transition
+        setCurrentStatement(cachedNextStatement);
+        setPrefetchedStatement(undefined);
+
+        // Submit answer in background (no need to wait)
         axios.post(
           `/api/sessions/${sessionId}/responses`,
           { statementId: previousStatement.id, value },
           { headers: createAuthorizationHeader(userId) }
-        ),
-        axios.get(
-          `/api/sessions/${sessionId}/statements/next`,
-          { headers: createAuthorizationHeader(userId) }
-        ),
-      ]);
-
-      // Update to next question
-      if (nextResponse.data.statement) {
-        setCurrentStatement(nextResponse.data.statement);
+        ).catch((err) => {
+          console.error('Failed to submit answer:', err);
+          if (axios.isAxiosError(err) && err.response?.data?.error) {
+            setError(`エラー: ${err.response.data.error}`);
+          } else {
+            setError('回答の送信に失敗しました。');
+          }
+        });
       } else {
-        setState('COMPLETED');
-        setCurrentStatement(null);
+        // cachedNextStatement === undefined
+        // Prefetch hasn't completed yet (rapid clicking) - fall back to original behavior
+        setIsLoading(true);
+
+        const [, nextResponse] = await Promise.all([
+          axios.post(
+            `/api/sessions/${sessionId}/responses`,
+            { statementId: previousStatement.id, value },
+            { headers: createAuthorizationHeader(userId) }
+          ),
+          axios.get(
+            `/api/sessions/${sessionId}/statements/next?excludeStatementId=${previousStatement.id}`,
+            { headers: createAuthorizationHeader(userId) }
+          ),
+        ]);
+
+        // Update to next question
+        if (nextResponse.data.statement) {
+          setCurrentStatement(nextResponse.data.statement);
+        } else {
+          // Set flag to trigger auto-generation
+          hasJustCompletedRef.current = true;
+          setState('COMPLETED');
+          setCurrentStatement(null);
+        }
+
+        setIsLoading(false);
       }
     } catch (err) {
       console.error('Failed to submit answer:', err);
@@ -185,7 +311,6 @@ export default function SessionPage({
       } else {
         setError('回答の送信に失敗しました。');
       }
-    } finally {
       setIsLoading(false);
     }
   };
@@ -374,6 +499,24 @@ export default function SessionPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {error && (
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              )}
+              {isGeneratingReport && (
+                <div className="flex flex-col items-center justify-center py-8 space-y-4 mb-6 border-b pb-6">
+                  <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                  <div className="text-center space-y-2">
+                    <p className="text-base font-medium text-foreground">
+                      レポートを生成しています...
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      あなたの回答を分析しています。少々お待ちください。
+                    </p>
+                  </div>
+                </div>
+              )}
               {isLoadingReport ? (
                 <div className="space-y-3">
                   <Skeleton className="h-4 w-full" />
@@ -386,12 +529,12 @@ export default function SessionPage({
                   </div>
                 </div>
               ) : individualReport ? (
-                <div className="markdown-body prose prose-sm max-w-none">
+                <div className={`markdown-body prose prose-sm max-w-none ${isGeneratingReport ? 'opacity-60' : ''}`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {individualReport.contentMarkdown}
                   </ReactMarkdown>
                 </div>
-              ) : (
+              ) : !isGeneratingReport ? (
                 <div className="text-center py-8">
                   <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
                     <FileText className="h-6 w-6 text-muted-foreground" />
@@ -400,7 +543,7 @@ export default function SessionPage({
                     回答を進めると、あなた専用の分析レポートがここに表示されます
                   </p>
                 </div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
         )}

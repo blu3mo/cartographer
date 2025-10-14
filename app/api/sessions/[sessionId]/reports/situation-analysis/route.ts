@@ -39,11 +39,20 @@ export async function POST(
       );
     }
 
-    // Fetch all statements with their responses
+    // Fetch all statements with their responses (including participant info)
     const statements = await prisma.statement.findMany({
       where: { sessionId },
       include: {
-        responses: true,
+        responses: {
+          include: {
+            participant: {
+              select: {
+                userId: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { orderIndex: "asc" },
     });
@@ -89,23 +98,76 @@ export async function POST(
       const strongNoPercent =
         totalCount > 0 ? (strongNoCount / totalCount) * 100 : 0;
 
+      // Calculate agreement score for sorting
+      // Strong Yes (2) + Yes (1) - No (-1) - Strong No (-2), weighted by count
+      const agreementScore =
+        (strongYesCount * 2 + yesCount * 1 - noCount * 1 - strongNoCount * 2) /
+        (totalCount > 0 ? totalCount : 1);
+
       return {
         text: statement.text,
         responses: {
-          strongYes: Math.round(strongYesPercent * 100) / 100,
-          yes: Math.round(yesPercent * 100) / 100,
-          dontKnow: Math.round(dontKnowPercent * 100) / 100,
-          no: Math.round(noPercent * 100) / 100,
-          strongNo: Math.round(strongNoPercent * 100) / 100,
+          strongYes: Math.round(strongYesPercent),
+          yes: Math.round(yesPercent),
+          dontKnow: Math.round(dontKnowPercent),
+          no: Math.round(noPercent),
+          strongNo: Math.round(strongNoPercent),
           totalCount,
         },
+        agreementScore,
       };
     });
+
+    // Sort statements by agreement score (descending)
+    const sortedStatements = [...statementsWithStats].sort(
+      (a, b) => b.agreementScore - a.agreementScore
+    );
+
+    // Get total number of unique participants
+    const uniqueParticipants = new Set(
+      statements.flatMap((s) => s.responses.map((r) => r.participantUserId))
+    );
+    const totalParticipants = uniqueParticipants.size;
+
+    // If 10 or fewer participants, prepare individual responses
+    let individualResponses = null;
+    if (totalParticipants <= 10) {
+      const participantResponsesMap = new Map<
+        string,
+        Array<{ statementText: string; value: number }>
+      >();
+
+      statements.forEach((statement) => {
+        statement.responses.forEach((response) => {
+          const participantUserId = response.participantUserId;
+          const participantName = response.participant?.name || "Unknown";
+          const key = `${participantUserId}:${participantName}`;
+
+          if (!participantResponsesMap.has(key)) {
+            participantResponsesMap.set(key, []);
+          }
+
+          participantResponsesMap.get(key)!.push({
+            statementText: statement.text,
+            value: response.value as number,
+          });
+        });
+      });
+
+      individualResponses = Array.from(participantResponsesMap.entries()).map(
+        ([key, responses]) => {
+          const [, name] = key.split(":");
+          return { name, responses };
+        }
+      );
+    }
 
     // Generate report using LLM
     const reportContent = await generateSituationAnalysisReport(
       session.context,
-      statementsWithStats
+      sortedStatements,
+      totalParticipants,
+      individualResponses
     );
 
     // Save report to database
