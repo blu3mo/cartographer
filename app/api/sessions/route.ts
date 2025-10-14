@@ -13,21 +13,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all sessions where user is the host or a participant
+    // Get all sessions and compute role flags for the current user
     const sessions = await prisma.session.findMany({
-      where: {
-        OR: [
-          { hostUserId: userId },
-          {
-            participants: {
-              some: {
-                userId: userId,
-              },
-            },
-          },
-        ],
-      },
       include: {
+        participants: {
+          select: { userId: true },
+        },
         _count: {
           select: {
             participants: true,
@@ -40,7 +31,21 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ sessions });
+    const sessionsWithRoles = sessions.map((session) => {
+      const { participants, ...rest } = session;
+      const isHost = session.hostUserId === userId;
+      const isParticipant = participants.some(
+        (participant) => participant.userId === userId
+      );
+
+      return {
+        ...rest,
+        isHost,
+        isParticipant,
+      };
+    });
+
+    return NextResponse.json({ sessions: sessionsWithRoles });
   } catch (error) {
     console.error('Sessions fetch error:', error);
     return NextResponse.json(

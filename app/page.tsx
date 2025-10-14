@@ -1,7 +1,8 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useUserId } from "@/lib/useUserId";
 import { createAuthorizationHeader } from "@/lib/auth";
 import axios from "axios";
@@ -19,6 +20,8 @@ type Session = {
     participants: number;
     statements: number;
   };
+  isHost: boolean;
+  isParticipant: boolean;
 };
 
 export default function Home() {
@@ -114,11 +117,65 @@ export default function Home() {
             </CardContent>
           </Card>
         ) : (
+          <SessionSections sessions={sessions} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+type SessionSectionsProps = {
+  sessions: Session[];
+};
+
+function SessionSections({ sessions }: SessionSectionsProps) {
+  const router = useRouter();
+  const sessionCategories = useMemo(() => {
+    const adminSessions = sessions.filter((session) => session.isHost);
+    const participatingSessions = sessions.filter(
+      (session) => !session.isHost && session.isParticipant
+    );
+    const otherSessions = sessions.filter(
+      (session) => !session.isHost && !session.isParticipant
+    );
+
+    return [
+      {
+        title: "管理中のセッション",
+        sessions: adminSessions,
+      },
+      {
+        title: "参加中のセッション",
+        sessions: participatingSessions,
+      },
+      {
+        title: "他のセッション",
+        sessions: otherSessions,
+      },
+    ].filter((category) => category.sessions.length > 0);
+  }, [sessions]);
+
+  return (
+    <div className="space-y-6">
+      {sessionCategories.map((category) => (
+        <div key={category.title} className="space-y-3">
+          <h3 className="text-lg font-semibold text-muted-foreground">
+            {category.title}
+          </h3>
           <div className="space-y-3">
-            {sessions.map((session) => (
+            {category.sessions.map((session) => (
               <Card
                 key={session.id}
                 className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => router.push(`/sessions/${session.id}`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    router.push(`/sessions/${session.id}`);
+                  }
+                }}
               >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg font-semibold">
@@ -141,30 +198,41 @@ export default function Home() {
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Calendar className="h-4 w-4" />
-                        <span>{new Date(session.createdAt).toLocaleDateString('ja-JP')}</span>
+                        <span>
+                          {new Date(session.createdAt).toLocaleDateString("ja-JP")}
+                        </span>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {session.hostUserId === userId && (
-                        <Link href={`/sessions/${session.id}/admin`}>
-                          <Button variant="secondary" size="sm">
-                            管理
-                          </Button>
-                        </Link>
-                      )}
-                      <Link href={`/sessions/${session.id}`}>
-                        <Button size="sm">
-                          参加
+                      {session.isHost && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            router.push(`/sessions/${session.id}/admin`);
+                          }}
+                        >
+                          管理
                         </Button>
-                      </Link>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push(`/sessions/${session.id}`);
+                        }}
+                      >
+                        参加
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }

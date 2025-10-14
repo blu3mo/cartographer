@@ -16,6 +16,7 @@ export default function NewSessionPage() {
   const [title, setTitle] = useState('');
   const [whatToClarify, setWhatToClarify] = useState('');
   const [purpose, setPurpose] = useState('');
+  const [backgroundInfo, setBackgroundInfo] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +33,16 @@ export default function NewSessionPage() {
 
     try {
       // Combine fields into context
-      const context = `【何の認識を洗い出すか】\n${whatToClarify}\n\n【何のために洗い出すか】\n${purpose}`;
+      const contextSections = [
+        `【何の認識を洗い出すか】\n${whatToClarify}`,
+        `【何のために洗い出すか】\n${purpose}`,
+      ];
+
+      if (backgroundInfo.trim().length > 0) {
+        contextSections.push(`【背景情報】\n${backgroundInfo}`);
+      }
+
+      const context = contextSections.join('\n\n');
 
       const response = await axios.post(
         '/api/sessions',
@@ -128,6 +138,23 @@ export default function NewSessionPage() {
                 />
                 <p className="text-xs text-muted-foreground">
                   このセッションの目的やゴールを明確にしましょう
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="backgroundInfo" className="text-sm font-medium">
+                  背景情報（任意）
+                </label>
+                <textarea
+                  id="backgroundInfo"
+                  value={backgroundInfo}
+                  onChange={(e) => setBackgroundInfo(e.target.value)}
+                  rows={4}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  placeholder="例: プロジェクトXは3ヶ月前に立ち上がり、現在はMVPのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
+                />
+                <p className="text-xs text-muted-foreground">
+                  セッションの背景となる経緯や関係者情報など、AIに共有したいコンテキストを記載してください
                 </p>
               </div>
 
