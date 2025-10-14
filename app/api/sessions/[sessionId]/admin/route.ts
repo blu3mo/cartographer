@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
 
@@ -22,10 +21,6 @@ interface StatementWithStats {
   responses: ResponseStats;
   agreementScore: number;
 }
-
-type StatementWithResponses = Prisma.StatementGetPayload<{
-  include: { responses: true };
-}>;
 
 export async function GET(
   request: NextRequest,
@@ -69,6 +64,8 @@ export async function GET(
       },
       orderBy: { orderIndex: "asc" },
     });
+
+    type StatementWithResponses = (typeof statements)[number];
 
     // Calculate statistics for each statement
     const statementsWithStats: StatementWithStats[] = statements.map(
