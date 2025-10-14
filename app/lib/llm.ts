@@ -75,7 +75,7 @@ const DEFAULT_STATEMENTS = [
 export async function generateInitialStatements(sessionTitle: string, context: string): Promise<string[]> {
   const prompt = `あなたは優れたファシリテータです。
 
-以下のテーマと目的に基づき、参加者の視点を引き出すための、示唆に富む15個のステートメント（短い断定文）を生成してください。賛否をYES/NOで答えられる形式にしてください。YES/NOの回答を通じて、参加者の立場やその背後にある価値観や利害や優先順位がわかるステートメントが望ましいです。
+以下のテーマと目的に基づき、参加者の視点を引き出すための、示唆に富む15個のステートメント（短い断定文）を生成してください。単体で理解可能な形にしてください。賛否をYES/NOで判断できて答えられる形式にしてください。YES/NOの回答を通じて、参加者の立場やその背後にある価値観や利害や優先順位がわかるステートメントが望ましいです。
 
 セッションタイトル:
 ${sessionTitle}

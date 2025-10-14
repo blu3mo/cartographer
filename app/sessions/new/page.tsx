@@ -17,6 +17,7 @@ export default function NewSessionPage() {
   const [whatToClarify, setWhatToClarify] = useState('');
   const [purpose, setPurpose] = useState('');
   const [backgroundInfo, setBackgroundInfo] = useState('');
+  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +47,7 @@ export default function NewSessionPage() {
 
       const response = await axios.post(
         '/api/sessions',
-        { title, context },
+        { title, context, isPublic: visibility === 'public' },
         { headers: createAuthorizationHeader(userId) }
       );
 
@@ -103,6 +104,48 @@ export default function NewSessionPage() {
                 <p className="text-xs text-muted-foreground">
                   セッションを識別しやすいタイトルを付けましょう
                 </p>
+              </div>
+
+              <div className="space-y-3">
+                <span className="text-sm font-medium">
+                  公開設定
+                </span>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <label className="flex items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
+                    <input
+                      type="radio"
+                      name="visibility"
+                      value="public"
+                      checked={visibility === 'public'}
+                      onChange={() => setVisibility('public')}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium">公開セッション</span>
+                      <br />
+                      <span className="text-xs text-muted-foreground">
+                        Cartographerのトップページで参加者を募集できます。
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
+                    <input
+                      type="radio"
+                      name="visibility"
+                      value="private"
+                      checked={visibility === 'private'}
+                      onChange={() => setVisibility('private')}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium">非公開セッション</span>
+                      <br />
+                      <span className="text-xs text-muted-foreground">
+                        直接URLを共有したメンバーだけがアクセスできます。
+                      </span>
+                    </span>
+                  </label>
+                </div>
               </div>
 
               <div className="space-y-2">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { generateInitialStatements } from '@/lib/llm';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,6 +15,13 @@ export async function GET(request: NextRequest) {
 
     // Get all sessions and compute role flags for the current user
     const sessions = await prisma.session.findMany({
+      where: {
+        OR: [
+          { hostUserId: userId },
+          { participants: { some: { userId } } },
+          { isPublic: true },
+        ],
+      },
       include: {
         participants: {
           select: { userId: true },
@@ -66,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, context } = body;
+    const { title, context, isPublic } = body;
 
     if (!title || !context) {
       return NextResponse.json(
@@ -80,6 +87,7 @@ export async function POST(request: NextRequest) {
       data: {
         title,
         context,
+        isPublic: typeof isPublic === 'boolean' ? isPublic : true,
         hostUserId: userId,
       },
     });

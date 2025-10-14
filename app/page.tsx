@@ -8,7 +8,7 @@ import { createAuthorizationHeader } from "@/lib/auth";
 import axios from "axios";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Users, FileText, Calendar, Loader2 } from "lucide-react";
+import { Calendar, FileText, Loader2, Lock, Plus, Users } from "lucide-react";
 
 type Session = {
   id: string;
@@ -16,6 +16,7 @@ type Session = {
   context: string;
   hostUserId: string;
   createdAt: string;
+  isPublic: boolean;
   _count: {
     participants: number;
     statements: number;
@@ -136,7 +137,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
       (session) => !session.isHost && session.isParticipant
     );
     const otherSessions = sessions.filter(
-      (session) => !session.isHost && !session.isParticipant
+      (session) => !session.isHost && !session.isParticipant && session.isPublic
     );
 
     return [
@@ -149,7 +150,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
         sessions: participatingSessions,
       },
       {
-        title: "他のセッション",
+        title: "未参加の公開セッション",
         sessions: otherSessions,
       },
     ].filter((category) => category.sessions.length > 0);
@@ -178,9 +179,17 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                 }}
               >
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-semibold">
-                    {session.title}
-                  </CardTitle>
+                  <div className="flex items-start justify-between gap-4">
+                    <CardTitle className="text-lg font-semibold">
+                      {session.title}
+                    </CardTitle>
+                    {!session.isPublic && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                        <Lock className="h-3.5 w-3.5" />
+                        非公開
+                      </span>
+                    )}
+                  </div>
                   <CardDescription className="line-clamp-2">
                     {session.context}
                   </CardDescription>

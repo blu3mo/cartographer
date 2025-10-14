@@ -28,6 +28,18 @@ type IndividualReport = {
 
 type SessionState = 'NEEDS_NAME' | 'ANSWERING' | 'COMPLETED';
 
+type SessionInfo = {
+  id: string;
+  title: string;
+  context: string;
+  isPublic: boolean;
+  hostUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  isHost: boolean;
+  isParticipant: boolean;
+};
+
 export default function SessionPage({
   params,
 }: {
@@ -35,6 +47,9 @@ export default function SessionPage({
 }) {
   const { sessionId } = use(params);
   const { userId, isLoading: userLoading } = useUserId();
+  const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
+  const [isSessionInfoLoading, setIsSessionInfoLoading] = useState(true);
+  const [sessionInfoError, setSessionInfoError] = useState<string | null>(null);
   const [state, setState] = useState<SessionState>('NEEDS_NAME');
   const [name, setName] = useState('');
   const [currentStatement, setCurrentStatement] = useState<Statement | null>(null);
@@ -43,12 +58,51 @@ export default function SessionPage({
   const [error, setError] = useState<string | null>(null);
   const [individualReport, setIndividualReport] = useState<IndividualReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [isCheckingParticipation, setIsCheckingParticipation] = useState(true);
+  const [isCheckingParticipation, setIsCheckingParticipation] = useState(false);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
   const hasJustCompletedRef = useRef(false);
+  const sessionInfoId = sessionInfo?.id;
 
   useEffect(() => {
     if (!userId || userLoading) return;
+
+    const fetchSessionInfo = async () => {
+      setIsSessionInfoLoading(true);
+      try {
+        const response = await axios.get(
+          `/api/sessions/${sessionId}`,
+          { headers: createAuthorizationHeader(userId) }
+        );
+        setSessionInfo(response.data.session);
+        setSessionInfoError(null);
+      } catch (err: unknown) {
+        console.error('Failed to fetch session info:', err);
+        setSessionInfo(null);
+        if (axios.isAxiosError(err)) {
+          if (err.response?.status === 404) {
+            setSessionInfoError('セッションが見つかりませんでした。');
+          } else if (err.response?.status === 403) {
+            setSessionInfoError('このセッションにアクセスする権限がありません。');
+          } else {
+            setSessionInfoError('セッション情報の取得に失敗しました。');
+          }
+        } else {
+          setSessionInfoError('セッション情報の取得に失敗しました。');
+        }
+      } finally {
+        setIsSessionInfoLoading(false);
+      }
+    };
+
+    fetchSessionInfo();
+  }, [userId, userLoading, sessionId]);
+
+  useEffect(() => {
+    if (!userId || userLoading) return;
+    if (isSessionInfoLoading) return;
+    if (sessionInfoError) return;
+    if (!sessionInfoId) return;
+    if (state !== 'NEEDS_NAME') return;
 
     // Check if already participating
     const checkParticipation = async () => {
@@ -63,13 +117,22 @@ export default function SessionPage({
         if (response.data.statement) {
           setCurrentStatement(response.data.statement);
           setState('ANSWERING');
+          setSessionInfo((prev) =>
+            prev ? { ...prev, isParticipant: true } : prev
+          );
         } else {
           setState('COMPLETED');
+          setSessionInfo((prev) =>
+            prev ? { ...prev, isParticipant: true } : prev
+          );
         }
       } catch (err: unknown) {
         // If error is 401, user hasn't joined yet
         if (axios.isAxiosError(err) && err.response?.status === 401) {
           setState('NEEDS_NAME');
+          setSessionInfo((prev) =>
+            prev ? { ...prev, isParticipant: false } : prev
+          );
         } else {
           setState('NEEDS_NAME');
         }
@@ -79,7 +142,15 @@ export default function SessionPage({
     };
 
     checkParticipation();
-  }, [userId, userLoading, sessionId]);
+  }, [
+    userId,
+    userLoading,
+    sessionId,
+    sessionInfoId,
+    isSessionInfoLoading,
+    sessionInfoError,
+    state,
+  ]);
 
   // Prefetch next statement when current statement is displayed
   useEffect(() => {
@@ -217,6 +288,9 @@ export default function SessionPage({
         hasJustCompletedRef.current = true;
         setState('COMPLETED');
       }
+      setSessionInfo((prev) =>
+        prev ? { ...prev, isParticipant: true } : prev
+      );
     } catch (err) {
       console.error('Failed to join session:', err);
       if (axios.isAxiosError(err) && err.response?.data?.error) {
@@ -341,13 +415,15 @@ export default function SessionPage({
     }
   };
 
-  if (userLoading || isCheckingParticipation) {
+  if (userLoading || isSessionInfoLoading || isCheckingParticipation) {
     return (
       <div className="min-h-screen bg-background">
         <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-8">
-            セッション参加
-          </h1>
+          <div className="mb-8 space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </div>
           <Card>
             <CardHeader>
               <Skeleton className="h-7 w-24 mb-2" />
@@ -365,12 +441,33 @@ export default function SessionPage({
     );
   }
 
+  if (sessionInfoError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight">
+              セッション
+            </h1>
+          </div>
+          <Card>
+            <CardContent className="pt-6 pb-6">
+              <p className="text-sm text-muted-foreground">{sessionInfoError}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-8">
-          セッション参加
-        </h1>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">
+            {sessionInfo?.title ?? 'セッション'}
+          </h1>
+        </div>
 
         {state === 'NEEDS_NAME' && (
           <Card>

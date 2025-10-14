@@ -17,6 +17,7 @@ model Session {
   id         String      @id @default(uuid()) @db.Uuid
   title      String
   context    String
+  isPublic   Boolean     @default(true) @map("is_public")
   hostUserId String      @map("host_user_id") @db.Uuid
   createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
