@@ -66,6 +66,7 @@ export async function GET(
     });
 
     type StatementWithResponses = (typeof statements)[number];
+    type ResponseWithValue = StatementWithResponses["responses"][number];
 
     // Calculate statistics for each statement
     const statementsWithStats: StatementWithStats[] = statements.map(
@@ -79,7 +80,7 @@ export async function GET(
         let noCount = 0;
         let strongNoCount = 0;
 
-        responses.forEach((response) => {
+        responses.forEach((response: ResponseWithValue) => {
           const value = response.value as ResponseValue;
           switch (value) {
             case 2:
