@@ -110,6 +110,7 @@ export async function POST(
 
     // Generate new statements using LLM
     const newStatementTexts = await generateNewStatements(
+      session.title,
       session.context,
       statementsWithStats,
       latestReport?.contentMarkdown

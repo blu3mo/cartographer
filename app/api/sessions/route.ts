@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate initial statements using LLM (with fallback to defaults)
-    const statementTexts = await generateInitialStatements(context);
+    const statementTexts = await generateInitialStatements(title, context);
 
     // Save statements to database
     await prisma.statement.createMany({

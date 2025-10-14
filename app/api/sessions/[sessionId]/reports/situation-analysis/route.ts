@@ -164,6 +164,7 @@ export async function POST(
 
     // Generate report using LLM
     const reportContent = await generateSituationAnalysisReport(
+      session.title,
       session.context,
       sortedStatements,
       totalParticipants,

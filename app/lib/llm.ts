@@ -72,10 +72,13 @@ const DEFAULT_STATEMENTS = [
   'Statement Generation Failed'
 ];
 
-export async function generateInitialStatements(context: string): Promise<string[]> {
+export async function generateInitialStatements(sessionTitle: string, context: string): Promise<string[]> {
   const prompt = `あなたは優れたファシリテータです。
 
 以下のテーマと目的に基づき、参加者の視点を引き出すための、示唆に富む10個のステートメント（短い断定文）を生成してください。賛否をYES/NOで答えられる形式にしてください。YES/NOの回答を通じて、参加者の立場やその背後にある価値観や利害や優先順位がわかるステートメントが望ましいです。
+
+セッションタイトル:
+${sessionTitle}
 
 テーマとコンテキスト:
 ${context}
@@ -128,6 +131,7 @@ interface IndividualResponse {
 }
 
 export async function generateSituationAnalysisReport(
+  sessionTitle: string,
   context: string,
   statements: StatementWithResponses[],
   totalParticipants: number,
@@ -171,6 +175,9 @@ export async function generateSituationAnalysisReport(
 
 以下の情報に基づき、現状の分析レポートをMarkdown形式で作成してください。
 
+**セッションタイトル:**
+${sessionTitle}
+
 **セッションのコンテキスト:**
 ${context}
 
@@ -197,6 +204,7 @@ Markdownのみを出力し、他の説明文は含めないでください。`;
 }
 
 export async function generateNewStatements(
+  sessionTitle: string,
   context: string,
   existingStatements: StatementWithResponses[],
   latestReport?: string
@@ -213,6 +221,9 @@ export async function generateNewStatements(
     : '';
 
   const prompt = `あなたは次の議論をデザインする戦略的なリサーチャーです。
+
+**セッションタイトル:**
+${sessionTitle}
 
 **セッションのコンテキスト:**
 ${context}
@@ -255,6 +266,7 @@ interface ResponseWithStatement {
 }
 
 export async function generateIndividualReport(
+  sessionTitle: string,
   context: string,
   responses: ResponseWithStatement[],
   userName: string
@@ -272,6 +284,9 @@ export async function generateIndividualReport(
     .join('\n');
 
   const prompt = `あなたは思慮深いコーチまたはカウンセラーです。
+
+**セッションタイトル:**
+${sessionTitle}
 
 **セッションのコンテキスト:**
 ${context}

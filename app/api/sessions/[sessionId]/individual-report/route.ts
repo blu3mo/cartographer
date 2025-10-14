@@ -131,6 +131,7 @@ export async function POST(
 
     // Generate individual report using LLM
     const reportContent = await generateIndividualReport(
+      session.title,
       session.context,
       responsesWithStatement,
       participant.name
