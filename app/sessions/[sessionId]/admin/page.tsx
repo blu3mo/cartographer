@@ -131,7 +131,7 @@ export default function AdminPage({
       );
       // Refresh the admin data to show new statements
       await fetchAdminData();
-      alert('新しいステートメントを5つ生成しました。');
+      alert('新しいステートメントを10個生成しました。');
     } catch (err) {
       console.error('Failed to generate new statements:', err);
       alert('ステートメントの生成に失敗しました。');
@@ -234,7 +234,7 @@ export default function AdminPage({
                 variant="secondary"
               >
                 <Plus className="h-4 w-4" />
-                新しいStatementを5つ生成
+                新しいStatementを10個生成
               </Button>
             </div>
           </CardContent>
