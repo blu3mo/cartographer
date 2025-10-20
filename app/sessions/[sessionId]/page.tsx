@@ -61,7 +61,27 @@ export default function SessionPage({
   const [isCheckingParticipation, setIsCheckingParticipation] = useState(false);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
   const hasJustCompletedRef = useRef(false);
+  const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const sessionInfoId = sessionInfo?.id;
+  const buildExcludeQuery = (additionalIds: string[] = []) => {
+    const ids = new Set<string>(additionalIds.filter(Boolean));
+
+    if (currentStatement) {
+      ids.add(currentStatement.id);
+    }
+
+    pendingAnswerStatementIdsRef.current.forEach((id) => ids.add(id));
+
+    if (ids.size === 0) {
+      return '';
+    }
+
+    const query = Array.from(ids)
+      .map((id) => `excludeStatementId=${encodeURIComponent(id)}`)
+      .join('&');
+
+    return `?${query}`;
+  };
 
   useEffect(() => {
     if (!userId || userLoading) return;
@@ -163,10 +183,10 @@ export default function SessionPage({
 
     const prefetchNextStatement = async () => {
       try {
-        const response = await axios.get(
-          `/api/sessions/${sessionId}/statements/next?excludeStatementId=${currentStatement.id}`,
-          { headers: createAuthorizationHeader(userId) }
-        );
+        const excludeQuery = buildExcludeQuery();
+        const response = await axios.get(`/api/sessions/${sessionId}/statements/next${excludeQuery}`, {
+          headers: createAuthorizationHeader(userId),
+        });
 
         if (response.data.statement) {
           setPrefetchedStatement(response.data.statement);
@@ -309,6 +329,10 @@ export default function SessionPage({
     const previousStatement = currentStatement;
     const cachedNextStatement = prefetchedStatement;
     setError(null);
+    pendingAnswerStatementIdsRef.current.add(previousStatement.id);
+    const clearPendingStatement = () => {
+      pendingAnswerStatementIdsRef.current.delete(previousStatement.id);
+    };
 
     try {
       // undefined: prefetch is still loading or failed
@@ -324,6 +348,7 @@ export default function SessionPage({
           { statementId: previousStatement.id, value },
           { headers: createAuthorizationHeader(userId) }
         );
+        clearPendingStatement();
 
         // Set flag to trigger auto-generation
         hasJustCompletedRef.current = true;
@@ -348,6 +373,8 @@ export default function SessionPage({
           } else {
             setError('回答の送信に失敗しました。');
           }
+        }).finally(() => {
+          clearPendingStatement();
         });
       } else {
         // cachedNextStatement === undefined
@@ -361,10 +388,11 @@ export default function SessionPage({
             { headers: createAuthorizationHeader(userId) }
           ),
           axios.get(
-            `/api/sessions/${sessionId}/statements/next?excludeStatementId=${previousStatement.id}`,
+            `/api/sessions/${sessionId}/statements/next${buildExcludeQuery([previousStatement.id])}`,
             { headers: createAuthorizationHeader(userId) }
           ),
         ]);
+        clearPendingStatement();
 
         // Update to next question
         if (nextResponse.data.statement) {
@@ -379,6 +407,7 @@ export default function SessionPage({
         setIsLoading(false);
       }
     } catch (err) {
+      clearPendingStatement();
       console.error('Failed to submit answer:', err);
       if (axios.isAxiosError(err) && err.response?.data?.error) {
         setError(`エラー: ${err.response.data.error}`);

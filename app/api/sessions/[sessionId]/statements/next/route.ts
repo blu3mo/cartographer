@@ -34,9 +34,11 @@ export async function GET(
       );
     }
 
-    // Get excludeStatementId from query params if provided
+    // Get excludeStatementId(s) from query params if provided
     const { searchParams } = new URL(request.url);
-    const excludeStatementId = searchParams.get('excludeStatementId');
+    const excludeStatementIds = new Set(
+      searchParams.getAll('excludeStatementId').filter(Boolean)
+    );
 
     // Get all statements for this session
     const allStatements = await prisma.statement.findMany({
@@ -62,10 +64,10 @@ export async function GET(
       (s) => !answeredStatementIds.has(s.id)
     );
 
-    // Exclude the currently displayed statement if provided
-    if (excludeStatementId) {
+    // Exclude the currently displayed statement(s) if provided
+    if (excludeStatementIds.size > 0) {
       unansweredStatements = unansweredStatements.filter(
-        (s) => s.id !== excludeStatementId
+        (s) => !excludeStatementIds.has(s.id)
       );
     }
 
