@@ -22,9 +22,20 @@ interface ParticipantPoint {
   responseCount: number;
 }
 
+interface TopStatement {
+  text: string;
+  loading: number;
+}
+
+interface ComponentInfo {
+  explainedVariance: number;
+  topStatements: TopStatement[];
+}
+
 interface UserMapData {
   participants: ParticipantPoint[];
-  explainedVariance: number[];
+  pc1: ComponentInfo;
+  pc2: ComponentInfo;
   totalStatements: number;
 }
 
@@ -99,12 +110,8 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
     );
   }
 
-  const variance1 = data.explainedVariance[0]
-    ? (data.explainedVariance[0] * 100).toFixed(1)
-    : '0.0';
-  const variance2 = data.explainedVariance[1]
-    ? (data.explainedVariance[1] * 100).toFixed(1)
-    : '0.0';
+  const variance1 = (data.pc1.explainedVariance * 100).toFixed(1);
+  const variance2 = (data.pc2.explainedVariance * 100).toFixed(1);
 
   // Color scheme for participants
   const getParticipantColor = (index: number) => {
@@ -153,8 +160,43 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
         </span>
       </div>
 
+      {/* Top Statements for each PC */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        {/* PC1 Top Statements */}
+        <div className="rounded-lg border border-muted bg-muted/20 p-3">
+          <p className="font-semibold text-foreground mb-2">PC1（横軸）の主な特徴</p>
+          <ul className="space-y-1.5">
+            {data.pc1.topStatements.map((stmt, idx) => (
+              <li key={idx} className="text-muted-foreground leading-relaxed">
+                <span className="inline-block w-4 text-foreground/60">#{idx + 1}</span>
+                <span className="ml-1">{stmt.text}</span>
+                <span className="ml-2 text-[10px] opacity-60">
+                  (寄与度: {Math.abs(stmt.loading).toFixed(3)})
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* PC2 Top Statements */}
+        <div className="rounded-lg border border-muted bg-muted/20 p-3">
+          <p className="font-semibold text-foreground mb-2">PC2（縦軸）の主な特徴</p>
+          <ul className="space-y-1.5">
+            {data.pc2.topStatements.map((stmt, idx) => (
+              <li key={idx} className="text-muted-foreground leading-relaxed">
+                <span className="inline-block w-4 text-foreground/60">#{idx + 1}</span>
+                <span className="ml-1">{stmt.text}</span>
+                <span className="ml-2 text-[10px] opacity-60">
+                  (寄与度: {Math.abs(stmt.loading).toFixed(3)})
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
       {/* Scatter Chart */}
-      <div className="w-full" style={{ height: '500px' }}>
+      <div className="w-full" style={{ height: '400px' }}>
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart
             margin={{ top: 20, right: 30, bottom: 60, left: 60 }}
@@ -222,6 +264,7 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
         <ul className="mt-2 ml-4 space-y-1 list-disc">
           <li>第1主成分（横軸）と第2主成分（縦軸）は、回答の主要な変動パターンを表します</li>
           <li>寄与率は、各主成分がデータ全体の変動をどれだけ説明しているかを示します</li>
+          <li>各主成分の「主な特徴」は、その軸に最も強く影響している質問を示します</li>
           <li>点の上にカーソルを重ねると、参加者名と詳細情報が表示されます</li>
         </ul>
       </div>

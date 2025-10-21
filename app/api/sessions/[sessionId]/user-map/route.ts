@@ -11,9 +11,20 @@ interface ParticipantPoint {
   responseCount: number;
 }
 
+interface TopStatement {
+  text: string;
+  loading: number;
+}
+
+interface ComponentInfo {
+  explainedVariance: number;
+  topStatements: TopStatement[];
+}
+
 interface UserMapData {
   participants: ParticipantPoint[];
-  explainedVariance: number[];
+  pc1: ComponentInfo;
+  pc2: ComponentInfo;
   totalStatements: number;
 }
 
@@ -176,6 +187,25 @@ export async function GET(
     const transformed = pca.predict(standardizedData, { nComponents });
     const explainedVariance = pca.getExplainedVariance();
 
+    // Get loadings (eigenvectors)
+    const loadings = pca.getLoadings();
+
+    // Find top statements for each component
+    const getTopStatements = (componentIndex: number, topN: number): TopStatement[] => {
+      const loadingsForComponent = statements.map((stmt: { text: string }, idx: number) => ({
+        text: stmt.text,
+        loading: loadings.get(idx, componentIndex),
+      }));
+
+      // Sort by absolute value of loading (descending)
+      loadingsForComponent.sort((a: TopStatement, b: TopStatement) => Math.abs(b.loading) - Math.abs(a.loading));
+
+      return loadingsForComponent.slice(0, topN);
+    };
+
+    const pc1TopStatements = getTopStatements(0, 2);
+    const pc2TopStatements = nComponents >= 2 ? getTopStatements(1, 2) : [];
+
     // Build result
     const participantPoints: ParticipantPoint[] = participantData.map(
       (p, i) => ({
@@ -189,7 +219,14 @@ export async function GET(
 
     const result: UserMapData = {
       participants: participantPoints,
-      explainedVariance: explainedVariance.slice(0, nComponents),
+      pc1: {
+        explainedVariance: explainedVariance[0] || 0,
+        topStatements: pc1TopStatements,
+      },
+      pc2: {
+        explainedVariance: explainedVariance[1] || 0,
+        topStatements: pc2TopStatements,
+      },
       totalStatements: statements.length,
     };
 
