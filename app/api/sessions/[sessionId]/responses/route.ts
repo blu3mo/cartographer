@@ -1,6 +1,80 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getUserIdFromRequest } from '@/lib/auth';
+import { type NextRequest, NextResponse } from "next/server";
+import { getUserIdFromRequest } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ sessionId: string }> }
+) {
+  try {
+    const { sessionId } = await params;
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Missing user ID" },
+        { status: 401 },
+      );
+    }
+
+    const participant = await prisma.participant.findUnique({
+      where: {
+        userId_sessionId: {
+          userId,
+          sessionId,
+        },
+      },
+    });
+
+    if (!participant) {
+      return NextResponse.json(
+        { error: "Participant not found in this session" },
+        { status: 404 },
+      );
+    }
+
+    const responses = await prisma.response.findMany({
+      where: {
+        participantUserId: userId,
+        sessionId,
+      },
+      include: {
+        statement: {
+          select: {
+            id: true,
+            text: true,
+            orderIndex: true,
+          },
+        },
+      },
+      orderBy: [
+        { createdAt: "desc" },
+        {
+          statement: {
+            orderIndex: "asc",
+          },
+        },
+      ],
+    });
+
+    return NextResponse.json({
+      responses: responses.map((response) => ({
+        id: response.id,
+        statementId: response.statementId,
+        statementText: response.statement.text,
+        orderIndex: response.statement.orderIndex,
+        value: response.value,
+        createdAt: response.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("Failed to fetch participant responses:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(
   request: NextRequest,
@@ -12,8 +86,8 @@ export async function POST(
 
     if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized: Missing user ID' },
-        { status: 401 }
+        { error: "Unauthorized: Missing user ID" },
+        { status: 401 },
       );
     }
 
@@ -22,16 +96,16 @@ export async function POST(
 
     if (!statementId || value === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields: statementId and value' },
-        { status: 400 }
+        { error: "Missing required fields: statementId and value" },
+        { status: 400 },
       );
     }
 
     // Validate value is in range
     if (![-2, -1, 0, 1, 2].includes(value)) {
       return NextResponse.json(
-        { error: 'Invalid value: must be -2, -1, 0, 1, or 2' },
-        { status: 400 }
+        { error: "Invalid value: must be -2, -1, 0, 1, or 2" },
+        { status: 400 },
       );
     }
 
@@ -45,8 +119,8 @@ export async function POST(
 
     if (!statement) {
       return NextResponse.json(
-        { error: 'Statement not found in this session' },
-        { status: 404 }
+        { error: "Statement not found in this session" },
+        { status: 404 },
       );
     }
 
@@ -62,8 +136,8 @@ export async function POST(
 
     if (!participant) {
       return NextResponse.json(
-        { error: 'Participant not found in this session' },
-        { status: 404 }
+        { error: "Participant not found in this session" },
+        { status: 404 },
       );
     }
 
@@ -89,10 +163,10 @@ export async function POST(
 
     return NextResponse.json({ success: true, response });
   } catch (error) {
-    console.error('Response submission error:', error);
+    console.error("Response submission error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

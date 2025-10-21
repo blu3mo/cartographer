@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { useUserId } from '@/lib/useUserId';
 import { createAuthorizationHeader } from '@/lib/auth';
 import axios from 'axios';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { FileText, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type Statement = {
   id: string;
@@ -40,6 +41,61 @@ type SessionInfo = {
   isParticipant: boolean;
 };
 
+type ResponseValue = -2 | -1 | 0 | 1 | 2;
+
+type ParticipantResponse = {
+  id?: string;
+  statementId: string;
+  statementText: string;
+  orderIndex: number;
+  value: ResponseValue;
+  createdAt: string;
+};
+
+const RESPONSE_CHOICES: Array<{
+  value: ResponseValue;
+  label: string;
+  emoji: string;
+  idleClass: string;
+  activeClass: string;
+}> = [
+  {
+    value: 2,
+    label: 'Strong Yes',
+    emoji: '💯',
+    idleClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+    activeClass: 'bg-emerald-500 text-white border-emerald-500 shadow-sm hover:bg-emerald-500',
+  },
+  {
+    value: 1,
+    label: 'Yes',
+    emoji: '✓',
+    idleClass: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
+    activeClass: 'bg-green-400 text-white border-green-400 shadow-sm hover:bg-green-400',
+  },
+  {
+    value: 0,
+    label: 'わからない',
+    emoji: '🤔',
+    idleClass: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
+    activeClass: 'bg-amber-400 text-gray-900 border-amber-400 shadow-sm hover:bg-amber-400',
+  },
+  {
+    value: -1,
+    label: 'No',
+    emoji: '✗',
+    idleClass: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
+    activeClass: 'bg-rose-400 text-white border-rose-400 shadow-sm hover:bg-rose-400',
+  },
+  {
+    value: -2,
+    label: 'Strong No',
+    emoji: '👎',
+    idleClass: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100',
+    activeClass: 'bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-600',
+  },
+];
+
 export default function SessionPage({
   params,
 }: {
@@ -60,9 +116,156 @@ export default function SessionPage({
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isCheckingParticipation, setIsCheckingParticipation] = useState(false);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
+  const [participantResponses, setParticipantResponses] = useState<ParticipantResponse[]>([]);
+  const [isLoadingResponses, setIsLoadingResponses] = useState(false);
+  const [responsesError, setResponsesError] = useState<string | null>(null);
+  const [updatingResponseIds, setUpdatingResponseIds] = useState<Set<string>>(new Set());
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const sessionInfoId = sessionInfo?.id;
+  const sortResponsesByRecency = useCallback((items: ParticipantResponse[]) => {
+    return [...items].sort((a, b) => {
+      const timeDiff =
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (timeDiff !== 0) {
+        return timeDiff;
+      }
+
+      return a.orderIndex - b.orderIndex;
+    });
+  }, []);
+  const fetchParticipantResponses = useCallback(async () => {
+    if (!userId) return;
+    setIsLoadingResponses(true);
+    setResponsesError(null);
+
+    try {
+      const response = await axios.get(`/api/sessions/${sessionId}/responses`, {
+        headers: createAuthorizationHeader(userId),
+      });
+
+      const items = (response.data.responses ?? []) as Array<{
+        id?: string;
+        statementId: string;
+        statementText: string;
+        orderIndex?: number;
+        value: ResponseValue;
+        createdAt?: string;
+      }>;
+
+      const mapped = items
+        .map((item) => ({
+          id: item.id,
+          statementId: item.statementId,
+          statementText: item.statementText,
+          orderIndex: item.orderIndex ?? 0,
+          value: item.value,
+          createdAt: item.createdAt ?? new Date().toISOString(),
+        }));
+
+      setParticipantResponses(sortResponsesByRecency(mapped));
+    } catch (err) {
+      console.error('Failed to fetch participant responses:', err);
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        setParticipantResponses([]);
+        setResponsesError(null);
+      } else {
+        setResponsesError('これまでの回答を取得できませんでした。ページを更新して再度お試しください。');
+      }
+    } finally {
+      setIsLoadingResponses(false);
+    }
+  }, [sessionId, userId, sortResponsesByRecency]);
+
+  const upsertParticipantResponse = useCallback(
+    (statement: Statement, value: ResponseValue) => {
+      setParticipantResponses((prev) => {
+        const existing = prev.find((item) => item.statementId === statement.id);
+        const nextResponse: ParticipantResponse = {
+          id: existing?.id,
+          statementId: statement.id,
+          statementText: statement.text,
+          orderIndex: statement.orderIndex,
+          value,
+          createdAt: existing?.createdAt ?? new Date().toISOString(),
+        };
+
+        if (existing) {
+          return sortResponsesByRecency(
+            prev.map((item) =>
+              item.statementId === statement.id ? { ...item, ...nextResponse } : item
+            )
+          );
+        }
+
+        return sortResponsesByRecency([...prev, nextResponse]);
+      });
+    },
+    [sortResponsesByRecency]
+  );
+
+  const revertParticipantResponse = useCallback(
+    (statementId: string, previous: ParticipantResponse | null) => {
+      setParticipantResponses((prev) => {
+        if (previous) {
+          const exists = prev.some((item) => item.statementId === statementId);
+          const updatedList = exists
+            ? prev.map((item) =>
+                item.statementId === statementId ? previous : item
+              )
+            : [...prev, previous];
+
+          return sortResponsesByRecency(updatedList);
+        }
+        return sortResponsesByRecency(
+          prev.filter((item) => item.statementId !== statementId)
+        );
+      });
+    },
+    [sortResponsesByRecency]
+  );
+
+  const addUpdatingResponseId = useCallback((statementId: string) => {
+    setUpdatingResponseIds((prev) => {
+      const next = new Set(prev);
+      next.add(statementId);
+      return next;
+    });
+  }, []);
+
+  const removeUpdatingResponseId = useCallback((statementId: string) => {
+    setUpdatingResponseIds((prev) => {
+      const next = new Set(prev);
+      next.delete(statementId);
+      return next;
+    });
+  }, []);
+
+  const syncParticipantResponseFromServer = useCallback(
+    (payload: {
+      id: string;
+      statementId: string;
+      value: number;
+      createdAt: string;
+    }) => {
+      setParticipantResponses((prev) =>
+        sortResponsesByRecency(
+          prev.map((item) =>
+            item.statementId === payload.statementId
+              ? {
+                  ...item,
+                  id: payload.id,
+                  value: payload.value as ResponseValue,
+                  createdAt: payload.createdAt,
+                }
+              : item
+          )
+        )
+      );
+    },
+    [sortResponsesByRecency]
+  );
+
   const buildExcludeQuery = (additionalIds: string[] = []) => {
     const ids = new Set<string>(additionalIds.filter(Boolean));
 
@@ -237,6 +440,13 @@ export default function SessionPage({
     fetchIndividualReport();
   }, [userId, userLoading, sessionId, state]);
 
+  useEffect(() => {
+    if (!userId || userLoading) return;
+    if (state === 'NEEDS_NAME') return;
+
+    fetchParticipantResponses();
+  }, [userId, userLoading, state, fetchParticipantResponses]);
+
   // Auto-generate report when all questions are answered
   useEffect(() => {
     if (!userId || userLoading) return;
@@ -323,15 +533,25 @@ export default function SessionPage({
     }
   };
 
-  const handleAnswer = async (value: number) => {
+  const handleAnswer = async (value: ResponseValue) => {
     if (!userId || !currentStatement || isLoading) return;
 
     const previousStatement = currentStatement;
     const cachedNextStatement = prefetchedStatement;
+    const previousResponse = participantResponses.find(
+      (item) => item.statementId === previousStatement.id
+    );
+    const previousResponseSnapshot = previousResponse
+      ? { ...previousResponse }
+      : null;
     setError(null);
+    upsertParticipantResponse(previousStatement, value);
     pendingAnswerStatementIdsRef.current.add(previousStatement.id);
     const clearPendingStatement = () => {
       pendingAnswerStatementIdsRef.current.delete(previousStatement.id);
+    };
+    const revertOnFailure = () => {
+      revertParticipantResponse(previousStatement.id, previousResponseSnapshot);
     };
 
     try {
@@ -343,11 +563,15 @@ export default function SessionPage({
         // This is the last question - submit answer and show completion
         setIsLoading(true);
 
-        await axios.post(
+        const postResult = await axios.post(
           `/api/sessions/${sessionId}/responses`,
           { statementId: previousStatement.id, value },
           { headers: createAuthorizationHeader(userId) }
         );
+        const serverResponse = postResult.data?.response;
+        if (serverResponse) {
+          syncParticipantResponseFromServer(serverResponse);
+        }
         clearPendingStatement();
 
         // Set flag to trigger auto-generation
@@ -362,26 +586,36 @@ export default function SessionPage({
         setPrefetchedStatement(undefined);
 
         // Submit answer in background (no need to wait)
-        axios.post(
-          `/api/sessions/${sessionId}/responses`,
-          { statementId: previousStatement.id, value },
-          { headers: createAuthorizationHeader(userId) }
-        ).catch((err) => {
-          console.error('Failed to submit answer:', err);
-          if (axios.isAxiosError(err) && err.response?.data?.error) {
-            setError(`エラー: ${err.response.data.error}`);
-          } else {
-            setError('回答の送信に失敗しました。');
-          }
-        }).finally(() => {
-          clearPendingStatement();
-        });
+        axios
+          .post(
+            `/api/sessions/${sessionId}/responses`,
+            { statementId: previousStatement.id, value },
+            { headers: createAuthorizationHeader(userId) }
+          )
+          .then((res) => {
+            const serverResponse = res.data?.response;
+            if (serverResponse) {
+              syncParticipantResponseFromServer(serverResponse);
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to submit answer:', err);
+            if (axios.isAxiosError(err) && err.response?.data?.error) {
+              setError(`エラー: ${err.response.data.error}`);
+            } else {
+              setError('回答の送信に失敗しました。');
+            }
+            revertOnFailure();
+          })
+          .finally(() => {
+            clearPendingStatement();
+          });
       } else {
         // cachedNextStatement === undefined
         // Prefetch hasn't completed yet (rapid clicking) - fall back to original behavior
         setIsLoading(true);
 
-        const [, nextResponse] = await Promise.all([
+        const [postResponse, nextResponse] = await Promise.all([
           axios.post(
             `/api/sessions/${sessionId}/responses`,
             { statementId: previousStatement.id, value },
@@ -393,6 +627,10 @@ export default function SessionPage({
           ),
         ]);
         clearPendingStatement();
+        const serverResponse = postResponse.data?.response;
+        if (serverResponse) {
+          syncParticipantResponseFromServer(serverResponse);
+        }
 
         // Update to next question
         if (nextResponse.data.statement) {
@@ -409,12 +647,59 @@ export default function SessionPage({
     } catch (err) {
       clearPendingStatement();
       console.error('Failed to submit answer:', err);
+      revertOnFailure();
       if (axios.isAxiosError(err) && err.response?.data?.error) {
         setError(`エラー: ${err.response.data.error}`);
       } else {
         setError('回答の送信に失敗しました。');
       }
       setIsLoading(false);
+    }
+  };
+
+  const handleUpdateResponse = async (statementId: string, value: ResponseValue) => {
+    if (!userId) return;
+
+    const currentResponse = participantResponses.find(
+      (item) => item.statementId === statementId
+    );
+
+    if (!currentResponse || currentResponse.value === value) {
+      return;
+    }
+
+    const previousSnapshot: ParticipantResponse = { ...currentResponse };
+    const stubStatement: Statement = {
+      id: statementId,
+      text: currentResponse.statementText,
+      orderIndex: currentResponse.orderIndex,
+      sessionId,
+    };
+
+    setResponsesError(null);
+    upsertParticipantResponse(stubStatement, value);
+    addUpdatingResponseId(statementId);
+
+    try {
+      const res = await axios.post(
+        `/api/sessions/${sessionId}/responses`,
+        { statementId, value },
+        { headers: createAuthorizationHeader(userId) }
+      );
+      const serverResponse = res.data?.response;
+      if (serverResponse) {
+        syncParticipantResponseFromServer(serverResponse);
+      }
+    } catch (err) {
+      console.error('Failed to update response:', err);
+      revertParticipantResponse(statementId, previousSnapshot);
+      if (axios.isAxiosError(err) && err.response?.data?.error) {
+        setResponsesError(`回答の更新に失敗しました: ${err.response.data.error}`);
+      } else {
+        setResponsesError('回答の更新に失敗しました。時間をおいて再度お試しください。');
+      }
+    } finally {
+      removeUpdatingResponseId(statementId);
     }
   };
 
@@ -604,74 +889,149 @@ export default function SessionPage({
           </Card>
         )}
 
-        {/* Individual Report Section - Show after joining */}
+        {/* Previous Responses & Individual Report - Show after joining */}
         {(state === 'ANSWERING' || state === 'COMPLETED') && (
-          <Card className="mt-8">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>じぶんレポート</CardTitle>
-                <Button
-                  onClick={handleGenerateReport}
-                  disabled={isGeneratingReport}
-                  isLoading={isGeneratingReport}
-                  variant="secondary"
-                  size="sm"
-                >
-                  {individualReport ? 'レポートを更新' : 'レポートを生成'}
-                </Button>
-              </div>
-              <CardDescription>
-                あなたの回答から生成された個別分析レポート
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {error && (
-                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                  <p className="text-sm text-destructive">{error}</p>
-                </div>
-              )}
-              {isGeneratingReport && (
-                <div className="flex flex-col items-center justify-center py-8 space-y-4 mb-6 border-b pb-6">
-                  <Loader2 className="h-10 w-10 text-primary animate-spin" />
-                  <div className="text-center space-y-2">
-                    <p className="text-base font-medium text-foreground">
-                      レポートを生成しています...
-                    </p>
+          <>
+            <Card className="mt-8">
+              <CardHeader>
+                <CardTitle>これまでの回答</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {responsesError && (
+                  <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                    <p className="text-sm text-destructive">{responsesError}</p>
+                  </div>
+                )}
+                {isLoadingResponses ? (
+                  <div className="space-y-3">
+                    {[0, 1, 2].map((index) => (
+                      <div key={index} className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3">
+                        <Skeleton className="h-4 w-3/4" />
+                        <div className="flex gap-2">
+                          <Skeleton className="h-6 w-20" />
+                          <Skeleton className="h-6 w-16" />
+                          <Skeleton className="h-6 w-24" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : participantResponses.length > 0 ? (
+                  <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                    {participantResponses.map((response) => {
+                      const isPending = pendingAnswerStatementIdsRef.current.has(response.statementId);
+                      const isUpdating = updatingResponseIds.has(response.statementId);
+                      return (
+                        <div
+                          key={response.statementId}
+                          className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                        >
+                          <p className="text-sm font-medium text-foreground">
+                            {response.statementText}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {RESPONSE_CHOICES.map((choice) => {
+                              const isActive = response.value === choice.value;
+                              const isDisabled = isPending || isUpdating || isLoading || isActive;
+
+                              return (
+                                <button
+                                  key={choice.value}
+                                  type="button"
+                                  onClick={() => handleUpdateResponse(response.statementId, choice.value)}
+                                  disabled={isDisabled}
+                                  className={cn(
+                                    'flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+                                    isActive ? choice.activeClass : choice.idleClass,
+                                    (isPending || isUpdating) && 'opacity-70'
+                                  )}
+                                >
+                                  <span>{choice.emoji}</span>
+                                  <span>{choice.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 py-8 text-center">
                     <p className="text-sm text-muted-foreground">
-                      あなたの回答を分析しています。少々お待ちください。
+                      回答をするとここに一覧が表示され、いつでも更新できます
                     </p>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="mt-8">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>じぶんレポート</CardTitle>
+                  <Button
+                    onClick={handleGenerateReport}
+                    disabled={isGeneratingReport}
+                    isLoading={isGeneratingReport}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    {individualReport ? 'レポートを更新' : 'レポートを生成'}
+                  </Button>
                 </div>
-              )}
-              {isLoadingReport ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-5/6" />
-                  <Skeleton className="h-4 w-4/5" />
-                  <div className="pt-2">
+                <CardDescription>
+                  あなたの回答から生成された個別分析レポート
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {error && (
+                  <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                    <p className="text-sm text-destructive">{error}</p>
+                  </div>
+                )}
+                {isGeneratingReport && (
+                  <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <div className="space-y-2 text-center">
+                      <p className="text-base font-medium text-foreground">
+                        レポートを生成しています...
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        あなたの回答を分析しています。少々お待ちください。
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {isLoadingReport ? (
+                  <div className="space-y-3">
                     <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full mt-3" />
-                    <Skeleton className="h-4 w-3/4 mt-3" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-4/5" />
+                    <div className="pt-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="mt-3 h-4 w-full" />
+                      <Skeleton className="mt-3 h-4 w-3/4" />
+                    </div>
                   </div>
-                </div>
-              ) : individualReport ? (
-                <div className={`markdown-body prose prose-sm max-w-none ${isGeneratingReport ? 'opacity-60' : ''}`}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {individualReport.contentMarkdown}
-                  </ReactMarkdown>
-                </div>
-              ) : !isGeneratingReport ? (
-                <div className="text-center py-8">
-                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                    <FileText className="h-6 w-6 text-muted-foreground" />
+                ) : individualReport ? (
+                  <div className={cn('markdown-body prose prose-sm max-w-none', isGeneratingReport && 'opacity-60')}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {individualReport.contentMarkdown}
+                    </ReactMarkdown>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    回答を進めると、あなた専用の分析レポートがここに表示されます
-                  </p>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+                ) : !isGeneratingReport ? (
+                  <div className="py-8 text-center">
+                    <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                      <FileText className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      回答を進めると、あなた専用の分析レポートがここに表示されます
+                    </p>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </div>
