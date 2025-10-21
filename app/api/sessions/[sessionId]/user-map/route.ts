@@ -181,8 +181,8 @@ export async function GET(
     // Standardize data
     const standardizedData = standardize(responseMatrix);
 
-    // Perform PCA
-    const pca = new PCA(standardizedData);
+    // Perform PCA (we already standardized, so turn off auto-centering/scaling)
+    const pca = new PCA(standardizedData, { center: false, scale: false });
     const nComponents = Math.min(2, participantData.length - 1);
     const transformed = pca.predict(standardizedData, { nComponents });
     const explainedVariance = pca.getExplainedVariance();
@@ -190,12 +190,29 @@ export async function GET(
     // Get loadings (eigenvectors)
     const loadings = pca.getLoadings();
 
+    // Debug: check if loadings is defined and log dimensions
+    if (!loadings) {
+      console.error("Loadings is undefined");
+      return NextResponse.json(
+        { error: "Failed to compute PCA loadings" },
+        { status: 500 }
+      );
+    }
+
+    console.log("Loadings dimensions:", loadings.rows, "x", loadings.columns);
+    console.log("Number of statements:", statements.length);
+    console.log("Number of components:", nComponents);
+
     // Find top statements for each component
     const getTopStatements = (componentIndex: number, topN: number): TopStatement[] => {
-      const loadingsForComponent = statements.map((stmt: { text: string }, idx: number) => ({
-        text: stmt.text,
-        loading: loadings.get(idx, componentIndex),
-      }));
+      const loadingsForComponent = statements.map((stmt: { text: string }, idx: number) => {
+        // Get the loading value for this statement and component
+        const loadingValue = loadings.get(idx, componentIndex);
+        return {
+          text: stmt.text,
+          loading: loadingValue,
+        };
+      });
 
       // Sort by absolute value of loading (descending)
       loadingsForComponent.sort((a: TopStatement, b: TopStatement) => Math.abs(b.loading) - Math.abs(a.loading));
