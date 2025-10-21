@@ -207,7 +207,8 @@ export async function GET(
     const getTopStatements = (componentIndex: number, topN: number): TopStatement[] => {
       const loadingsForComponent = statements.map((stmt: { text: string }, idx: number) => {
         // Get the loading value for this statement and component
-        const loadingValue = loadings.get(idx, componentIndex);
+        // Loadings matrix is (components x features), so we access as (componentIndex, statementIndex)
+        const loadingValue = loadings.get(componentIndex, idx);
         return {
           text: stmt.text,
           loading: loadingValue,
