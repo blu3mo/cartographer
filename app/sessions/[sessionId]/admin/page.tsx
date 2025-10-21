@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Loader2, Sparkles, Plus } from 'lucide-react';
+import UserMap from '@/components/UserMap';
 
 interface ResponseStats {
   strongYes: number;
@@ -404,6 +405,19 @@ export default function AdminPage({
                 新しいStatementを10個生成
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* User Map */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>ユーザーマップ（PCA分析）</CardTitle>
+            <CardDescription>
+              参加者の回答パターンを2次元マップで可視化
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {userId && <UserMap sessionId={sessionId} userId={userId} />}
           </CardContent>
         </Card>
 
