@@ -132,7 +132,22 @@ function getClientIp(request: NextRequest): string | null {
     }
   }
 
-  return request.ip ?? null;
+  const fallbackHeaders = [
+    'x-real-ip',
+    'x-client-ip',
+    'cf-connecting-ip',
+    'true-client-ip',
+    'x-cluster-client-ip',
+  ];
+
+  for (const header of fallbackHeaders) {
+    const value = request.headers.get(header);
+    if (value && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
 }
 
 function unauthorizedResponse(): NextResponse {
