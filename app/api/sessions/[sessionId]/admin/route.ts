@@ -144,6 +144,7 @@ export async function GET(
         id: session.id,
         title: session.title,
         context: session.context,
+        isPublic: session.isPublic,
         createdAt: session.createdAt,
         statements: statementsWithStats,
         latestSituationAnalysisReport: latestReport
@@ -158,6 +159,94 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error fetching admin data:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ sessionId: string }> }
+) {
+  try {
+    const { sessionId } = await params;
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized: User ID not found" },
+        { status: 401 }
+      );
+    }
+
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Session not found" },
+        { status: 404 }
+      );
+    }
+
+    if (session.hostUserId !== userId) {
+      return NextResponse.json(
+        { error: "Forbidden: You are not the host of this session" },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { title, context, isPublic } = body as {
+      title?: unknown;
+      context?: unknown;
+      isPublic?: unknown;
+    };
+
+    if (typeof title !== "string" || title.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Invalid title" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof context !== "string" || context.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Invalid context" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof isPublic !== "boolean") {
+      return NextResponse.json(
+        { error: "Invalid visibility" },
+        { status: 400 }
+      );
+    }
+
+    const updatedSession = await prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        title: title.trim(),
+        context: context.trim(),
+        isPublic,
+      },
+    });
+
+    return NextResponse.json({
+      data: {
+        id: updatedSession.id,
+        title: updatedSession.title,
+        context: updatedSession.context,
+        isPublic: updatedSession.isPublic,
+        createdAt: updatedSession.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating session:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

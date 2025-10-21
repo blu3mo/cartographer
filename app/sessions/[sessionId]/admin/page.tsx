@@ -7,6 +7,7 @@ import { useUserId } from '@/lib/useUserId';
 import axios from 'axios';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Loader2, Sparkles, Plus } from 'lucide-react';
 
 interface ResponseStats {
@@ -38,6 +39,7 @@ interface SessionAdminData {
   id: string;
   title: string;
   context: string;
+  isPublic: boolean;
   createdAt: string;
   statements: StatementWithStats[];
   latestSituationAnalysisReport?: SituationAnalysisReport;
@@ -59,6 +61,12 @@ export default function AdminPage({
   const [generatingStatements, setGeneratingStatements] = useState(false);
   const [sortType, setSortType] = useState<SortType>('agreement');
   const [isReportExpanded, setIsReportExpanded] = useState(false);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [editingContext, setEditingContext] = useState('');
+  const [editingVisibility, setEditingVisibility] = useState<'public' | 'private'>('public');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isUserIdLoading || !userId) return;
@@ -87,6 +95,62 @@ export default function AdminPage({
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (data) {
+      setEditingTitle(data.title);
+      setEditingContext(data.context);
+      setEditingVisibility(data.isPublic ? 'public' : 'private');
+    }
+  }, [data]);
+
+  const handleSaveSettings = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!userId) return;
+
+    setIsSavingSettings(true);
+    setSettingsMessage(null);
+    setSettingsError(null);
+
+    try {
+      const response = await axios.patch(
+        `/api/sessions/${sessionId}/admin`,
+        {
+          title: editingTitle,
+          context: editingContext,
+          isPublic: editingVisibility === 'public',
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${userId}`,
+          },
+        }
+      );
+
+      const updated = response.data.data as {
+        title: string;
+        context: string;
+        isPublic: boolean;
+      };
+
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              title: updated.title,
+              context: updated.context,
+              isPublic: updated.isPublic,
+            }
+          : prev
+      );
+      setSettingsMessage('セッション情報を更新しました。');
+    } catch (err) {
+      console.error('Failed to update session settings:', err);
+      setSettingsError('セッション情報の更新に失敗しました。');
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
@@ -203,10 +267,113 @@ export default function AdminPage({
       <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">
-            {data.title}
+            {editingTitle || data.title}
           </h1>
           <p className="text-muted-foreground">管理画面</p>
         </div>
+
+        {/* Session Settings */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>セッション設定</CardTitle>
+            <CardDescription>
+              タイトル、公開設定、コンテキストを編集できます
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveSettings} className="space-y-6">
+              <div className="space-y-2">
+                <label htmlFor="sessionTitle" className="text-sm font-medium">
+                  セッションのタイトル
+                </label>
+                <Input
+                  id="sessionTitle"
+                  type="text"
+                  value={editingTitle}
+                  onChange={(event) => setEditingTitle(event.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  参加者にとってわかりやすいタイトルを設定しましょう。
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <span className="text-sm font-medium">公開設定</span>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <label className="flex items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
+                    <input
+                      type="radio"
+                      name="sessionVisibility"
+                      value="public"
+                      checked={editingVisibility === 'public'}
+                      onChange={() => setEditingVisibility('public')}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium">公開セッション</span>
+                      <br />
+                      <span className="text-xs text-muted-foreground">
+                        Cartographerのトップページで参加者を募集できます。
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
+                    <input
+                      type="radio"
+                      name="sessionVisibility"
+                      value="private"
+                      checked={editingVisibility === 'private'}
+                      onChange={() => setEditingVisibility('private')}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium">非公開セッション</span>
+                      <br />
+                      <span className="text-xs text-muted-foreground">
+                        直接URLを共有したメンバーだけがアクセスできます。
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="sessionContext" className="text-sm font-medium">
+                  コンテキスト
+                </label>
+                <textarea
+                  id="sessionContext"
+                  value={editingContext}
+                  onChange={(event) => setEditingContext(event.target.value)}
+                  required
+                  rows={12}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  placeholder="セッションの目的や背景など、AIに共有したい情報を記入してください。"
+                />
+              </div>
+
+              {(settingsMessage || settingsError) && (
+                <Card className={settingsError ? 'border-destructive' : 'border-emerald-500'}>
+                  <CardContent className="pt-6">
+                    <p className={`text-sm ${settingsError ? 'text-destructive' : 'text-emerald-600'}`}>
+                      {settingsError ?? settingsMessage}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Button
+                type="submit"
+                disabled={isSavingSettings}
+                isLoading={isSavingSettings}
+                className="w-full sm:w-auto"
+              >
+                セッション情報を保存
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         {/* Control Panel */}
         <Card className="mb-8">
