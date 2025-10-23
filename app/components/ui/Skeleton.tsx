@@ -1,30 +1,30 @@
-import { motion } from 'framer-motion';
-import { clsx } from 'clsx';
+import { motion } from "framer-motion";
+import { clsx } from "clsx";
 
 interface SkeletonProps {
   className?: string;
-  variant?: 'text' | 'circular' | 'rectangular';
+  variant?: "text" | "circular" | "rectangular";
 }
 
-export function Skeleton({ className, variant = 'text' }: SkeletonProps) {
+export function Skeleton({ className, variant = "text" }: SkeletonProps) {
   return (
     <motion.div
       initial={{ opacity: 0.6 }}
       animate={{ opacity: 1 }}
       transition={{
         repeat: Infinity,
-        repeatType: 'reverse',
+        repeatType: "reverse",
         duration: 0.8,
-        ease: 'easeInOut',
+        ease: "easeInOut",
       }}
       className={clsx(
-        'bg-gray-200',
+        "bg-gray-200",
         {
-          'rounded-full': variant === 'circular',
-          'rounded-md': variant === 'rectangular',
-          'rounded': variant === 'text',
+          "rounded-full": variant === "circular",
+          "rounded-md": variant === "rectangular",
+          rounded: variant === "text",
         },
-        className
+        className,
       )}
     />
   );

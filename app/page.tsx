@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -7,7 +7,13 @@ import { useUserId } from "@/lib/useUserId";
 import { createAuthorizationHeader } from "@/lib/auth";
 import axios from "axios";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Calendar, FileText, Loader2, Lock, Plus, Users } from "lucide-react";
 
 type Session = {
@@ -37,13 +43,13 @@ export default function Home() {
     const fetchSessions = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/sessions', {
+        const response = await axios.get("/api/sessions", {
           headers: createAuthorizationHeader(userId),
         });
         setSessions(response.data.sessions);
       } catch (err) {
-        console.error('Failed to fetch sessions:', err);
-        setError('セッションの取得に失敗しました。');
+        console.error("Failed to fetch sessions:", err);
+        setError("セッションの取得に失敗しました。");
       } finally {
         setLoading(false);
       }
@@ -75,9 +81,7 @@ export default function Home() {
 
         {/* Header with CTA */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight">
-            セッション
-          </h2>
+          <h2 className="text-2xl font-semibold tracking-tight">セッション</h2>
           <Link href="/sessions/new">
             <Button>
               <Plus className="h-4 w-4" />
@@ -103,7 +107,9 @@ export default function Home() {
                   <FileText className="h-8 w-8 text-primary" />
                 </div>
                 <div className="space-y-2">
-                  <p className="text-base font-semibold">セッションがありません</p>
+                  <p className="text-base font-semibold">
+                    セッションがありません
+                  </p>
                   <p className="text-sm text-muted-foreground max-w-sm">
                     新しいセッションを作成して、チームとの対話を始めましょう
                   </p>
@@ -134,10 +140,11 @@ function SessionSections({ sessions }: SessionSectionsProps) {
   const sessionCategories = useMemo(() => {
     const adminSessions = sessions.filter((session) => session.isHost);
     const participatingSessions = sessions.filter(
-      (session) => !session.isHost && session.isParticipant
+      (session) => !session.isHost && session.isParticipant,
     );
     const otherSessions = sessions.filter(
-      (session) => !session.isHost && !session.isParticipant && session.isPublic
+      (session) =>
+        !session.isHost && !session.isParticipant && session.isPublic,
     );
 
     return [
@@ -208,7 +215,9 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                       <div className="flex items-center gap-1.5">
                         <Calendar className="h-4 w-4" />
                         <span>
-                          {new Date(session.createdAt).toLocaleDateString("ja-JP")}
+                          {new Date(session.createdAt).toLocaleDateString(
+                            "ja-JP",
+                          )}
                         </span>
                       </div>
                     </div>

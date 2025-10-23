@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionId } = await params;
@@ -13,7 +13,7 @@ export async function GET(
     if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized: Missing user ID" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -27,15 +27,12 @@ export async function GET(
     });
 
     if (!session) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     const isHost = session.hostUserId === userId;
     const isParticipant = session.participants.some(
-      (participant) => participant.userId === userId
+      (participant) => participant.userId === userId,
     );
 
     const { participants, ...sessionData } = session;
@@ -51,7 +48,7 @@ export async function GET(
     console.error("Session fetch error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,16 +1,23 @@
-'use client';
+"use client";
 
-import { use, useCallback, useEffect, useRef, useState } from 'react';
-import { useUserId } from '@/lib/useUserId';
-import { createAuthorizationHeader } from '@/lib/auth';
-import axios from 'axios';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { FileText, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { use, useCallback, useEffect, useRef, useState } from "react";
+import { useUserId } from "@/lib/useUserId";
+import { createAuthorizationHeader } from "@/lib/auth";
+import axios from "axios";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { FileText, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Statement = {
   id: string;
@@ -27,7 +34,7 @@ type IndividualReport = {
   createdAt: string;
 };
 
-type SessionState = 'NEEDS_NAME' | 'ANSWERING' | 'COMPLETED';
+type SessionState = "NEEDS_NAME" | "ANSWERING" | "COMPLETED";
 
 type SessionInfo = {
   id: string;
@@ -61,38 +68,44 @@ const RESPONSE_CHOICES: Array<{
 }> = [
   {
     value: 2,
-    label: 'Strong Yes',
-    emoji: '💯',
-    idleClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
-    activeClass: 'bg-emerald-500 text-white border-emerald-500 shadow-sm hover:bg-emerald-500',
+    label: "Strong Yes",
+    emoji: "💯",
+    idleClass:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
+    activeClass:
+      "bg-emerald-500 text-white border-emerald-500 shadow-sm hover:bg-emerald-500",
   },
   {
     value: 1,
-    label: 'Yes',
-    emoji: '✓',
-    idleClass: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
-    activeClass: 'bg-green-400 text-white border-green-400 shadow-sm hover:bg-green-400',
+    label: "Yes",
+    emoji: "✓",
+    idleClass: "bg-green-50 text-green-700 border-green-200 hover:bg-green-100",
+    activeClass:
+      "bg-green-400 text-white border-green-400 shadow-sm hover:bg-green-400",
   },
   {
     value: 0,
-    label: 'わからない',
-    emoji: '🤔',
-    idleClass: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
-    activeClass: 'bg-amber-400 text-gray-900 border-amber-400 shadow-sm hover:bg-amber-400',
+    label: "わからない",
+    emoji: "🤔",
+    idleClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
+    activeClass:
+      "bg-amber-400 text-gray-900 border-amber-400 shadow-sm hover:bg-amber-400",
   },
   {
     value: -1,
-    label: 'No',
-    emoji: '✗',
-    idleClass: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
-    activeClass: 'bg-rose-400 text-white border-rose-400 shadow-sm hover:bg-rose-400',
+    label: "No",
+    emoji: "✗",
+    idleClass: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
+    activeClass:
+      "bg-rose-400 text-white border-rose-400 shadow-sm hover:bg-rose-400",
   },
   {
     value: -2,
-    label: 'Strong No',
-    emoji: '👎',
-    idleClass: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100',
-    activeClass: 'bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-600',
+    label: "Strong No",
+    emoji: "👎",
+    idleClass: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100",
+    activeClass:
+      "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-600",
   },
 ];
 
@@ -106,20 +119,29 @@ export default function SessionPage({
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [isSessionInfoLoading, setIsSessionInfoLoading] = useState(true);
   const [sessionInfoError, setSessionInfoError] = useState<string | null>(null);
-  const [state, setState] = useState<SessionState>('NEEDS_NAME');
-  const [name, setName] = useState('');
-  const [currentStatement, setCurrentStatement] = useState<Statement | null>(null);
-  const [prefetchedStatement, setPrefetchedStatement] = useState<Statement | null | undefined>(undefined);
+  const [state, setState] = useState<SessionState>("NEEDS_NAME");
+  const [name, setName] = useState("");
+  const [currentStatement, setCurrentStatement] = useState<Statement | null>(
+    null,
+  );
+  const [prefetchedStatement, setPrefetchedStatement] = useState<
+    Statement | null | undefined
+  >(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [individualReport, setIndividualReport] = useState<IndividualReport | null>(null);
+  const [individualReport, setIndividualReport] =
+    useState<IndividualReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isCheckingParticipation, setIsCheckingParticipation] = useState(false);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
-  const [participantResponses, setParticipantResponses] = useState<ParticipantResponse[]>([]);
+  const [participantResponses, setParticipantResponses] = useState<
+    ParticipantResponse[]
+  >([]);
   const [isLoadingResponses, setIsLoadingResponses] = useState(false);
   const [responsesError, setResponsesError] = useState<string | null>(null);
-  const [updatingResponseIds, setUpdatingResponseIds] = useState<Set<string>>(new Set());
+  const [updatingResponseIds, setUpdatingResponseIds] = useState<Set<string>>(
+    new Set(),
+  );
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const sessionInfoId = sessionInfo?.id;
@@ -153,24 +175,25 @@ export default function SessionPage({
         createdAt?: string;
       }>;
 
-      const mapped = items
-        .map((item) => ({
-          id: item.id,
-          statementId: item.statementId,
-          statementText: item.statementText,
-          orderIndex: item.orderIndex ?? 0,
-          value: item.value,
-          createdAt: item.createdAt ?? new Date().toISOString(),
-        }));
+      const mapped = items.map((item) => ({
+        id: item.id,
+        statementId: item.statementId,
+        statementText: item.statementText,
+        orderIndex: item.orderIndex ?? 0,
+        value: item.value,
+        createdAt: item.createdAt ?? new Date().toISOString(),
+      }));
 
       setParticipantResponses(sortResponsesByRecency(mapped));
     } catch (err) {
-      console.error('Failed to fetch participant responses:', err);
+      console.error("Failed to fetch participant responses:", err);
       if (axios.isAxiosError(err) && err.response?.status === 404) {
         setParticipantResponses([]);
         setResponsesError(null);
       } else {
-        setResponsesError('これまでの回答を取得できませんでした。ページを更新して再度お試しください。');
+        setResponsesError(
+          "これまでの回答を取得できませんでした。ページを更新して再度お試しください。",
+        );
       }
     } finally {
       setIsLoadingResponses(false);
@@ -193,15 +216,17 @@ export default function SessionPage({
         if (existing) {
           return sortResponsesByRecency(
             prev.map((item) =>
-              item.statementId === statement.id ? { ...item, ...nextResponse } : item
-            )
+              item.statementId === statement.id
+                ? { ...item, ...nextResponse }
+                : item,
+            ),
           );
         }
 
         return sortResponsesByRecency([...prev, nextResponse]);
       });
     },
-    [sortResponsesByRecency]
+    [sortResponsesByRecency],
   );
 
   const revertParticipantResponse = useCallback(
@@ -211,18 +236,18 @@ export default function SessionPage({
           const exists = prev.some((item) => item.statementId === statementId);
           const updatedList = exists
             ? prev.map((item) =>
-                item.statementId === statementId ? previous : item
+                item.statementId === statementId ? previous : item,
               )
             : [...prev, previous];
 
           return sortResponsesByRecency(updatedList);
         }
         return sortResponsesByRecency(
-          prev.filter((item) => item.statementId !== statementId)
+          prev.filter((item) => item.statementId !== statementId),
         );
       });
     },
-    [sortResponsesByRecency]
+    [sortResponsesByRecency],
   );
 
   const addUpdatingResponseId = useCallback((statementId: string) => {
@@ -258,12 +283,12 @@ export default function SessionPage({
                   value: payload.value as ResponseValue,
                   createdAt: payload.createdAt,
                 }
-              : item
-          )
-        )
+              : item,
+          ),
+        ),
       );
     },
-    [sortResponsesByRecency]
+    [sortResponsesByRecency],
   );
 
   const buildExcludeQuery = (additionalIds: string[] = []) => {
@@ -276,12 +301,12 @@ export default function SessionPage({
     pendingAnswerStatementIdsRef.current.forEach((id) => ids.add(id));
 
     if (ids.size === 0) {
-      return '';
+      return "";
     }
 
     const query = Array.from(ids)
       .map((id) => `excludeStatementId=${encodeURIComponent(id)}`)
-      .join('&');
+      .join("&");
 
     return `?${query}`;
   };
@@ -292,25 +317,26 @@ export default function SessionPage({
     const fetchSessionInfo = async () => {
       setIsSessionInfoLoading(true);
       try {
-        const response = await axios.get(
-          `/api/sessions/${sessionId}`,
-          { headers: createAuthorizationHeader(userId) }
-        );
+        const response = await axios.get(`/api/sessions/${sessionId}`, {
+          headers: createAuthorizationHeader(userId),
+        });
         setSessionInfo(response.data.session);
         setSessionInfoError(null);
       } catch (err: unknown) {
-        console.error('Failed to fetch session info:', err);
+        console.error("Failed to fetch session info:", err);
         setSessionInfo(null);
         if (axios.isAxiosError(err)) {
           if (err.response?.status === 404) {
-            setSessionInfoError('セッションが見つかりませんでした。');
+            setSessionInfoError("セッションが見つかりませんでした。");
           } else if (err.response?.status === 403) {
-            setSessionInfoError('このセッションにアクセスする権限がありません。');
+            setSessionInfoError(
+              "このセッションにアクセスする権限がありません。",
+            );
           } else {
-            setSessionInfoError('セッション情報の取得に失敗しました。');
+            setSessionInfoError("セッション情報の取得に失敗しました。");
           }
         } else {
-          setSessionInfoError('セッション情報の取得に失敗しました。');
+          setSessionInfoError("セッション情報の取得に失敗しました。");
         }
       } finally {
         setIsSessionInfoLoading(false);
@@ -325,7 +351,7 @@ export default function SessionPage({
     if (isSessionInfoLoading) return;
     if (sessionInfoError) return;
     if (!sessionInfoId) return;
-    if (state !== 'NEEDS_NAME') return;
+    if (state !== "NEEDS_NAME") return;
 
     // Check if already participating
     const checkParticipation = async () => {
@@ -333,31 +359,31 @@ export default function SessionPage({
       try {
         const response = await axios.get(
           `/api/sessions/${sessionId}/statements/next`,
-          { headers: createAuthorizationHeader(userId) }
+          { headers: createAuthorizationHeader(userId) },
         );
 
         // If we got a statement, user is already participating
         if (response.data.statement) {
           setCurrentStatement(response.data.statement);
-          setState('ANSWERING');
+          setState("ANSWERING");
           setSessionInfo((prev) =>
-            prev ? { ...prev, isParticipant: true } : prev
+            prev ? { ...prev, isParticipant: true } : prev,
           );
         } else {
-          setState('COMPLETED');
+          setState("COMPLETED");
           setSessionInfo((prev) =>
-            prev ? { ...prev, isParticipant: true } : prev
+            prev ? { ...prev, isParticipant: true } : prev,
           );
         }
       } catch (err: unknown) {
         // If error is 401, user hasn't joined yet
         if (axios.isAxiosError(err) && err.response?.status === 401) {
-          setState('NEEDS_NAME');
+          setState("NEEDS_NAME");
           setSessionInfo((prev) =>
-            prev ? { ...prev, isParticipant: false } : prev
+            prev ? { ...prev, isParticipant: false } : prev,
           );
         } else {
-          setState('NEEDS_NAME');
+          setState("NEEDS_NAME");
         }
       } finally {
         setIsCheckingParticipation(false);
@@ -378,7 +404,7 @@ export default function SessionPage({
   // Prefetch next statement when current statement is displayed
   useEffect(() => {
     if (!userId || userLoading) return;
-    if (state !== 'ANSWERING') return;
+    if (state !== "ANSWERING") return;
     if (!currentStatement) return;
 
     // Reset prefetch state to undefined (loading state)
@@ -387,9 +413,12 @@ export default function SessionPage({
     const prefetchNextStatement = async () => {
       try {
         const excludeQuery = buildExcludeQuery();
-        const response = await axios.get(`/api/sessions/${sessionId}/statements/next${excludeQuery}`, {
-          headers: createAuthorizationHeader(userId),
-        });
+        const response = await axios.get(
+          `/api/sessions/${sessionId}/statements/next${excludeQuery}`,
+          {
+            headers: createAuthorizationHeader(userId),
+          },
+        );
 
         if (response.data.statement) {
           setPrefetchedStatement(response.data.statement);
@@ -399,7 +428,7 @@ export default function SessionPage({
         }
       } catch (err) {
         // Silently fail prefetch - keep as undefined to trigger fallback
-        console.error('Prefetch failed:', err);
+        console.error("Prefetch failed:", err);
         setPrefetchedStatement(undefined);
       }
     };
@@ -409,14 +438,14 @@ export default function SessionPage({
 
   useEffect(() => {
     if (!userId || userLoading) return;
-    if (state === 'NEEDS_NAME') return;
+    if (state === "NEEDS_NAME") return;
 
     const fetchIndividualReport = async () => {
       setIsLoadingReport(true);
       try {
         const response = await axios.get(
           `/api/sessions/${sessionId}/individual-report`,
-          { headers: createAuthorizationHeader(userId) }
+          { headers: createAuthorizationHeader(userId) },
         );
         setIndividualReport(response.data.report);
       } catch (err) {
@@ -431,7 +460,7 @@ export default function SessionPage({
             return;
           }
         }
-        console.error('Failed to fetch individual report:', err);
+        console.error("Failed to fetch individual report:", err);
       } finally {
         setIsLoadingReport(false);
       }
@@ -442,7 +471,7 @@ export default function SessionPage({
 
   useEffect(() => {
     if (!userId || userLoading) return;
-    if (state === 'NEEDS_NAME') return;
+    if (state === "NEEDS_NAME") return;
 
     fetchParticipantResponses();
   }, [userId, userLoading, state, fetchParticipantResponses]);
@@ -450,7 +479,7 @@ export default function SessionPage({
   // Auto-generate report when all questions are answered
   useEffect(() => {
     if (!userId || userLoading) return;
-    if (state !== 'COMPLETED') return;
+    if (state !== "COMPLETED") return;
 
     // Only auto-generate if we just transitioned to COMPLETED (not on page reload)
     if (!hasJustCompletedRef.current) return;
@@ -470,17 +499,21 @@ export default function SessionPage({
         const response = await axios.post(
           `/api/sessions/${sessionId}/individual-report`,
           {},
-          { headers: createAuthorizationHeader(userId) }
+          { headers: createAuthorizationHeader(userId) },
         );
 
         setIndividualReport(response.data.report);
       } catch (err) {
-        console.error('Failed to auto-generate report:', err);
+        console.error("Failed to auto-generate report:", err);
         // Show error to user so they know auto-generation failed
         if (axios.isAxiosError(err) && err.response?.data?.error) {
-          setError(`レポートの自動生成に失敗しました: ${err.response.data.error}`);
+          setError(
+            `レポートの自動生成に失敗しました: ${err.response.data.error}`,
+          );
         } else {
-          setError('レポートの自動生成に失敗しました。「レポートを生成」ボタンから手動で生成してください。');
+          setError(
+            "レポートの自動生成に失敗しました。「レポートを生成」ボタンから手動で生成してください。",
+          );
         }
       } finally {
         setIsGeneratingReport(false);
@@ -501,32 +534,32 @@ export default function SessionPage({
       await axios.post(
         `/api/sessions/${sessionId}/participants`,
         { name },
-        { headers: createAuthorizationHeader(userId) }
+        { headers: createAuthorizationHeader(userId) },
       );
 
       // Fetch first statement
       const response = await axios.get(
         `/api/sessions/${sessionId}/statements/next`,
-        { headers: createAuthorizationHeader(userId) }
+        { headers: createAuthorizationHeader(userId) },
       );
 
       if (response.data.statement) {
         setCurrentStatement(response.data.statement);
-        setState('ANSWERING');
+        setState("ANSWERING");
       } else {
         // Set flag to trigger auto-generation (edge case: no questions in session)
         hasJustCompletedRef.current = true;
-        setState('COMPLETED');
+        setState("COMPLETED");
       }
       setSessionInfo((prev) =>
-        prev ? { ...prev, isParticipant: true } : prev
+        prev ? { ...prev, isParticipant: true } : prev,
       );
     } catch (err) {
-      console.error('Failed to join session:', err);
+      console.error("Failed to join session:", err);
       if (axios.isAxiosError(err) && err.response?.data?.error) {
         setError(`エラー: ${err.response.data.error}`);
       } else {
-        setError('セッションへの参加に失敗しました。');
+        setError("セッションへの参加に失敗しました。");
       }
     } finally {
       setIsLoading(false);
@@ -539,7 +572,7 @@ export default function SessionPage({
     const previousStatement = currentStatement;
     const cachedNextStatement = prefetchedStatement;
     const previousResponse = participantResponses.find(
-      (item) => item.statementId === previousStatement.id
+      (item) => item.statementId === previousStatement.id,
     );
     const previousResponseSnapshot = previousResponse
       ? { ...previousResponse }
@@ -566,7 +599,7 @@ export default function SessionPage({
         const postResult = await axios.post(
           `/api/sessions/${sessionId}/responses`,
           { statementId: previousStatement.id, value },
-          { headers: createAuthorizationHeader(userId) }
+          { headers: createAuthorizationHeader(userId) },
         );
         const serverResponse = postResult.data?.response;
         if (serverResponse) {
@@ -576,7 +609,7 @@ export default function SessionPage({
 
         // Set flag to trigger auto-generation
         hasJustCompletedRef.current = true;
-        setState('COMPLETED');
+        setState("COMPLETED");
         setCurrentStatement(null);
         setPrefetchedStatement(undefined);
         setIsLoading(false);
@@ -590,7 +623,7 @@ export default function SessionPage({
           .post(
             `/api/sessions/${sessionId}/responses`,
             { statementId: previousStatement.id, value },
-            { headers: createAuthorizationHeader(userId) }
+            { headers: createAuthorizationHeader(userId) },
           )
           .then((res) => {
             const serverResponse = res.data?.response;
@@ -599,11 +632,11 @@ export default function SessionPage({
             }
           })
           .catch((err) => {
-            console.error('Failed to submit answer:', err);
+            console.error("Failed to submit answer:", err);
             if (axios.isAxiosError(err) && err.response?.data?.error) {
               setError(`エラー: ${err.response.data.error}`);
             } else {
-              setError('回答の送信に失敗しました。');
+              setError("回答の送信に失敗しました。");
             }
             revertOnFailure();
           })
@@ -619,11 +652,11 @@ export default function SessionPage({
           axios.post(
             `/api/sessions/${sessionId}/responses`,
             { statementId: previousStatement.id, value },
-            { headers: createAuthorizationHeader(userId) }
+            { headers: createAuthorizationHeader(userId) },
           ),
           axios.get(
             `/api/sessions/${sessionId}/statements/next${buildExcludeQuery([previousStatement.id])}`,
-            { headers: createAuthorizationHeader(userId) }
+            { headers: createAuthorizationHeader(userId) },
           ),
         ]);
         clearPendingStatement();
@@ -638,7 +671,7 @@ export default function SessionPage({
         } else {
           // Set flag to trigger auto-generation
           hasJustCompletedRef.current = true;
-          setState('COMPLETED');
+          setState("COMPLETED");
           setCurrentStatement(null);
         }
 
@@ -646,22 +679,25 @@ export default function SessionPage({
       }
     } catch (err) {
       clearPendingStatement();
-      console.error('Failed to submit answer:', err);
+      console.error("Failed to submit answer:", err);
       revertOnFailure();
       if (axios.isAxiosError(err) && err.response?.data?.error) {
         setError(`エラー: ${err.response.data.error}`);
       } else {
-        setError('回答の送信に失敗しました。');
+        setError("回答の送信に失敗しました。");
       }
       setIsLoading(false);
     }
   };
 
-  const handleUpdateResponse = async (statementId: string, value: ResponseValue) => {
+  const handleUpdateResponse = async (
+    statementId: string,
+    value: ResponseValue,
+  ) => {
     if (!userId) return;
 
     const currentResponse = participantResponses.find(
-      (item) => item.statementId === statementId
+      (item) => item.statementId === statementId,
     );
 
     if (!currentResponse || currentResponse.value === value) {
@@ -684,19 +720,23 @@ export default function SessionPage({
       const res = await axios.post(
         `/api/sessions/${sessionId}/responses`,
         { statementId, value },
-        { headers: createAuthorizationHeader(userId) }
+        { headers: createAuthorizationHeader(userId) },
       );
       const serverResponse = res.data?.response;
       if (serverResponse) {
         syncParticipantResponseFromServer(serverResponse);
       }
     } catch (err) {
-      console.error('Failed to update response:', err);
+      console.error("Failed to update response:", err);
       revertParticipantResponse(statementId, previousSnapshot);
       if (axios.isAxiosError(err) && err.response?.data?.error) {
-        setResponsesError(`回答の更新に失敗しました: ${err.response.data.error}`);
+        setResponsesError(
+          `回答の更新に失敗しました: ${err.response.data.error}`,
+        );
       } else {
-        setResponsesError('回答の更新に失敗しました。時間をおいて再度お試しください。');
+        setResponsesError(
+          "回答の更新に失敗しました。時間をおいて再度お試しください。",
+        );
       }
     } finally {
       removeUpdatingResponseId(statementId);
@@ -713,16 +753,16 @@ export default function SessionPage({
       const response = await axios.post(
         `/api/sessions/${sessionId}/individual-report`,
         {},
-        { headers: createAuthorizationHeader(userId) }
+        { headers: createAuthorizationHeader(userId) },
       );
 
       setIndividualReport(response.data.report);
     } catch (err) {
-      console.error('Failed to generate report:', err);
+      console.error("Failed to generate report:", err);
       if (axios.isAxiosError(err) && err.response?.data?.error) {
         setError(`エラー: ${err.response.data.error}`);
       } else {
-        setError('レポートの生成に失敗しました。');
+        setError("レポートの生成に失敗しました。");
       }
     } finally {
       setIsGeneratingReport(false);
@@ -760,13 +800,13 @@ export default function SessionPage({
       <div className="min-h-screen bg-background">
         <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight">
-              セッション
-            </h1>
+            <h1 className="text-3xl font-bold tracking-tight">セッション</h1>
           </div>
           <Card>
             <CardContent className="pt-6 pb-6">
-              <p className="text-sm text-muted-foreground">{sessionInfoError}</p>
+              <p className="text-sm text-muted-foreground">
+                {sessionInfoError}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -779,11 +819,11 @@ export default function SessionPage({
       <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">
-            {sessionInfo?.title ?? 'セッション'}
+            {sessionInfo?.title ?? "セッション"}
           </h1>
         </div>
 
-        {state === 'NEEDS_NAME' && (
+        {state === "NEEDS_NAME" && (
           <Card>
             <CardHeader>
               <CardTitle>ようこそ</CardTitle>
@@ -800,9 +840,7 @@ export default function SessionPage({
                   required
                   placeholder="あなたの名前"
                 />
-                {error && (
-                  <p className="text-sm text-destructive">{error}</p>
-                )}
+                {error && <p className="text-sm text-destructive">{error}</p>}
                 <Button
                   type="submit"
                   disabled={isLoading}
@@ -816,8 +854,8 @@ export default function SessionPage({
           </Card>
         )}
 
-        {state === 'ANSWERING' && currentStatement && (
-          <Card className={isLoading ? 'opacity-50 pointer-events-none' : ''}>
+        {state === "ANSWERING" && currentStatement && (
+          <Card className={isLoading ? "opacity-50 pointer-events-none" : ""}>
             <CardContent className="pt-6">
               <div className="mb-8">
                 <p className="text-xl font-medium leading-relaxed">
@@ -875,7 +913,7 @@ export default function SessionPage({
           </Card>
         )}
 
-        {state === 'COMPLETED' && (
+        {state === "COMPLETED" && (
           <Card>
             <CardContent className="pt-6 pb-6 text-center">
               <div className="flex flex-col items-center gap-3 py-8">
@@ -890,7 +928,7 @@ export default function SessionPage({
         )}
 
         {/* Previous Responses & Individual Report - Show after joining */}
-        {(state === 'ANSWERING' || state === 'COMPLETED') && (
+        {(state === "ANSWERING" || state === "COMPLETED") && (
           <>
             <Card className="mt-8">
               <CardHeader>
@@ -905,7 +943,10 @@ export default function SessionPage({
                 {isLoadingResponses ? (
                   <div className="space-y-3">
                     {[0, 1, 2].map((index) => (
-                      <div key={index} className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3">
+                      <div
+                        key={index}
+                        className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3"
+                      >
                         <Skeleton className="h-4 w-3/4" />
                         <div className="flex gap-2">
                           <Skeleton className="h-6 w-20" />
@@ -918,8 +959,13 @@ export default function SessionPage({
                 ) : participantResponses.length > 0 ? (
                   <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
                     {participantResponses.map((response) => {
-                      const isPending = pendingAnswerStatementIdsRef.current.has(response.statementId);
-                      const isUpdating = updatingResponseIds.has(response.statementId);
+                      const isPending =
+                        pendingAnswerStatementIdsRef.current.has(
+                          response.statementId,
+                        );
+                      const isUpdating = updatingResponseIds.has(
+                        response.statementId,
+                      );
                       return (
                         <div
                           key={response.statementId}
@@ -931,18 +977,29 @@ export default function SessionPage({
                           <div className="mt-3 flex flex-wrap gap-2">
                             {RESPONSE_CHOICES.map((choice) => {
                               const isActive = response.value === choice.value;
-                              const isDisabled = isPending || isUpdating || isLoading || isActive;
+                              const isDisabled =
+                                isPending ||
+                                isUpdating ||
+                                isLoading ||
+                                isActive;
 
                               return (
                                 <button
                                   key={choice.value}
                                   type="button"
-                                  onClick={() => handleUpdateResponse(response.statementId, choice.value)}
+                                  onClick={() =>
+                                    handleUpdateResponse(
+                                      response.statementId,
+                                      choice.value,
+                                    )
+                                  }
                                   disabled={isDisabled}
                                   className={cn(
-                                    'flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-                                    isActive ? choice.activeClass : choice.idleClass,
-                                    (isPending || isUpdating) && 'opacity-70'
+                                    "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                    isActive
+                                      ? choice.activeClass
+                                      : choice.idleClass,
+                                    (isPending || isUpdating) && "opacity-70",
                                   )}
                                 >
                                   <span>{choice.emoji}</span>
@@ -976,7 +1033,7 @@ export default function SessionPage({
                     variant="secondary"
                     size="sm"
                   >
-                    {individualReport ? 'レポートを更新' : 'レポートを生成'}
+                    {individualReport ? "レポートを更新" : "レポートを生成"}
                   </Button>
                 </div>
                 <CardDescription>
@@ -1014,7 +1071,12 @@ export default function SessionPage({
                     </div>
                   </div>
                 ) : individualReport ? (
-                  <div className={cn('markdown-body prose prose-sm max-w-none', isGeneratingReport && 'opacity-60')}>
+                  <div
+                    className={cn(
+                      "markdown-body prose prose-sm max-w-none",
+                      isGeneratingReport && "opacity-60",
+                    )}
+                  >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {individualReport.contentMarkdown}
                     </ReactMarkdown>

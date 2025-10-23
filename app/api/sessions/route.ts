@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getUserIdFromRequest } from '@/lib/auth';
-import { generateInitialStatements } from '@/lib/llm';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { getUserIdFromRequest } from "@/lib/auth";
+import { generateInitialStatements } from "@/lib/llm";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
     if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized: Missing user ID' },
-        { status: 401 }
+        { error: "Unauthorized: Missing user ID" },
+        { status: 401 },
       );
     }
 
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       const { participants, ...rest } = session;
       const isHost = session.hostUserId === userId;
       const isParticipant = participants.some(
-        (participant) => participant.userId === userId
+        (participant) => participant.userId === userId,
       );
 
       return {
@@ -54,10 +54,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ sessions: sessionsWithRoles });
   } catch (error) {
-    console.error('Sessions fetch error:', error);
+    console.error("Sessions fetch error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
@@ -67,8 +67,8 @@ export async function POST(request: NextRequest) {
     const userId = getUserIdFromRequest(request);
     if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized: Missing user ID' },
-        { status: 401 }
+        { error: "Unauthorized: Missing user ID" },
+        { status: 401 },
       );
     }
 
@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
 
     if (!title || !context) {
       return NextResponse.json(
-        { error: 'Missing required fields: title and context' },
-        { status: 400 }
+        { error: "Missing required fields: title and context" },
+        { status: 400 },
       );
     }
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       data: {
         title,
         context,
-        isPublic: typeof isPublic === 'boolean' ? isPublic : true,
+        isPublic: typeof isPublic === "boolean" ? isPublic : true,
         hostUserId: userId,
       },
     });
@@ -106,10 +106,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ session });
   } catch (error) {
-    console.error('Session creation error:', error);
+    console.error("Session creation error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

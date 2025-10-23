@@ -1,23 +1,29 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUserId } from '@/lib/useUserId';
-import { createAuthorizationHeader } from '@/lib/auth';
-import axios from 'axios';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles } from 'lucide-react';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUserId } from "@/lib/useUserId";
+import { createAuthorizationHeader } from "@/lib/auth";
+import axios from "axios";
+import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Loader2, Sparkles } from "lucide-react";
 
 export default function NewSessionPage() {
   const router = useRouter();
   const { userId, isLoading: userLoading } = useUserId();
-  const [title, setTitle] = useState('');
-  const [whatToClarify, setWhatToClarify] = useState('');
-  const [purpose, setPurpose] = useState('');
-  const [backgroundInfo, setBackgroundInfo] = useState('');
-  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
+  const [title, setTitle] = useState("");
+  const [whatToClarify, setWhatToClarify] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [backgroundInfo, setBackgroundInfo] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +31,7 @@ export default function NewSessionPage() {
     e.preventDefault();
 
     if (!userId) {
-      setError('User ID not available');
+      setError("User ID not available");
       return;
     }
 
@@ -43,19 +49,19 @@ export default function NewSessionPage() {
         contextSections.push(`【背景情報】\n${backgroundInfo}`);
       }
 
-      const context = contextSections.join('\n\n');
+      const context = contextSections.join("\n\n");
 
       const response = await axios.post(
-        '/api/sessions',
-        { title, context, isPublic: visibility === 'public' },
-        { headers: createAuthorizationHeader(userId) }
+        "/api/sessions",
+        { title, context, isPublic: visibility === "public" },
+        { headers: createAuthorizationHeader(userId) },
       );
 
       const sessionId = response.data.session.id;
       router.push(`/sessions/${sessionId}/admin`);
     } catch (err) {
-      console.error('Failed to create session:', err);
-      setError('セッションの作成に失敗しました。もう一度お試しください。');
+      console.error("Failed to create session:", err);
+      setError("セッションの作成に失敗しました。もう一度お試しください。");
       setIsSubmitting(false);
     }
   };
@@ -107,17 +113,15 @@ export default function NewSessionPage() {
               </div>
 
               <div className="space-y-3">
-                <span className="text-sm font-medium">
-                  公開設定
-                </span>
+                <span className="text-sm font-medium">公開設定</span>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <label className="flex items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
                     <input
                       type="radio"
                       name="visibility"
                       value="public"
-                      checked={visibility === 'public'}
-                      onChange={() => setVisibility('public')}
+                      checked={visibility === "public"}
+                      onChange={() => setVisibility("public")}
                       className="mt-0.5"
                     />
                     <span>
@@ -133,8 +137,8 @@ export default function NewSessionPage() {
                       type="radio"
                       name="visibility"
                       value="private"
-                      checked={visibility === 'private'}
-                      onChange={() => setVisibility('private')}
+                      checked={visibility === "private"}
+                      onChange={() => setVisibility("private")}
                       className="mt-0.5"
                     />
                     <span>
