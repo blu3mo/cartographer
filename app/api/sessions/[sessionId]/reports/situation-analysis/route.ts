@@ -7,7 +7,7 @@ type ResponseValue = -2 | -1 | 0 | 1 | 2;
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionId } = await params;
@@ -16,7 +16,7 @@ export async function POST(
     if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized: User ID not found" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -26,16 +26,13 @@ export async function POST(
     });
 
     if (!session) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     if (session.hostUserId !== userId) {
       return NextResponse.json(
         { error: "Forbidden: You are not the host of this session" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -120,12 +117,12 @@ export async function POST(
 
     // Sort statements by agreement score (descending)
     const sortedStatements = [...statementsWithStats].sort(
-      (a, b) => b.agreementScore - a.agreementScore
+      (a, b) => b.agreementScore - a.agreementScore,
     );
 
     // Get total number of unique participants
     const uniqueParticipants = new Set(
-      statements.flatMap((s) => s.responses.map((r) => r.participantUserId))
+      statements.flatMap((s) => s.responses.map((r) => r.participantUserId)),
     );
     const totalParticipants = uniqueParticipants.size;
 
@@ -158,7 +155,7 @@ export async function POST(
         ([key, responses]) => {
           const [, name] = key.split(":");
           return { name, responses };
-        }
+        },
       );
     }
 
@@ -168,7 +165,7 @@ export async function POST(
       session.context,
       sortedStatements,
       totalParticipants,
-      individualResponses
+      individualResponses,
     );
 
     // Save report to database
@@ -191,7 +188,7 @@ export async function POST(
     console.error("Error generating situation analysis report:", error);
     return NextResponse.json(
       { error: "Failed to generate report" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

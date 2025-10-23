@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-const USER_ID_KEY = 'cartographer_user_id';
+const USER_ID_KEY = "cartographer_user_id";
 
 function generateUserId(): string {
   return crypto.randomUUID();
@@ -27,6 +27,6 @@ export function useUserId() {
 }
 
 export function getUserId(): string | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   return localStorage.getItem(USER_ID_KEY);
 }
