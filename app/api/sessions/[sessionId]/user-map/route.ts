@@ -59,7 +59,7 @@ function standardize(data: number[][]): number[][] {
 
   // Standardize
   const standardized = data.map((row) =>
-    row.map((val, j) => (val - means[j]) / stds[j])
+    row.map((val, j) => (val - means[j]) / stds[j]),
   );
 
   return standardized;
@@ -67,7 +67,7 @@ function standardize(data: number[][]): number[][] {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionId } = await params;
@@ -76,7 +76,7 @@ export async function GET(
     if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized: User ID not found" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -86,16 +86,13 @@ export async function GET(
     });
 
     if (!session) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     if (session.hostUserId !== userId) {
       return NextResponse.json(
         { error: "Forbidden: You are not the host of this session" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -108,7 +105,7 @@ export async function GET(
     if (statements.length === 0) {
       return NextResponse.json(
         { error: "No statements found for this session" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -128,7 +125,7 @@ export async function GET(
           error:
             "Not enough participants for PCA analysis. At least 3 participants are required.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -144,9 +141,11 @@ export async function GET(
 
     for (const participant of participants) {
       const responseMap = new Map<string, number>();
-      participant.responses.forEach((r: { statementId: string; value: number }) => {
-        responseMap.set(r.statementId, r.value);
-      });
+      participant.responses.forEach(
+        (r: { statementId: string; value: number }) => {
+          responseMap.set(r.statementId, r.value);
+        },
+      );
 
       const responseVector = statementIds.map((stmtId: string) => {
         return responseMap.get(stmtId) ?? 0; // Fill missing responses with 0
@@ -171,7 +170,7 @@ export async function GET(
           error:
             "Not enough participants with responses for PCA analysis. At least 3 participants with responses are required.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -195,7 +194,7 @@ export async function GET(
       console.error("Loadings is undefined");
       return NextResponse.json(
         { error: "Failed to compute PCA loadings" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -204,19 +203,27 @@ export async function GET(
     console.log("Number of components:", nComponents);
 
     // Find top statements for each component
-    const getTopStatements = (componentIndex: number, topN: number): TopStatement[] => {
-      const loadingsForComponent = statements.map((stmt: { text: string }, idx: number) => {
-        // Get the loading value for this statement and component
-        // Loadings matrix is (components x features), so we access as (componentIndex, statementIndex)
-        const loadingValue = loadings.get(componentIndex, idx);
-        return {
-          text: stmt.text,
-          loading: loadingValue,
-        };
-      });
+    const getTopStatements = (
+      componentIndex: number,
+      topN: number,
+    ): TopStatement[] => {
+      const loadingsForComponent = statements.map(
+        (stmt: { text: string }, idx: number) => {
+          // Get the loading value for this statement and component
+          // Loadings matrix is (components x features), so we access as (componentIndex, statementIndex)
+          const loadingValue = loadings.get(componentIndex, idx);
+          return {
+            text: stmt.text,
+            loading: loadingValue,
+          };
+        },
+      );
 
       // Sort by absolute value of loading (descending)
-      loadingsForComponent.sort((a: TopStatement, b: TopStatement) => Math.abs(b.loading) - Math.abs(a.loading));
+      loadingsForComponent.sort(
+        (a: TopStatement, b: TopStatement) =>
+          Math.abs(b.loading) - Math.abs(a.loading),
+      );
 
       return loadingsForComponent.slice(0, topN);
     };
@@ -232,7 +239,7 @@ export async function GET(
         x: transformed.get(i, 0),
         y: nComponents >= 2 ? transformed.get(i, 1) : 0,
         responseCount: p.responseCount,
-      })
+      }),
     );
 
     const result: UserMapData = {
@@ -253,7 +260,7 @@ export async function GET(
     console.error("Error generating user map:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
