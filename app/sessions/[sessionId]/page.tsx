@@ -16,7 +16,7 @@ import {
   Skeleton,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Statement = {
@@ -1036,15 +1036,32 @@ export default function SessionPage({
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>じぶんレポート</CardTitle>
-                  <Button
-                    onClick={handleGenerateReport}
-                    disabled={isGeneratingReport}
-                    isLoading={isGeneratingReport}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    {individualReport ? "レポートを更新" : "レポートを生成"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {individualReport && (
+                      <Button
+                        onClick={() =>
+                          window.open(
+                            `/sessions/${sessionId}/print/individual`,
+                            "_blank"
+                          )
+                        }
+                        variant="ghost"
+                        size="sm"
+                        title="印刷用ページを開く"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleGenerateReport}
+                      disabled={isGeneratingReport}
+                      isLoading={isGeneratingReport}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      {individualReport ? "レポートを更新" : "レポートを生成"}
+                    </Button>
+                  </div>
                 </div>
                 <CardDescription>
                   あなたの回答から生成された個別分析レポート

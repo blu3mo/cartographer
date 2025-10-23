@@ -54,3 +54,59 @@ body {
 .markdown-body {
   background-color: transparent !important;
 }
+
+/* Print styles */
+@media print {
+  /* Remove background colors for better printing */
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+
+  /* Optimize page breaks */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+
+  p,
+  li,
+  blockquote {
+    page-break-inside: avoid;
+  }
+
+  /* Adjust margins for print */
+  @page {
+    margin: 2cm;
+  }
+
+  /* Ensure markdown content prints well */
+  .markdown-body {
+    color: black !important;
+  }
+
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3,
+  .markdown-body h4,
+  .markdown-body h5,
+  .markdown-body h6 {
+    color: black !important;
+  }
+
+  .markdown-body a {
+    color: #0366d6 !important;
+    text-decoration: underline;
+  }
+
+  /* Hide interactive elements when printing */
+  button,
+  .print\\:hidden {
+    display: none !important;
+  }
+}

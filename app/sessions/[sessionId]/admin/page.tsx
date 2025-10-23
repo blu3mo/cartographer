@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles, Plus } from "lucide-react";
+import { Loader2, Sparkles, Plus, Printer } from "lucide-react";
 import UserMap from "@/components/UserMap";
 
 interface ResponseStats {
@@ -448,13 +448,30 @@ export default function AdminPage({
         {data.latestSituationAnalysisReport && (
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>最新の現状分析レポート</CardTitle>
-              <CardDescription>
-                生成日時:{" "}
-                {new Date(
-                  data.latestSituationAnalysisReport.createdAt,
-                ).toLocaleString("ja-JP")}
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>最新の現状分析レポート</CardTitle>
+                  <CardDescription>
+                    生成日時:{" "}
+                    {new Date(
+                      data.latestSituationAnalysisReport.createdAt,
+                    ).toLocaleString("ja-JP")}
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={() =>
+                    window.open(
+                      `/sessions/${sessionId}/print/situation-analysis`,
+                      "_blank"
+                    )
+                  }
+                  variant="ghost"
+                  size="sm"
+                  title="印刷用ページを開く"
+                >
+                  <Printer className="w-4 h-4" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div
