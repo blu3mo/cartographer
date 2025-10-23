@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -24,7 +24,7 @@ interface StatementWithStats {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionId } = await params;
@@ -33,7 +33,7 @@ export async function GET(
     if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized: User ID not found" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -43,16 +43,13 @@ export async function GET(
     });
 
     if (!session) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     if (session.hostUserId !== userId) {
       return NextResponse.json(
         { error: "Forbidden: You are not the host of this session" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -130,11 +127,11 @@ export async function GET(
           },
           agreementScore,
         };
-      }
+      },
     );
 
-    // Fetch the latest situation analysis report
-    const latestReport = await prisma.situationAnalysisReport.findFirst({
+    // Fetch all situation analysis reports
+    const reports = await prisma.situationAnalysisReport.findMany({
       where: { sessionId },
       orderBy: { createdAt: "desc" },
     });
@@ -147,28 +144,26 @@ export async function GET(
         isPublic: session.isPublic,
         createdAt: session.createdAt,
         statements: statementsWithStats,
-        latestSituationAnalysisReport: latestReport
-          ? {
-              id: latestReport.id,
-              sessionId: latestReport.sessionId,
-              contentMarkdown: latestReport.contentMarkdown,
-              createdAt: latestReport.createdAt,
-            }
-          : undefined,
+        situationAnalysisReports: reports.map((report) => ({
+          id: report.id,
+          sessionId: report.sessionId,
+          contentMarkdown: report.contentMarkdown,
+          createdAt: report.createdAt,
+        })),
       },
     });
   } catch (error) {
     console.error("Error fetching admin data:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionId } = await params;
@@ -177,7 +172,7 @@ export async function PATCH(
     if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized: User ID not found" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -186,16 +181,13 @@ export async function PATCH(
     });
 
     if (!session) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     if (session.hostUserId !== userId) {
       return NextResponse.json(
         { error: "Forbidden: You are not the host of this session" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -207,23 +199,17 @@ export async function PATCH(
     };
 
     if (typeof title !== "string" || title.trim().length === 0) {
-      return NextResponse.json(
-        { error: "Invalid title" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid title" }, { status: 400 });
     }
 
     if (typeof context !== "string" || context.trim().length === 0) {
-      return NextResponse.json(
-        { error: "Invalid context" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid context" }, { status: 400 });
     }
 
     if (typeof isPublic !== "boolean") {
       return NextResponse.json(
         { error: "Invalid visibility" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -249,7 +235,7 @@ export async function PATCH(
     console.error("Error updating session:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

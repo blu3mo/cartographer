@@ -1,15 +1,21 @@
-'use client';
+"use client";
 
-import { use, useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { useUserId } from '@/lib/useUserId';
-import axios from 'axios';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles, Plus } from 'lucide-react';
-import UserMap from '@/components/UserMap';
+import axios from "axios";
+import { Loader2, Plus, Sparkles } from "lucide-react";
+import { use, useCallback, useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import UserMap from "@/components/UserMap";
+import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useUserId } from "@/lib/useUserId";
 
 interface ResponseStats {
   strongYes: number;
@@ -43,10 +49,10 @@ interface SessionAdminData {
   isPublic: boolean;
   createdAt: string;
   statements: StatementWithStats[];
-  latestSituationAnalysisReport?: SituationAnalysisReport;
+  situationAnalysisReports: SituationAnalysisReport[];
 }
 
-type SortType = 'agreement' | 'yes' | 'dontKnow' | 'no';
+type SortType = "agreement" | "yes" | "dontKnow" | "no";
 
 export default function AdminPage({
   params,
@@ -60,50 +66,56 @@ export default function AdminPage({
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generatingStatements, setGeneratingStatements] = useState(false);
-  const [sortType, setSortType] = useState<SortType>('agreement');
-  const [isReportExpanded, setIsReportExpanded] = useState(false);
-  const [editingTitle, setEditingTitle] = useState('');
-  const [editingContext, setEditingContext] = useState('');
-  const [editingVisibility, setEditingVisibility] = useState<'public' | 'private'>('public');
+  const [sortType, setSortType] = useState<SortType>("agreement");
+  const [expandedReportIds, setExpandedReportIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [editingTitle, setEditingTitle] = useState("");
+  const [editingContext, setEditingContext] = useState("");
+  const [editingVisibility, setEditingVisibility] = useState<
+    "public" | "private"
+  >("public");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isUserIdLoading || !userId) return;
-    fetchAdminData();
-  }, [userId, isUserIdLoading, sessionId]);
-
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `/api/sessions/${sessionId}/admin`,
-        {
-          headers: {
-            Authorization: `Bearer ${userId}`,
-          },
-        }
-      );
+      const response = await axios.get(`/api/sessions/${sessionId}/admin`, {
+        headers: {
+          Authorization: `Bearer ${userId}`,
+        },
+      });
       setData(response.data.data);
       setError(null);
-    } catch (err: any) {
-      console.error('Failed to fetch admin data:', err);
-      if (err.response?.status === 403) {
-        setError('このセッションの管理権限がありません。');
+    } catch (err: unknown) {
+      console.error("Failed to fetch admin data:", err);
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosError = err as { response?: { status?: number } };
+        if (axiosError.response?.status === 403) {
+          setError("このセッションの管理権限がありません。");
+        } else {
+          setError("データの取得に失敗しました。");
+        }
       } else {
-        setError('データの取得に失敗しました。');
+        setError("データの取得に失敗しました。");
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId, userId]);
+
+  useEffect(() => {
+    if (isUserIdLoading || !userId) return;
+    fetchAdminData();
+  }, [userId, isUserIdLoading, fetchAdminData]);
 
   useEffect(() => {
     if (data) {
       setEditingTitle(data.title);
       setEditingContext(data.context);
-      setEditingVisibility(data.isPublic ? 'public' : 'private');
+      setEditingVisibility(data.isPublic ? "public" : "private");
     }
   }, [data]);
 
@@ -121,13 +133,13 @@ export default function AdminPage({
         {
           title: editingTitle,
           context: editingContext,
-          isPublic: editingVisibility === 'public',
+          isPublic: editingVisibility === "public",
         },
         {
           headers: {
             Authorization: `Bearer ${userId}`,
           },
-        }
+        },
       );
 
       const updated = response.data.data as {
@@ -144,12 +156,12 @@ export default function AdminPage({
               context: updated.context,
               isPublic: updated.isPublic,
             }
-          : prev
+          : prev,
       );
-      setSettingsMessage('セッション情報を更新しました。');
+      setSettingsMessage("セッション情報を更新しました。");
     } catch (err) {
-      console.error('Failed to update session settings:', err);
-      setSettingsError('セッション情報の更新に失敗しました。');
+      console.error("Failed to update session settings:", err);
+      setSettingsError("セッション情報の更新に失敗しました。");
     } finally {
       setIsSavingSettings(false);
     }
@@ -165,18 +177,21 @@ export default function AdminPage({
           headers: {
             Authorization: `Bearer ${userId}`,
           },
-        }
+        },
       );
       // Update the data with the new report
       if (data) {
         setData({
           ...data,
-          latestSituationAnalysisReport: response.data.report,
+          situationAnalysisReports: [
+            response.data.report,
+            ...data.situationAnalysisReports,
+          ],
         });
       }
     } catch (err) {
-      console.error('Failed to generate report:', err);
-      alert('レポートの生成に失敗しました。');
+      console.error("Failed to generate report:", err);
+      alert("レポートの生成に失敗しました。");
     } finally {
       setGenerating(false);
     }
@@ -192,14 +207,14 @@ export default function AdminPage({
           headers: {
             Authorization: `Bearer ${userId}`,
           },
-        }
+        },
       );
       // Refresh the admin data to show new statements
       await fetchAdminData();
-      alert('新しいステートメントを10個生成しました。');
+      alert("新しいステートメントを10個生成しました。");
     } catch (err) {
-      console.error('Failed to generate new statements:', err);
-      alert('ステートメントの生成に失敗しました。');
+      console.error("Failed to generate new statements:", err);
+      alert("ステートメントの生成に失敗しました。");
     } finally {
       setGeneratingStatements(false);
     }
@@ -210,17 +225,19 @@ export default function AdminPage({
     const statements = [...data.statements];
 
     switch (sortType) {
-      case 'agreement':
+      case "agreement":
         return statements.sort((a, b) => b.agreementScore - a.agreementScore);
-      case 'yes':
+      case "yes":
         return statements.sort((a, b) => {
           const aYes = a.responses.strongYes + a.responses.yes;
           const bYes = b.responses.strongYes + b.responses.yes;
           return bYes - aYes;
         });
-      case 'dontKnow':
-        return statements.sort((a, b) => b.responses.dontKnow - a.responses.dontKnow);
-      case 'no':
+      case "dontKnow":
+        return statements.sort(
+          (a, b) => b.responses.dontKnow - a.responses.dontKnow,
+        );
+      case "no":
         return statements.sort((a, b) => {
           const aNo = a.responses.strongNo + a.responses.no;
           const bNo = b.responses.strongNo + b.responses.no;
@@ -307,8 +324,8 @@ export default function AdminPage({
                       type="radio"
                       name="sessionVisibility"
                       value="public"
-                      checked={editingVisibility === 'public'}
-                      onChange={() => setEditingVisibility('public')}
+                      checked={editingVisibility === "public"}
+                      onChange={() => setEditingVisibility("public")}
                       className="mt-0.5"
                     />
                     <span>
@@ -324,8 +341,8 @@ export default function AdminPage({
                       type="radio"
                       name="sessionVisibility"
                       value="private"
-                      checked={editingVisibility === 'private'}
-                      onChange={() => setEditingVisibility('private')}
+                      checked={editingVisibility === "private"}
+                      onChange={() => setEditingVisibility("private")}
                       className="mt-0.5"
                     />
                     <span>
@@ -355,9 +372,15 @@ export default function AdminPage({
               </div>
 
               {(settingsMessage || settingsError) && (
-                <Card className={settingsError ? 'border-destructive' : 'border-emerald-500'}>
+                <Card
+                  className={
+                    settingsError ? "border-destructive" : "border-emerald-500"
+                  }
+                >
                   <CardContent className="pt-6">
-                    <p className={`text-sm ${settingsError ? 'text-destructive' : 'text-emerald-600'}`}>
+                    <p
+                      className={`text-sm ${settingsError ? "text-destructive" : "text-emerald-600"}`}
+                    >
                       {settingsError ?? settingsMessage}
                     </p>
                   </CardContent>
@@ -421,38 +444,79 @@ export default function AdminPage({
           </CardContent>
         </Card>
 
-        {/* Latest Report */}
-        {data.latestSituationAnalysisReport && (
+        {/* Situation Analysis Reports */}
+        {data.situationAnalysisReports.length > 0 && (
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>最新の現状分析レポート</CardTitle>
+              <CardTitle>現状分析レポート</CardTitle>
               <CardDescription>
-                生成日時: {new Date(data.latestSituationAnalysisReport.createdAt).toLocaleString('ja-JP')}
+                全{data.situationAnalysisReports.length}件のレポート（新しい順）
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className={`relative ${!isReportExpanded ? 'max-h-32 overflow-hidden' : ''}`}>
-                <div className="markdown-body prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {data.latestSituationAnalysisReport.contentMarkdown}
-                  </ReactMarkdown>
-                </div>
-                {!isReportExpanded && (
-                  <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 30%, hsl(var(--background)) 100%)'
-                    }}
-                  />
-                )}
-              </div>
-              <div className="mt-3 text-center">
-                <button
-                  onClick={() => setIsReportExpanded(!isReportExpanded)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent"
-                >
-                  {isReportExpanded ? '▲ 折りたたむ' : '▼ 全文を表示'}
-                </button>
+              <div className="space-y-6">
+                {data.situationAnalysisReports.map((report, index) => {
+                  const isExpanded = expandedReportIds.has(report.id);
+                  const toggleExpanded = () => {
+                    setExpandedReportIds((prev) => {
+                      const newSet = new Set(prev);
+                      if (newSet.has(report.id)) {
+                        newSet.delete(report.id);
+                      } else {
+                        newSet.add(report.id);
+                      }
+                      return newSet;
+                    });
+                  };
+
+                  return (
+                    <div
+                      key={report.id}
+                      className="border rounded-lg p-4 bg-card"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          {index === 0 && (
+                            <span className="px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded">
+                              最新
+                            </span>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            生成日時:{" "}
+                            {new Date(report.createdAt).toLocaleString("ja-JP")}
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className={`relative ${!isExpanded ? "max-h-32 overflow-hidden" : ""}`}
+                      >
+                        <div className="markdown-body prose prose-sm max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {report.contentMarkdown}
+                          </ReactMarkdown>
+                        </div>
+                        {!isExpanded && (
+                          <div
+                            className="absolute inset-0 pointer-events-none"
+                            style={{
+                              background:
+                                "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 30%, hsl(var(--background)) 100%)",
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div className="mt-3 text-center">
+                        <button
+                          type="button"
+                          onClick={toggleExpanded}
+                          className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent"
+                        >
+                          {isExpanded ? "▲ 折りたたむ" : "▼ 全文を表示"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -469,7 +533,10 @@ export default function AdminPage({
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <label htmlFor="sort-select" className="text-sm text-muted-foreground">
+                <label
+                  htmlFor="sort-select"
+                  className="text-sm text-muted-foreground"
+                >
                   並び替え:
                 </label>
                 <select
@@ -505,7 +572,9 @@ function StatementCard({ statement }: { statement: StatementWithStats }) {
 
   return (
     <div className="border rounded-lg p-4 bg-card hover:shadow-sm transition-shadow">
-      <p className="text-sm font-medium mb-3 leading-relaxed">{statement.text}</p>
+      <p className="text-sm font-medium mb-3 leading-relaxed">
+        {statement.text}
+      </p>
 
       {hasResponses ? (
         <>
