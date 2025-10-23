@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUserId } from "@/lib/useUserId";
 import { createAuthorizationHeader } from "@/lib/auth";
@@ -26,6 +26,13 @@ export default function NewSessionPage() {
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    document.title = "新しいセッションを作成 - Cartographer";
+    return () => {
+      document.title = "Cartographer - 認識を可視化し、合意形成を促進する";
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
