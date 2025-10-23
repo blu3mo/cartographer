@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import axios from 'axios';
+import { useEffect, useState } from "react";
+import axios from "axios";
 import {
   ScatterChart,
   Scatter,
@@ -11,8 +11,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-} from 'recharts';
-import { Loader2 } from 'lucide-react';
+} from "recharts";
+import { Loader2 } from "lucide-react";
 
 interface ParticipantPoint {
   id: string;
@@ -57,24 +57,21 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(
-        `/api/sessions/${sessionId}/user-map`,
-        {
-          headers: {
-            Authorization: `Bearer ${userId}`,
-          },
-        }
-      );
+      const response = await axios.get(`/api/sessions/${sessionId}/user-map`, {
+        headers: {
+          Authorization: `Bearer ${userId}`,
+        },
+      });
       setData(response.data.data);
     } catch (err: any) {
-      console.error('Failed to fetch user map data:', err);
+      console.error("Failed to fetch user map data:", err);
       if (err.response?.status === 400) {
         setError(
           err.response.data.error ||
-            'PCA分析を実行できません。十分な参加者または回答が必要です。'
+            "PCA分析を実行できません。十分な参加者または回答が必要です。",
         );
       } else {
-        setError('ユーザーマップの取得に失敗しました。');
+        setError("ユーザーマップの取得に失敗しました。");
       }
     } finally {
       setLoading(false);
@@ -116,14 +113,14 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
   // Color scheme for participants
   const getParticipantColor = (index: number) => {
     const colors = [
-      '#10b981', // emerald-500
-      '#3b82f6', // blue-500
-      '#f59e0b', // amber-500
-      '#ef4444', // red-500
-      '#8b5cf6', // violet-500
-      '#ec4899', // pink-500
-      '#14b8a6', // teal-500
-      '#f97316', // orange-500
+      "#10b981", // emerald-500
+      "#3b82f6", // blue-500
+      "#f59e0b", // amber-500
+      "#ef4444", // red-500
+      "#8b5cf6", // violet-500
+      "#ec4899", // pink-500
+      "#14b8a6", // teal-500
+      "#f97316", // orange-500
     ];
     return colors[index % colors.length];
   };
@@ -152,11 +149,13 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
       {/* Explained Variance */}
       <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
         <span>
-          PC1 寄与率: <span className="font-semibold text-foreground">{variance1}%</span>
+          PC1 寄与率:{" "}
+          <span className="font-semibold text-foreground">{variance1}%</span>
         </span>
         <span className="h-1 w-1 rounded-full bg-muted-foreground" />
         <span>
-          PC2 寄与率: <span className="font-semibold text-foreground">{variance2}%</span>
+          PC2 寄与率:{" "}
+          <span className="font-semibold text-foreground">{variance2}%</span>
         </span>
       </div>
 
@@ -164,11 +163,15 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
         {/* PC1 Top Statements */}
         <div className="rounded-lg border border-muted bg-muted/20 p-3">
-          <p className="font-semibold text-foreground mb-2">PC1（横軸）の主な特徴</p>
+          <p className="font-semibold text-foreground mb-2">
+            PC1（横軸）の主な特徴
+          </p>
           <ul className="space-y-1.5">
             {data.pc1.topStatements.map((stmt, idx) => (
               <li key={idx} className="text-muted-foreground leading-relaxed">
-                <span className="inline-block w-4 text-foreground/60">#{idx + 1}</span>
+                <span className="inline-block w-4 text-foreground/60">
+                  #{idx + 1}
+                </span>
                 <span className="ml-1">{stmt.text}</span>
                 <span className="ml-2 text-[10px] opacity-60">
                   (寄与度: {Math.abs(stmt.loading).toFixed(3)})
@@ -180,11 +183,15 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
 
         {/* PC2 Top Statements */}
         <div className="rounded-lg border border-muted bg-muted/20 p-3">
-          <p className="font-semibold text-foreground mb-2">PC2（縦軸）の主な特徴</p>
+          <p className="font-semibold text-foreground mb-2">
+            PC2（縦軸）の主な特徴
+          </p>
           <ul className="space-y-1.5">
             {data.pc2.topStatements.map((stmt, idx) => (
               <li key={idx} className="text-muted-foreground leading-relaxed">
-                <span className="inline-block w-4 text-foreground/60">#{idx + 1}</span>
+                <span className="inline-block w-4 text-foreground/60">
+                  #{idx + 1}
+                </span>
                 <span className="ml-1">{stmt.text}</span>
                 <span className="ml-2 text-[10px] opacity-60">
                   (寄与度: {Math.abs(stmt.loading).toFixed(3)})
@@ -196,11 +203,9 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
       </div>
 
       {/* Scatter Chart */}
-      <div className="w-full" style={{ height: '400px' }}>
+      <div className="w-full" style={{ height: "400px" }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart
-            margin={{ top: 20, right: 30, bottom: 60, left: 60 }}
-          >
+          <ScatterChart margin={{ top: 20, right: 30, bottom: 60, left: 60 }}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
             <XAxis
               type="number"
@@ -208,9 +213,9 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
               name="PC1"
               label={{
                 value: `第1主成分 (PC1) - ${variance1}%`,
-                position: 'bottom',
+                position: "bottom",
                 offset: 40,
-                style: { fontSize: '12px', fill: '#6b7280' },
+                style: { fontSize: "12px", fill: "#6b7280" },
               }}
               stroke="#9ca3af"
             />
@@ -221,18 +226,17 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
               label={{
                 value: `第2主成分 (PC2) - ${variance2}%`,
                 angle: -90,
-                position: 'left',
+                position: "left",
                 offset: 40,
-                style: { fontSize: '12px', fill: '#6b7280' },
+                style: { fontSize: "12px", fill: "#6b7280" },
               }}
               stroke="#9ca3af"
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
-            <Scatter
-              name="参加者"
-              data={data.participants}
-              fill="#8884d8"
-            >
+            <Tooltip
+              content={<CustomTooltip />}
+              cursor={{ strokeDasharray: "3 3" }}
+            />
+            <Scatter name="参加者" data={data.participants} fill="#8884d8">
               {data.participants.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
@@ -250,21 +254,30 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
       {/* Participant Count */}
       <div className="text-center">
         <p className="text-xs text-muted-foreground">
-          参加者数: {data.participants.length}人 | 質問数: {data.totalStatements}個
+          参加者数: {data.participants.length}人 | 質問数:{" "}
+          {data.totalStatements}個
         </p>
       </div>
 
       {/* Explanation */}
       <div className="rounded-lg border border-muted bg-muted/20 p-4 text-xs text-muted-foreground leading-relaxed">
-        <p className="font-medium text-foreground mb-2">ユーザーマップについて</p>
+        <p className="font-medium text-foreground mb-2">
+          ユーザーマップについて
+        </p>
         <p>
           このマップは、参加者の回答パターンをPCA（主成分分析）により2次元に投影したものです。
           近くに配置されている参加者は、似た意見傾向を持っています。
         </p>
         <ul className="mt-2 ml-4 space-y-1 list-disc">
-          <li>第1主成分（横軸）と第2主成分（縦軸）は、回答の主要な変動パターンを表します</li>
-          <li>寄与率は、各主成分がデータ全体の変動をどれだけ説明しているかを示します</li>
-          <li>各主成分の「主な特徴」は、その軸に最も強く影響している質問を示します</li>
+          <li>
+            第1主成分（横軸）と第2主成分（縦軸）は、回答の主要な変動パターンを表します
+          </li>
+          <li>
+            寄与率は、各主成分がデータ全体の変動をどれだけ説明しているかを示します
+          </li>
+          <li>
+            各主成分の「主な特徴」は、その軸に最も強く影響している質問を示します
+          </li>
           <li>点の上にカーソルを重ねると、参加者名と詳細情報が表示されます</li>
         </ul>
       </div>
