@@ -1,6 +1,5 @@
 "use client";
 
-<<<<<<< HEAD
 import axios from "axios";
 import { Loader2, Plus, Printer, Sparkles } from "lucide-react";
 import { use, useEffect, useState } from "react";
@@ -17,35 +16,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useUserId } from "@/lib/useUserId";
-||||||| 41da0d0
-import { use, useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { useUserId } from '@/lib/useUserId';
-import axios from 'axios';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles, Plus } from 'lucide-react';
-import UserMap from '@/components/UserMap';
-=======
-import { use, useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { useUserId } from "@/lib/useUserId";
-import axios from "axios";
-import { Button } from "@/components/ui/Button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles, Plus } from "lucide-react";
-import UserMap from "@/components/UserMap";
->>>>>>> origin/main
 
 interface ResponseStats {
   strongYes: number;
