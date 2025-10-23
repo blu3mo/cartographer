@@ -1,10 +1,11 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import axios from "axios";
+import { Loader2, Plus, Sparkles } from "lucide-react";
+import { use, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useUserId } from "@/lib/useUserId";
-import axios from "axios";
+import UserMap from "@/components/UserMap";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -14,8 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles, Plus } from "lucide-react";
-import UserMap from "@/components/UserMap";
+import { useUserId } from "@/lib/useUserId";
 
 interface ResponseStats {
   strongYes: number;
@@ -49,7 +49,7 @@ interface SessionAdminData {
   isPublic: boolean;
   createdAt: string;
   statements: StatementWithStats[];
-  latestSituationAnalysisReport?: SituationAnalysisReport;
+  situationAnalysisReports: SituationAnalysisReport[];
 }
 
 type SortType = "agreement" | "yes" | "dontKnow" | "no";
@@ -67,7 +67,9 @@ export default function AdminPage({
   const [generating, setGenerating] = useState(false);
   const [generatingStatements, setGeneratingStatements] = useState(false);
   const [sortType, setSortType] = useState<SortType>("agreement");
-  const [isReportExpanded, setIsReportExpanded] = useState(false);
+  const [expandedReportIds, setExpandedReportIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [editingTitle, setEditingTitle] = useState("");
   const [editingContext, setEditingContext] = useState("");
   const [editingVisibility, setEditingVisibility] = useState<
@@ -77,12 +79,7 @@ export default function AdminPage({
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isUserIdLoading || !userId) return;
-    fetchAdminData();
-  }, [userId, isUserIdLoading, sessionId]);
-
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(`/api/sessions/${sessionId}/admin`, {
@@ -92,17 +89,27 @@ export default function AdminPage({
       });
       setData(response.data.data);
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to fetch admin data:", err);
-      if (err.response?.status === 403) {
-        setError("このセッションの管理権限がありません。");
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosError = err as { response?: { status?: number } };
+        if (axiosError.response?.status === 403) {
+          setError("このセッションの管理権限がありません。");
+        } else {
+          setError("データの取得に失敗しました。");
+        }
       } else {
         setError("データの取得に失敗しました。");
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId, userId]);
+
+  useEffect(() => {
+    if (isUserIdLoading || !userId) return;
+    fetchAdminData();
+  }, [userId, isUserIdLoading, fetchAdminData]);
 
   useEffect(() => {
     if (data) {
@@ -186,7 +193,10 @@ export default function AdminPage({
       if (data) {
         setData({
           ...data,
-          latestSituationAnalysisReport: response.data.report,
+          situationAnalysisReports: [
+            response.data.report,
+            ...data.situationAnalysisReports,
+          ],
         });
       }
     } catch (err) {
@@ -444,44 +454,79 @@ export default function AdminPage({
           </CardContent>
         </Card>
 
-        {/* Latest Report */}
-        {data.latestSituationAnalysisReport && (
+        {/* Situation Analysis Reports */}
+        {data.situationAnalysisReports.length > 0 && (
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>最新の現状分析レポート</CardTitle>
+              <CardTitle>現状分析レポート</CardTitle>
               <CardDescription>
-                生成日時:{" "}
-                {new Date(
-                  data.latestSituationAnalysisReport.createdAt,
-                ).toLocaleString("ja-JP")}
+                全{data.situationAnalysisReports.length}件のレポート（新しい順）
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div
-                className={`relative ${!isReportExpanded ? "max-h-32 overflow-hidden" : ""}`}
-              >
-                <div className="markdown-body prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {data.latestSituationAnalysisReport.contentMarkdown}
-                  </ReactMarkdown>
-                </div>
-                {!isReportExpanded && (
-                  <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      background:
-                        "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 30%, hsl(var(--background)) 100%)",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="mt-3 text-center">
-                <button
-                  onClick={() => setIsReportExpanded(!isReportExpanded)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent"
-                >
-                  {isReportExpanded ? "▲ 折りたたむ" : "▼ 全文を表示"}
-                </button>
+              <div className="space-y-6">
+                {data.situationAnalysisReports.map((report, index) => {
+                  const isExpanded = expandedReportIds.has(report.id);
+                  const toggleExpanded = () => {
+                    setExpandedReportIds((prev) => {
+                      const newSet = new Set(prev);
+                      if (newSet.has(report.id)) {
+                        newSet.delete(report.id);
+                      } else {
+                        newSet.add(report.id);
+                      }
+                      return newSet;
+                    });
+                  };
+
+                  return (
+                    <div
+                      key={report.id}
+                      className="border rounded-lg p-4 bg-card"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          {index === 0 && (
+                            <span className="px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded">
+                              最新
+                            </span>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            生成日時:{" "}
+                            {new Date(report.createdAt).toLocaleString("ja-JP")}
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className={`relative ${!isExpanded ? "max-h-32 overflow-hidden" : ""}`}
+                      >
+                        <div className="markdown-body prose prose-sm max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {report.contentMarkdown}
+                          </ReactMarkdown>
+                        </div>
+                        {!isExpanded && (
+                          <div
+                            className="absolute inset-0 pointer-events-none"
+                            style={{
+                              background:
+                                "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 30%, hsl(var(--background)) 100%)",
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div className="mt-3 text-center">
+                        <button
+                          type="button"
+                          onClick={toggleExpanded}
+                          className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent"
+                        >
+                          {isExpanded ? "▲ 折りたたむ" : "▼ 全文を表示"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

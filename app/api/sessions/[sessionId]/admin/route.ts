@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -130,8 +130,8 @@ export async function GET(
       },
     );
 
-    // Fetch the latest situation analysis report
-    const latestReport = await prisma.situationAnalysisReport.findFirst({
+    // Fetch all situation analysis reports
+    const reports = await prisma.situationAnalysisReport.findMany({
       where: { sessionId },
       orderBy: { createdAt: "desc" },
     });
@@ -144,14 +144,12 @@ export async function GET(
         isPublic: session.isPublic,
         createdAt: session.createdAt,
         statements: statementsWithStats,
-        latestSituationAnalysisReport: latestReport
-          ? {
-              id: latestReport.id,
-              sessionId: latestReport.sessionId,
-              contentMarkdown: latestReport.contentMarkdown,
-              createdAt: latestReport.createdAt,
-            }
-          : undefined,
+        situationAnalysisReports: reports.map((report) => ({
+          id: report.id,
+          sessionId: report.sessionId,
+          contentMarkdown: report.contentMarkdown,
+          createdAt: report.createdAt,
+        })),
       },
     });
   } catch (error) {
