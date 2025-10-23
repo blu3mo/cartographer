@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getUserIdFromRequest } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getUserIdFromRequest } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionId } = await params;
@@ -12,8 +12,8 @@ export async function GET(
 
     if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized: Missing user ID' },
-        { status: 401 }
+        { error: "Unauthorized: Missing user ID" },
+        { status: 401 },
       );
     }
 
@@ -29,21 +29,21 @@ export async function GET(
 
     if (!participant) {
       return NextResponse.json(
-        { error: 'Unauthorized: Not a participant in this session' },
-        { status: 401 }
+        { error: "Unauthorized: Not a participant in this session" },
+        { status: 401 },
       );
     }
 
     // Get excludeStatementId(s) from query params if provided
     const { searchParams } = new URL(request.url);
     const excludeStatementIds = new Set(
-      searchParams.getAll('excludeStatementId').filter(Boolean)
+      searchParams.getAll("excludeStatementId").filter(Boolean),
     );
 
     // Get all statements for this session
     const allStatements = await prisma.statement.findMany({
       where: { sessionId },
-      orderBy: { orderIndex: 'asc' },
+      orderBy: { orderIndex: "asc" },
     });
 
     // Get all responses by this participant
@@ -56,18 +56,18 @@ export async function GET(
     });
 
     const answeredStatementIds = new Set(
-      existingResponses.map((r) => r.statementId)
+      existingResponses.map((r) => r.statementId),
     );
 
     // Filter unanswered statements
     let unansweredStatements = allStatements.filter(
-      (s) => !answeredStatementIds.has(s.id)
+      (s) => !answeredStatementIds.has(s.id),
     );
 
     // Exclude the currently displayed statement(s) if provided
     if (excludeStatementIds.size > 0) {
       unansweredStatements = unansweredStatements.filter(
-        (s) => !excludeStatementIds.has(s.id)
+        (s) => !excludeStatementIds.has(s.id),
       );
     }
 
@@ -81,10 +81,10 @@ export async function GET(
 
     return NextResponse.json({ statement });
   } catch (error) {
-    console.error('Get next statement error:', error);
+    console.error("Get next statement error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

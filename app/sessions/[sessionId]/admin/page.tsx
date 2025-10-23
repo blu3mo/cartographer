@@ -119,6 +119,16 @@ export default function AdminPage({
     }
   }, [data]);
 
+  // Update document title when session data is available
+  useEffect(() => {
+    if (data?.title) {
+      document.title = `${data.title} - 管理画面 - Cartographer`;
+    }
+    return () => {
+      document.title = "Cartographer - 認識を可視化し、合意形成を促進する";
+    };
+  }, [data?.title]);
+
   const handleSaveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!userId) return;
