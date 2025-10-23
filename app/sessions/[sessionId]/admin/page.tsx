@@ -419,7 +419,7 @@ export default function AdminPage({
           <CardHeader>
             <CardTitle>コントロールパネル</CardTitle>
             <CardDescription>
-              レポートの生成、新しいステートメントの追加、セッションの削除
+              レポートの生成と新しいステートメントの追加
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -441,15 +441,6 @@ export default function AdminPage({
               >
                 <Plus className="h-4 w-4" />
                 新しいStatementを10個生成
-              </Button>
-              <Button
-                onClick={handleDeleteSession}
-                disabled={deleting}
-                isLoading={deleting}
-                variant="destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-                セッションを削除
               </Button>
             </div>
           </CardContent>
@@ -512,7 +503,7 @@ export default function AdminPage({
         )}
 
         {/* Statements List */}
-        <Card>
+        <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -548,6 +539,28 @@ export default function AdminPage({
                 <StatementCard key={statement.id} statement={statement} />
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Delete Session */}
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">危険な操作</CardTitle>
+            <CardDescription>
+              この操作は取り消すことができません
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={handleDeleteSession}
+              disabled={deleting}
+              isLoading={deleting}
+              variant="destructive"
+              className="w-full sm:w-auto"
+            >
+              <Trash2 className="h-4 w-4" />
+              セッションを削除
+            </Button>
           </CardContent>
         </Card>
       </div>
