@@ -1,15 +1,21 @@
-'use client';
+"use client";
 
-import { use, useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { useUserId } from '@/lib/useUserId';
-import axios from 'axios';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles, Plus } from 'lucide-react';
-import UserMap from '@/components/UserMap';
+import { use, useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useUserId } from "@/lib/useUserId";
+import axios from "axios";
+import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Loader2, Sparkles, Plus, Trash2 } from "lucide-react";
+import UserMap from "@/components/UserMap";
 
 interface ResponseStats {
   strongYes: number;
@@ -46,7 +52,7 @@ interface SessionAdminData {
   latestSituationAnalysisReport?: SituationAnalysisReport;
 }
 
-type SortType = 'agreement' | 'yes' | 'dontKnow' | 'no';
+type SortType = "agreement" | "yes" | "dontKnow" | "no";
 
 export default function AdminPage({
   params,
@@ -60,14 +66,18 @@ export default function AdminPage({
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generatingStatements, setGeneratingStatements] = useState(false);
-  const [sortType, setSortType] = useState<SortType>('agreement');
+  const [sortType, setSortType] = useState<SortType>("agreement");
   const [isReportExpanded, setIsReportExpanded] = useState(false);
-  const [editingTitle, setEditingTitle] = useState('');
-  const [editingContext, setEditingContext] = useState('');
-  const [editingVisibility, setEditingVisibility] = useState<'public' | 'private'>('public');
+  const [editingTitle, setEditingTitle] = useState("");
+  const [editingContext, setEditingContext] = useState("");
+  const [editingVisibility, setEditingVisibility] = useState<
+    "public" | "private"
+  >("public");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (isUserIdLoading || !userId) return;
@@ -77,22 +87,19 @@ export default function AdminPage({
   const fetchAdminData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `/api/sessions/${sessionId}/admin`,
-        {
-          headers: {
-            Authorization: `Bearer ${userId}`,
-          },
-        }
-      );
+      const response = await axios.get(`/api/sessions/${sessionId}/admin`, {
+        headers: {
+          Authorization: `Bearer ${userId}`,
+        },
+      });
       setData(response.data.data);
       setError(null);
     } catch (err: any) {
-      console.error('Failed to fetch admin data:', err);
+      console.error("Failed to fetch admin data:", err);
       if (err.response?.status === 403) {
-        setError('このセッションの管理権限がありません。');
+        setError("このセッションの管理権限がありません。");
       } else {
-        setError('データの取得に失敗しました。');
+        setError("データの取得に失敗しました。");
       }
     } finally {
       setLoading(false);
@@ -103,7 +110,7 @@ export default function AdminPage({
     if (data) {
       setEditingTitle(data.title);
       setEditingContext(data.context);
-      setEditingVisibility(data.isPublic ? 'public' : 'private');
+      setEditingVisibility(data.isPublic ? "public" : "private");
     }
   }, [data]);
 
@@ -121,13 +128,13 @@ export default function AdminPage({
         {
           title: editingTitle,
           context: editingContext,
-          isPublic: editingVisibility === 'public',
+          isPublic: editingVisibility === "public",
         },
         {
           headers: {
             Authorization: `Bearer ${userId}`,
           },
-        }
+        },
       );
 
       const updated = response.data.data as {
@@ -144,12 +151,12 @@ export default function AdminPage({
               context: updated.context,
               isPublic: updated.isPublic,
             }
-          : prev
+          : prev,
       );
-      setSettingsMessage('セッション情報を更新しました。');
+      setSettingsMessage("セッション情報を更新しました。");
     } catch (err) {
-      console.error('Failed to update session settings:', err);
-      setSettingsError('セッション情報の更新に失敗しました。');
+      console.error("Failed to update session settings:", err);
+      setSettingsError("セッション情報の更新に失敗しました。");
     } finally {
       setIsSavingSettings(false);
     }
@@ -165,7 +172,7 @@ export default function AdminPage({
           headers: {
             Authorization: `Bearer ${userId}`,
           },
-        }
+        },
       );
       // Update the data with the new report
       if (data) {
@@ -175,8 +182,8 @@ export default function AdminPage({
         });
       }
     } catch (err) {
-      console.error('Failed to generate report:', err);
-      alert('レポートの生成に失敗しました。');
+      console.error("Failed to generate report:", err);
+      alert("レポートの生成に失敗しました。");
     } finally {
       setGenerating(false);
     }
@@ -192,16 +199,33 @@ export default function AdminPage({
           headers: {
             Authorization: `Bearer ${userId}`,
           },
-        }
+        },
       );
-      // Refresh the admin data to show new statements
       await fetchAdminData();
-      alert('新しいステートメントを10個生成しました。');
+      alert("新しいステートメントを10個生成しました。");
     } catch (err) {
-      console.error('Failed to generate new statements:', err);
-      alert('ステートメントの生成に失敗しました。');
+      console.error("Failed to generate new statements:", err);
+      alert("ステートメントの生成に失敗しました。");
     } finally {
       setGeneratingStatements(false);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!userId) return;
+
+    try {
+      setIsDeleting(true);
+      await axios.delete(`/api/sessions/${sessionId}/admin`, {
+        headers: {
+          Authorization: `Bearer ${userId}`,
+        },
+      });
+      window.location.href = "/";
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+      alert("セッションの削除に失敗しました。");
+      setIsDeleting(false);
     }
   };
 
@@ -210,17 +234,19 @@ export default function AdminPage({
     const statements = [...data.statements];
 
     switch (sortType) {
-      case 'agreement':
+      case "agreement":
         return statements.sort((a, b) => b.agreementScore - a.agreementScore);
-      case 'yes':
+      case "yes":
         return statements.sort((a, b) => {
           const aYes = a.responses.strongYes + a.responses.yes;
           const bYes = b.responses.strongYes + b.responses.yes;
           return bYes - aYes;
         });
-      case 'dontKnow':
-        return statements.sort((a, b) => b.responses.dontKnow - a.responses.dontKnow);
-      case 'no':
+      case "dontKnow":
+        return statements.sort(
+          (a, b) => b.responses.dontKnow - a.responses.dontKnow,
+        );
+      case "no":
         return statements.sort((a, b) => {
           const aNo = a.responses.strongNo + a.responses.no;
           const bNo = b.responses.strongNo + b.responses.no;
@@ -307,8 +333,8 @@ export default function AdminPage({
                       type="radio"
                       name="sessionVisibility"
                       value="public"
-                      checked={editingVisibility === 'public'}
-                      onChange={() => setEditingVisibility('public')}
+                      checked={editingVisibility === "public"}
+                      onChange={() => setEditingVisibility("public")}
                       className="mt-0.5"
                     />
                     <span>
@@ -324,8 +350,8 @@ export default function AdminPage({
                       type="radio"
                       name="sessionVisibility"
                       value="private"
-                      checked={editingVisibility === 'private'}
-                      onChange={() => setEditingVisibility('private')}
+                      checked={editingVisibility === "private"}
+                      onChange={() => setEditingVisibility("private")}
                       className="mt-0.5"
                     />
                     <span>
@@ -355,9 +381,15 @@ export default function AdminPage({
               </div>
 
               {(settingsMessage || settingsError) && (
-                <Card className={settingsError ? 'border-destructive' : 'border-emerald-500'}>
+                <Card
+                  className={
+                    settingsError ? "border-destructive" : "border-emerald-500"
+                  }
+                >
                   <CardContent className="pt-6">
-                    <p className={`text-sm ${settingsError ? 'text-destructive' : 'text-emerald-600'}`}>
+                    <p
+                      className={`text-sm ${settingsError ? "text-destructive" : "text-emerald-600"}`}
+                    >
                       {settingsError ?? settingsMessage}
                     </p>
                   </CardContent>
@@ -373,6 +405,51 @@ export default function AdminPage({
                 セッション情報を保存
               </Button>
             </form>
+
+            <div className="mt-8 pt-6 border-t border-border">
+              <h3 className="text-sm font-medium text-destructive mb-2">
+                危険な操作
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                このセッションを完全に削除します。この操作は取り消せません。
+              </p>
+              {!showDeleteConfirm ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-full sm:w-auto"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  セッションを削除
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-destructive">
+                    本当にこのセッションを削除しますか？
+                  </p>
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={handleDeleteSession}
+                      disabled={isDeleting}
+                      isLoading={isDeleting}
+                    >
+                      削除を実行
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeleting}
+                    >
+                      キャンセル
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -427,11 +504,16 @@ export default function AdminPage({
             <CardHeader>
               <CardTitle>最新の現状分析レポート</CardTitle>
               <CardDescription>
-                生成日時: {new Date(data.latestSituationAnalysisReport.createdAt).toLocaleString('ja-JP')}
+                生成日時:{" "}
+                {new Date(
+                  data.latestSituationAnalysisReport.createdAt,
+                ).toLocaleString("ja-JP")}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className={`relative ${!isReportExpanded ? 'max-h-32 overflow-hidden' : ''}`}>
+              <div
+                className={`relative ${!isReportExpanded ? "max-h-32 overflow-hidden" : ""}`}
+              >
                 <div className="markdown-body prose prose-sm max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {data.latestSituationAnalysisReport.contentMarkdown}
@@ -441,17 +523,19 @@ export default function AdminPage({
                   <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
-                      background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 30%, hsl(var(--background)) 100%)'
+                      background:
+                        "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 30%, hsl(var(--background)) 100%)",
                     }}
                   />
                 )}
               </div>
               <div className="mt-3 text-center">
                 <button
+                  type="button"
                   onClick={() => setIsReportExpanded(!isReportExpanded)}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent"
                 >
-                  {isReportExpanded ? '▲ 折りたたむ' : '▼ 全文を表示'}
+                  {isReportExpanded ? "▲ 折りたたむ" : "▼ 全文を表示"}
                 </button>
               </div>
             </CardContent>
@@ -469,7 +553,10 @@ export default function AdminPage({
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <label htmlFor="sort-select" className="text-sm text-muted-foreground">
+                <label
+                  htmlFor="sort-select"
+                  className="text-sm text-muted-foreground"
+                >
                   並び替え:
                 </label>
                 <select
@@ -505,7 +592,9 @@ function StatementCard({ statement }: { statement: StatementWithStats }) {
 
   return (
     <div className="border rounded-lg p-4 bg-card hover:shadow-sm transition-shadow">
-      <p className="text-sm font-medium mb-3 leading-relaxed">{statement.text}</p>
+      <p className="text-sm font-medium mb-3 leading-relaxed">
+        {statement.text}
+      </p>
 
       {hasResponses ? (
         <>
