@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getUserIdFromRequest } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getUserIdFromRequest } from "@/lib/auth";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionId } = await params;
@@ -12,8 +12,8 @@ export async function POST(
 
     if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized: Missing user ID' },
-        { status: 401 }
+        { error: "Unauthorized: Missing user ID" },
+        { status: 401 },
       );
     }
 
@@ -22,8 +22,8 @@ export async function POST(
 
     if (!name) {
       return NextResponse.json(
-        { error: 'Missing required field: name' },
-        { status: 400 }
+        { error: "Missing required field: name" },
+        { status: 400 },
       );
     }
 
@@ -33,10 +33,7 @@ export async function POST(
     });
 
     if (!session) {
-      return NextResponse.json(
-        { error: 'Session not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     // Check if participant already exists
@@ -51,8 +48,8 @@ export async function POST(
 
     if (existingParticipant) {
       return NextResponse.json(
-        { error: 'Already participating in this session' },
-        { status: 409 }
+        { error: "Already participating in this session" },
+        { status: 409 },
       );
     }
 
@@ -67,10 +64,10 @@ export async function POST(
 
     return NextResponse.json({ participant });
   } catch (error) {
-    console.error('Participant registration error:', error);
+    console.error("Participant registration error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

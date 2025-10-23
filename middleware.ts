@@ -1,24 +1,24 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const ipAllowlist = (process.env.ALLOWED_IPS ?? '')
-  .split(',')
+const ipAllowlist = (process.env.ALLOWED_IPS ?? "")
+  .split(",")
   .map((ip) => ip.trim())
   .filter(Boolean);
 
 const isIpRestrictionEnabled = ipAllowlist.length > 0;
 
-const basicAuthUsername = process.env.BASIC_AUTH_USERNAME ?? '';
-const basicAuthPassword = process.env.BASIC_AUTH_PASSWORD ?? '';
-const basicAuthRealm = process.env.BASIC_AUTH_REALM ?? 'Restricted';
+const basicAuthUsername = process.env.BASIC_AUTH_USERNAME ?? "";
+const basicAuthPassword = process.env.BASIC_AUTH_PASSWORD ?? "";
+const basicAuthRealm = process.env.BASIC_AUTH_REALM ?? "Restricted";
 const isBasicAuthEnabled = Boolean(basicAuthUsername && basicAuthPassword);
 
-const BASIC_AUTH_COOKIE_NAME = 'basic-auth-session';
+const BASIC_AUTH_COOKIE_NAME = "basic-auth-session";
 
 let cachedBasicCookieValue: string | null = null;
 
 export async function middleware(request: NextRequest) {
-  if (request.method === 'OPTIONS') {
+  if (request.method === "OPTIONS") {
     return NextResponse.next();
   }
 
@@ -50,10 +50,12 @@ function enforceIpAllowlist(request: NextRequest): NextResponse | undefined {
     return undefined;
   }
 
-  return new NextResponse('Forbidden', { status: 403 });
+  return new NextResponse("Forbidden", { status: 403 });
 }
 
-async function enforceBasicAuth(request: NextRequest): Promise<NextResponse | undefined> {
+async function enforceBasicAuth(
+  request: NextRequest,
+): Promise<NextResponse | undefined> {
   const expectedCookieValue = await getBasicCookieValue();
   const existingCookie = request.cookies.get(BASIC_AUTH_COOKIE_NAME);
 
@@ -61,8 +63,8 @@ async function enforceBasicAuth(request: NextRequest): Promise<NextResponse | un
     return undefined;
   }
 
-  const header = request.headers.get('authorization');
-  if (!header || !header.startsWith('Basic ')) {
+  const header = request.headers.get("authorization");
+  if (!header || !header.startsWith("Basic ")) {
     return unauthorizedResponse();
   }
 
@@ -72,7 +74,7 @@ async function enforceBasicAuth(request: NextRequest): Promise<NextResponse | un
     return unauthorizedResponse();
   }
 
-  const separatorIndex = decodedCredentials.indexOf(':');
+  const separatorIndex = decodedCredentials.indexOf(":");
   if (separatorIndex === -1) {
     return unauthorizedResponse();
   }
@@ -89,9 +91,9 @@ async function enforceBasicAuth(request: NextRequest): Promise<NextResponse | un
     name: BASIC_AUTH_COOKIE_NAME,
     value: expectedCookieValue,
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
   });
 
   return response;
@@ -101,7 +103,7 @@ function decodeBase64(value: string): string {
   try {
     return atob(value);
   } catch {
-    return '';
+    return "";
   }
 }
 
@@ -118,26 +120,26 @@ async function getBasicCookieValue(): Promise<string> {
 async function sha256Hex(value: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', data);
+  const digest = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(digest));
-  return hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function getClientIp(request: NextRequest): string | null {
-  const forwarded = request.headers.get('x-forwarded-for');
+  const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
-    const [first] = forwarded.split(',');
+    const [first] = forwarded.split(",");
     if (first && first.trim()) {
       return first.trim();
     }
   }
 
   const fallbackHeaders = [
-    'x-real-ip',
-    'x-client-ip',
-    'cf-connecting-ip',
-    'true-client-ip',
-    'x-cluster-client-ip',
+    "x-real-ip",
+    "x-client-ip",
+    "cf-connecting-ip",
+    "true-client-ip",
+    "x-cluster-client-ip",
   ];
 
   for (const header of fallbackHeaders) {
@@ -151,10 +153,10 @@ function getClientIp(request: NextRequest): string | null {
 }
 
 function unauthorizedResponse(): NextResponse {
-  return new NextResponse('Unauthorized', {
+  return new NextResponse("Unauthorized", {
     status: 401,
     headers: {
-      'WWW-Authenticate': `Basic realm="${basicAuthRealm}"`,
+      "WWW-Authenticate": `Basic realm="${basicAuthRealm}"`,
     },
   });
 }

@@ -5,7 +5,7 @@ import { generateIndividualReport } from "@/lib/llm";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionId } = await params;
@@ -14,7 +14,7 @@ export async function GET(
     if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized: User ID not found" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -33,7 +33,7 @@ export async function GET(
     if (!participant) {
       return NextResponse.json(
         { error: "Forbidden: You are not a participant in this session" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -56,14 +56,14 @@ export async function GET(
     console.error("Error fetching individual report:", error);
     return NextResponse.json(
       { error: "Failed to fetch individual report" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionId } = await params;
@@ -72,7 +72,7 @@ export async function POST(
     if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized: User ID not found" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -89,7 +89,7 @@ export async function POST(
     if (!participant) {
       return NextResponse.json(
         { error: "Forbidden: You are not a participant in this session" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -99,10 +99,7 @@ export async function POST(
     });
 
     if (!session) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     // Fetch all responses for this participant with statement text
@@ -119,7 +116,7 @@ export async function POST(
     if (responses.length === 0) {
       return NextResponse.json(
         { error: "No responses found. Please answer some questions first." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -134,7 +131,7 @@ export async function POST(
       session.title,
       session.context,
       responsesWithStatement,
-      participant.name
+      participant.name,
     );
 
     // Save report to database
@@ -172,7 +169,7 @@ export async function POST(
     console.error("Error generating individual report:", error);
     return NextResponse.json(
       { error: "Failed to generate individual report" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
