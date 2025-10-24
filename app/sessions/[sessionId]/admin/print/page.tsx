@@ -147,18 +147,30 @@ export default function PrintReportPage({
           }
           
           .markdown-body {
-            page-break-inside: avoid;
+            break-inside: auto;
+            page-break-inside: auto;
           }
-          
+
           .markdown-body h1,
           .markdown-body h2,
           .markdown-body h3 {
+            break-after: avoid-page;
             page-break-after: avoid;
           }
-          
+
           .markdown-body p,
           .markdown-body ul,
-          .markdown-body ol {
+          .markdown-body ol,
+          .markdown-body li {
+            break-inside: auto;
+            page-break-inside: auto;
+            widows: 2;
+            orphans: 2;
+          }
+
+          .markdown-body table,
+          .markdown-body pre {
+            break-inside: avoid;
             page-break-inside: avoid;
           }
         }
