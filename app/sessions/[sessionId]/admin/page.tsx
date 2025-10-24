@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { Loader2, Plus, Printer, Sparkles } from "lucide-react";
+import { Loader2, Plus, Printer, Sparkles, Trash2 } from "lucide-react";
 import { use, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -66,6 +66,7 @@ export default function AdminPage({
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generatingStatements, setGeneratingStatements] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [sortType, setSortType] = useState<SortType>("agreement");
   const [isReportExpanded, setIsReportExpanded] = useState(false);
   const [editingTitle, setEditingTitle] = useState("");
@@ -217,6 +218,30 @@ export default function AdminPage({
       alert("ステートメントの生成に失敗しました。");
     } finally {
       setGeneratingStatements(false);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (
+      !confirm("このセッションを完全に削除しますか？この操作は取り消せません。")
+    ) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await axios.delete(`/api/sessions/${sessionId}/admin`, {
+        headers: {
+          Authorization: `Bearer ${userId}`,
+        },
+      });
+      alert("セッションを削除しました。");
+      window.location.href = "/";
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+      alert("セッションの削除に失敗しました。");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -502,7 +527,7 @@ export default function AdminPage({
         )}
 
         {/* Statements List */}
-        <Card>
+        <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -538,6 +563,28 @@ export default function AdminPage({
                 <StatementCard key={statement.id} statement={statement} />
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Delete Session */}
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">危険な操作</CardTitle>
+            <CardDescription>
+              このセッションを完全に削除します。この操作は取り消せません。
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={handleDeleteSession}
+              disabled={deleting}
+              isLoading={deleting}
+              variant="destructive"
+              className="w-full sm:w-auto"
+            >
+              <Trash2 className="h-4 w-4" />
+              セッションを削除
+            </Button>
           </CardContent>
         </Card>
       </div>
