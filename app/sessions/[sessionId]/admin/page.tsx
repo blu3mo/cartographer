@@ -1,10 +1,11 @@
 "use client";
 
+import axios from "axios";
+import { Loader2, Plus, Printer, Sparkles, Trash2 } from "lucide-react";
 import { use, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useUserId } from "@/lib/useUserId";
-import axios from "axios";
+import UserMap from "@/components/UserMap";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -14,8 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles, Plus, Trash2 } from "lucide-react";
-import UserMap from "@/components/UserMap";
+import { useUserId } from "@/lib/useUserId";
 
 interface ResponseStats {
   strongYes: number;
@@ -473,13 +473,27 @@ export default function AdminPage({
         {data.latestSituationAnalysisReport && (
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>最新の現状分析レポート</CardTitle>
-              <CardDescription>
-                生成日時:{" "}
-                {new Date(
-                  data.latestSituationAnalysisReport.createdAt,
-                ).toLocaleString("ja-JP")}
-              </CardDescription>
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle>最新の現状分析レポート</CardTitle>
+                  <CardDescription>
+                    生成日時:{" "}
+                    {new Date(
+                      data.latestSituationAnalysisReport.createdAt,
+                    ).toLocaleString("ja-JP")}
+                  </CardDescription>
+                </div>
+                <a
+                  href={`/sessions/${sessionId}/admin/print`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-accent"
+                  title="印刷用ページを開く"
+                >
+                  <Printer className="h-4 w-4" />
+                  <span>印刷用</span>
+                </a>
+              </div>
             </CardHeader>
             <CardContent>
               <div
