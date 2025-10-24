@@ -62,17 +62,33 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
           Authorization: `Bearer ${userId}`,
         },
       });
-      setData(response.data.data);
-    } catch (err: any) {
-      console.error("Failed to fetch user map data:", err);
-      if (err.response?.status === 400) {
+
+      const payload = response.data;
+
+      if (payload?.status === "insufficient-data") {
+        setData(null);
         setError(
-          err.response.data.error ||
+          payload.reason ||
             "PCA分析を実行できません。十分な参加者または回答が必要です。",
         );
-      } else {
-        setError("ユーザーマップの取得に失敗しました。");
+        return;
       }
+
+      if (payload?.status === "ok" && payload.data) {
+        setData(payload.data);
+        return;
+      }
+
+      if (payload?.data) {
+        setData(payload.data);
+        return;
+      }
+
+      setData(null);
+      setError("ユーザーマップのデータが取得できませんでした。");
+    } catch (err: any) {
+      console.error("Failed to fetch user map data:", err);
+      setError("ユーザーマップの取得に失敗しました。");
     } finally {
       setLoading(false);
     }

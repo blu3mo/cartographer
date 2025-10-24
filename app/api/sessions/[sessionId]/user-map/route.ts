@@ -28,6 +28,13 @@ interface UserMapData {
   totalStatements: number;
 }
 
+function insufficientDataResponse(message: string) {
+  return NextResponse.json({
+    status: "insufficient-data",
+    reason: message,
+  });
+}
+
 /**
  * Standardize data (mean=0, std=1)
  */
@@ -103,9 +110,8 @@ export async function GET(
     });
 
     if (statements.length === 0) {
-      return NextResponse.json(
-        { error: "No statements found for this session" },
-        { status: 400 },
+      return insufficientDataResponse(
+        "このセッションには質問がまだ設定されていません。",
       );
     }
 
@@ -120,12 +126,8 @@ export async function GET(
     });
 
     if (participants.length < 3) {
-      return NextResponse.json(
-        {
-          error:
-            "Not enough participants for PCA analysis. At least 3 participants are required.",
-        },
-        { status: 400 },
+      return insufficientDataResponse(
+        "PCA分析を実行するには最低3人の参加者が必要です。",
       );
     }
 
@@ -165,12 +167,8 @@ export async function GET(
     }
 
     if (participantData.length < 3) {
-      return NextResponse.json(
-        {
-          error:
-            "Not enough participants with responses for PCA analysis. At least 3 participants with responses are required.",
-        },
-        { status: 400 },
+      return insufficientDataResponse(
+        "PCA分析を実行するには最低3人の参加者が回答する必要があります。",
       );
     }
 
@@ -255,7 +253,7 @@ export async function GET(
       totalStatements: statements.length,
     };
 
-    return NextResponse.json({ data: result });
+    return NextResponse.json({ status: "ok", data: result });
   } catch (error) {
     console.error("Error generating user map:", error);
     return NextResponse.json(
