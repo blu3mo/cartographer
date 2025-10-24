@@ -241,3 +241,50 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ sessionId: string }> },
+) {
+  try {
+    const { sessionId } = await params;
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized: User ID not found" },
+        { status: 401 },
+      );
+    }
+
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+
+    if (session.hostUserId !== userId) {
+      return NextResponse.json(
+        { error: "Forbidden: You are not the host of this session" },
+        { status: 403 },
+      );
+    }
+
+    await prisma.session.delete({
+      where: { id: sessionId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Session deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting session:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
