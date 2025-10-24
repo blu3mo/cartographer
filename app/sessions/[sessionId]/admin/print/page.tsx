@@ -110,20 +110,40 @@ export default function PrintReportPage({
       <style jsx global>{`
         @media print {
           @page {
-            margin: 2cm;
+            margin: 1.5cm;
           }
           
           body {
             print-color-adjust: exact;
             -webkit-print-color-adjust: exact;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           
           .no-print {
             display: none !important;
           }
           
+          .print-page-wrapper {
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          
+          .print-container {
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: none !important;
+          }
+          
           .print-header {
             page-break-after: avoid;
+            border: none !important;
+            padding-bottom: 1.5rem !important;
+            margin-bottom: 1.5rem !important;
           }
           
           .markdown-body {
@@ -151,7 +171,7 @@ export default function PrintReportPage({
         }
       `}</style>
 
-      <div className="min-h-screen bg-gray-50">
+      <div className="print-page-wrapper min-h-screen bg-gray-50">
         <div className="max-w-4xl mx-auto px-8 py-12">
           {/* Print button - hidden when printing */}
           <div className="no-print mb-8 flex justify-end">
