@@ -547,7 +547,7 @@ export default function AdminPage({
           <CardHeader>
             <CardTitle className="text-destructive">危険な操作</CardTitle>
             <CardDescription>
-              この操作は取り消すことができません
+              このセッションを完全に削除します。この操作は取り消せません。
             </CardDescription>
           </CardHeader>
           <CardContent>
