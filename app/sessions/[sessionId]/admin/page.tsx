@@ -52,6 +52,10 @@ interface SessionAdminData {
   latestSituationAnalysisReport?: SituationAnalysisReport;
 }
 
+interface ReportsHistoryResponse {
+  reports: SituationAnalysisReport[];
+}
+
 type SortType = "agreement" | "yes" | "dontKnow" | "no";
 
 export default function AdminPage({
@@ -77,6 +81,12 @@ export default function AdminPage({
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [showReportHistory, setShowReportHistory] = useState(false);
+  const [reportHistory, setReportHistory] = useState<SituationAnalysisReport[]>(
+    [],
+  );
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isUserIdLoading || !userId) return;
@@ -218,6 +228,31 @@ export default function AdminPage({
       alert("ステートメントの生成に失敗しました。");
     } finally {
       setGeneratingStatements(false);
+    }
+  };
+
+  const fetchReportHistory = async () => {
+    if (reportHistory.length > 0) {
+      setShowReportHistory(!showReportHistory);
+      return;
+    }
+
+    try {
+      setLoadingHistory(true);
+      const response = await axios.get(`/api/sessions/${sessionId}/reports`, {
+        headers: {
+          Authorization: `Bearer ${userId}`,
+        },
+      });
+      const allReports = response.data.reports as SituationAnalysisReport[];
+      const olderReports = allReports.slice(1);
+      setReportHistory(olderReports);
+      setShowReportHistory(true);
+    } catch (err) {
+      console.error("Failed to fetch report history:", err);
+      alert("レポート履歴の取得に失敗しました。");
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -516,11 +551,90 @@ export default function AdminPage({
               </div>
               <div className="mt-3 text-center">
                 <button
+                  type="button"
                   onClick={() => setIsReportExpanded(!isReportExpanded)}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent"
                 >
                   {isReportExpanded ? "▲ 折りたたむ" : "▼ 全文を表示"}
                 </button>
+              </div>
+              <div className="mt-4 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={fetchReportHistory}
+                  disabled={loadingHistory}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent flex items-center gap-2 mx-auto"
+                >
+                  {loadingHistory ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      読み込み中...
+                    </>
+                  ) : showReportHistory ? (
+                    "▲ 過去のレポートを非表示"
+                  ) : (
+                    "▼ 過去のレポートを表示"
+                  )}
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Report History */}
+        {showReportHistory && reportHistory.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>過去の現状分析レポート</CardTitle>
+              <CardDescription>
+                {reportHistory.length}件の過去レポート
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {reportHistory.map((report) => (
+                  <div
+                    key={report.id}
+                    className="border rounded-lg overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedReportId(
+                          expandedReportId === report.id ? null : report.id,
+                        )
+                      }
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-accent transition-colors text-left"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          {new Date(report.createdAt).toLocaleString("ja-JP", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          生成日時
+                        </p>
+                      </div>
+                      <span className="text-muted-foreground">
+                        {expandedReportId === report.id ? "▲" : "▼"}
+                      </span>
+                    </button>
+                    {expandedReportId === report.id && (
+                      <div className="px-4 pb-4 pt-2 border-t bg-muted/30">
+                        <div className="markdown-body prose prose-sm max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {report.contentMarkdown}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
