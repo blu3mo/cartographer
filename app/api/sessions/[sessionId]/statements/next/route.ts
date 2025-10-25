@@ -1,7 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
+
+type StatementRow = {
+  id: string;
+  session_id: string;
+  text: string;
+  order_index: number;
+  created_at: string;
+};
+
+const mapStatement = (row: StatementRow) => ({
+  id: row.id,
+  sessionId: row.session_id,
+  text: row.text,
+  orderIndex: row.order_index,
+  createdAt: row.created_at,
+});
 
 export async function GET(
   request: NextRequest,
@@ -18,15 +34,20 @@ export async function GET(
       );
     }
 
-    // Check if user is a participant in this session
-    const participant = await prisma.participant.findUnique({
-      where: {
-        userId_sessionId: {
-          userId,
-          sessionId,
-        },
-      },
-    });
+    const { data: participant, error: participantError } = await supabase
+      .from("participants")
+      .select("user_id")
+      .eq("user_id", userId)
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (participantError) {
+      console.error("Failed to verify participant:", participantError);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
 
     if (!participant) {
       return NextResponse.json(
@@ -41,27 +62,41 @@ export async function GET(
       searchParams.getAll("excludeStatementId").filter(Boolean),
     );
 
-    // Get all statements for this session
-    const allStatements = await prisma.statement.findMany({
-      where: { sessionId },
-      orderBy: { orderIndex: "asc" },
-    });
+    const { data: allStatements, error: statementsError } = await supabase
+      .from("statements")
+      .select("id, session_id, text, order_index, created_at")
+      .eq("session_id", sessionId)
+      .order("order_index", { ascending: true });
+
+    if (statementsError) {
+      console.error("Failed to load statements:", statementsError);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
 
     // Get all responses by this participant
-    const existingResponses = await prisma.response.findMany({
-      where: {
-        participantUserId: userId,
-        sessionId,
-      },
-      select: { statementId: true },
-    });
+    const { data: existingResponses, error: responsesError } = await supabase
+      .from("responses")
+      .select("statement_id")
+      .eq("participant_user_id", userId)
+      .eq("session_id", sessionId);
+
+    if (responsesError) {
+      console.error("Failed to load responses:", responsesError);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
 
     const answeredStatementIds = new Set(
-      existingResponses.map((r) => r.statementId),
+      (existingResponses ?? []).map((r) => r.statement_id),
     );
 
     // Filter unanswered statements
-    let unansweredStatements = allStatements.filter(
+    let unansweredStatements = (allStatements ?? []).filter(
       (s) => !answeredStatementIds.has(s.id),
     );
 
@@ -78,9 +113,9 @@ export async function GET(
 
     // Return a random unanswered statement
     const randomIndex = Math.floor(Math.random() * unansweredStatements.length);
-    const statement = unansweredStatements[randomIndex];
+    const statement = unansweredStatements[randomIndex] as StatementRow;
 
-    return NextResponse.json({ statement });
+    return NextResponse.json({ statement: mapStatement(statement) });
   } catch (error) {
     console.error("Get next statement error:", error);
     return NextResponse.json(

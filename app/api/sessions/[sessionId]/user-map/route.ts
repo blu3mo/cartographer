@@ -2,7 +2,7 @@ import { PCA } from "ml-pca";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 interface ParticipantPoint {
   id: string;
@@ -88,53 +88,92 @@ export async function GET(
       );
     }
 
-    // Verify that the user is the host of this session
-    const session = await prisma.session.findUnique({
-      where: { id: sessionId },
-    });
+    const { data: session, error: sessionError } = await supabase
+      .from("sessions")
+      .select("id, host_user_id")
+      .eq("id", sessionId)
+      .single();
 
-    if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    if (sessionError || !session) {
+      if (sessionError?.code === "PGRST116") {
+        return NextResponse.json(
+          { error: "Session not found" },
+          { status: 404 },
+        );
+      }
+      console.error("Failed to load session for user map:", sessionError);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
     }
 
-    if (session.hostUserId !== userId) {
+    if (session.host_user_id !== userId) {
       return NextResponse.json(
         { error: "Forbidden: You are not the host of this session" },
         { status: 403 },
       );
     }
 
-    // Fetch all statements for this session
-    const statements = await prisma.statement.findMany({
-      where: { sessionId },
-      orderBy: { orderIndex: "asc" },
-    });
+    const { data: statements, error: statementsError } = await supabase
+      .from("statements")
+      .select("id, text, order_index")
+      .eq("session_id", sessionId)
+      .order("order_index", { ascending: true });
 
-    if (statements.length === 0) {
+    if (statementsError) {
+      console.error(
+        "Failed to fetch statements for user map:",
+        statementsError,
+      );
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+
+    if ((statements ?? []).length === 0) {
       return insufficientDataResponse(
         "このセッションには質問がまだ設定されていません。",
       );
     }
 
-    // Fetch all participants
-    const participants = await prisma.participant.findMany({
-      where: { sessionId },
-      include: {
-        responses: {
-          where: { sessionId },
-        },
-      },
-    });
+    const { data: participants, error: participantsError } = await supabase
+      .from("participants")
+      .select("user_id, name")
+      .eq("session_id", sessionId);
 
-    if (participants.length < 3) {
+    if (participantsError) {
+      console.error(
+        "Failed to fetch participants for user map:",
+        participantsError,
+      );
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+
+    if ((participants ?? []).length < 3) {
       return insufficientDataResponse(
         "PCA分析を実行するには最低3人の参加者が必要です。",
       );
     }
 
-    // Build response matrix
-    // Rows: participants, Columns: statements
-    const statementIds = statements.map((s: { id: string }) => s.id);
+    const { data: responses, error: responsesError } = await supabase
+      .from("responses")
+      .select("participant_user_id, statement_id, value")
+      .eq("session_id", sessionId);
+
+    if (responsesError) {
+      console.error("Failed to fetch responses for user map:", responsesError);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+
+    const statementIds = (statements ?? []).map((statement) => statement.id);
     const participantData: {
       userId: string;
       name: string;
@@ -142,24 +181,33 @@ export async function GET(
       responseCount: number;
     }[] = [];
 
-    for (const participant of participants) {
-      const responseMap = new Map<string, number>();
-      participant.responses.forEach(
-        (r: { statementId: string; value: number }) => {
-          responseMap.set(r.statementId, r.value);
-        },
+    const responsesByParticipant = new Map<string, Map<string, number>>();
+    (responses ?? []).forEach((response) => {
+      const participantResponses =
+        responsesByParticipant.get(response.participant_user_id) ??
+        new Map<string, number>();
+      participantResponses.set(response.statement_id, response.value);
+      responsesByParticipant.set(
+        response.participant_user_id,
+        participantResponses,
       );
+    });
 
-      const responseVector = statementIds.map((stmtId: string) => {
+    for (const participant of participants ?? []) {
+      const responseMap =
+        responsesByParticipant.get(participant.user_id) ??
+        new Map<string, number>();
+
+      const responseVector = statementIds.map((stmtId) => {
         return responseMap.get(stmtId) ?? 0; // Fill missing responses with 0
       });
 
-      const responseCount = participant.responses.length;
+      const responseCount = responseMap.size;
 
       // Only include participants with at least 1 response
       if (responseCount > 0) {
         participantData.push({
-          userId: participant.userId,
+          userId: participant.user_id,
           name: participant.name,
           responses: responseVector,
           responseCount,
@@ -206,7 +254,7 @@ export async function GET(
       componentIndex: number,
       topN: number,
     ): TopStatement[] => {
-      const loadingsForComponent = statements.map(
+      const loadingsForComponent = (statements ?? []).map(
         (stmt: { text: string }, idx: number) => {
           // Get the loading value for this statement and component
           // Loadings matrix is (components x features), so we access as (componentIndex, statementIndex)
@@ -251,7 +299,7 @@ export async function GET(
         explainedVariance: explainedVariance[1] || 0,
         topStatements: pc2TopStatements,
       },
-      totalStatements: statements.length,
+      totalStatements: (statements ?? []).length,
     };
 
     return NextResponse.json({ status: "ok", data: result });

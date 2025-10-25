@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
 import { generateSituationAnalysisReport } from "@/lib/llm";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
 
@@ -21,44 +21,109 @@ export async function POST(
       );
     }
 
-    // Verify that the user is the host of this session
-    const session = await prisma.session.findUnique({
-      where: { id: sessionId },
-    });
+    const { data: session, error: sessionError } = await supabase
+      .from("sessions")
+      .select("id, title, context, host_user_id")
+      .eq("id", sessionId)
+      .single();
 
-    if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    if (sessionError || !session) {
+      if (sessionError?.code === "PGRST116") {
+        return NextResponse.json(
+          { error: "Session not found" },
+          { status: 404 },
+        );
+      }
+      console.error(
+        "Failed to load session for situation analysis:",
+        sessionError,
+      );
+      return NextResponse.json(
+        { error: "Failed to generate report" },
+        { status: 500 },
+      );
     }
 
-    if (session.hostUserId !== userId) {
+    if (session.host_user_id !== userId) {
       return NextResponse.json(
         { error: "Forbidden: You are not the host of this session" },
         { status: 403 },
       );
     }
 
-    // Fetch all statements with their responses (including participant info)
-    const statements = await prisma.statement.findMany({
-      where: { sessionId },
-      include: {
-        responses: {
-          include: {
-            participant: {
-              select: {
-                userId: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { orderIndex: "asc" },
+    const { data: statements, error: statementsError } = await supabase
+      .from("statements")
+      .select("id, text, order_index")
+      .eq("session_id", sessionId)
+      .order("order_index", { ascending: true });
+
+    if (statementsError) {
+      console.error(
+        "Failed to load statements for situation analysis:",
+        statementsError,
+      );
+      return NextResponse.json(
+        { error: "Failed to generate report" },
+        { status: 500 },
+      );
+    }
+
+    const { data: responses, error: responsesError } = await supabase
+      .from("responses")
+      .select("participant_user_id, statement_id, value")
+      .eq("session_id", sessionId);
+
+    if (responsesError) {
+      console.error(
+        "Failed to load responses for situation analysis:",
+        responsesError,
+      );
+      return NextResponse.json(
+        { error: "Failed to generate report" },
+        { status: 500 },
+      );
+    }
+
+    const { data: participants, error: participantsError } = await supabase
+      .from("participants")
+      .select("user_id, name")
+      .eq("session_id", sessionId);
+
+    if (participantsError) {
+      console.error(
+        "Failed to load participants for situation analysis:",
+        participantsError,
+      );
+      return NextResponse.json(
+        { error: "Failed to generate report" },
+        { status: 500 },
+      );
+    }
+
+    const participantNameMap = new Map(
+      (participants ?? []).map((participant) => [
+        participant.user_id,
+        participant.name,
+      ]),
+    );
+
+    const responsesByStatement = new Map<
+      string,
+      { participantUserId: string; value: number }[]
+    >();
+
+    (responses ?? []).forEach((response) => {
+      const list = responsesByStatement.get(response.statement_id) ?? [];
+      list.push({
+        participantUserId: response.participant_user_id,
+        value: response.value,
+      });
+      responsesByStatement.set(response.statement_id, list);
     });
 
-    // Calculate statistics for each statement
-    const statementsWithStats = statements.map((statement) => {
-      const responses = statement.responses;
-      const totalCount = responses.length;
+    const statementsWithStats = (statements ?? []).map((statement) => {
+      const statementResponses = responsesByStatement.get(statement.id) ?? [];
+      const totalCount = statementResponses.length;
 
       let strongYesCount = 0;
       let yesCount = 0;
@@ -66,7 +131,7 @@ export async function POST(
       let noCount = 0;
       let strongNoCount = 0;
 
-      responses.forEach((response) => {
+      statementResponses.forEach((response) => {
         const value = response.value as ResponseValue;
         switch (value) {
           case 2:
@@ -96,10 +161,8 @@ export async function POST(
       const strongNoPercent =
         totalCount > 0 ? (strongNoCount / totalCount) * 100 : 0;
 
-      // Calculate agreement score for sorting
-      // Strong Yes (2) + Yes (1) - No (-1) - Strong No (-2), weighted by count
       const agreementScore =
-        (strongYesCount * 2 + yesCount * 1 - noCount * 1 - strongNoCount * 2) /
+        (strongYesCount * 2 + yesCount - noCount - strongNoCount * 2) /
         (totalCount > 0 ? totalCount : 1);
 
       return {
@@ -116,29 +179,33 @@ export async function POST(
       };
     });
 
-    // Sort statements by agreement score (descending)
     const sortedStatements = [...statementsWithStats].sort(
       (a, b) => b.agreementScore - a.agreementScore,
     );
 
-    // Get total number of unique participants
     const uniqueParticipants = new Set(
-      statements.flatMap((s) => s.responses.map((r) => r.participantUserId)),
+      (responses ?? []).map((response) => response.participant_user_id),
     );
     const totalParticipants = uniqueParticipants.size;
 
-    // If 10 or fewer participants, prepare individual responses
-    let individualResponses = null;
+    let individualResponses: Array<{
+      name: string;
+      responses: Array<{ statementText: string; value: number }>;
+    }> | null = null;
+
     if (totalParticipants <= 10) {
       const participantResponsesMap = new Map<
         string,
         Array<{ statementText: string; value: number }>
       >();
 
-      statements.forEach((statement) => {
-        statement.responses.forEach((response) => {
+      (statements ?? []).forEach((statement) => {
+        const statementResponses = responsesByStatement.get(statement.id) ?? [];
+
+        statementResponses.forEach((response) => {
           const participantUserId = response.participantUserId;
-          const participantName = response.participant?.name || "Unknown";
+          const participantName =
+            participantNameMap.get(participantUserId) ?? "Unknown";
           const key = `${participantUserId}:${participantName}`;
 
           let responsesForParticipant = participantResponsesMap.get(key);
@@ -149,20 +216,19 @@ export async function POST(
 
           responsesForParticipant.push({
             statementText: statement.text,
-            value: response.value as number,
+            value: response.value,
           });
         });
       });
 
       individualResponses = Array.from(participantResponsesMap.entries()).map(
-        ([key, responses]) => {
+        ([key, responsesForParticipant]) => {
           const [, name] = key.split(":");
-          return { name, responses };
+          return { name, responses: responsesForParticipant };
         },
       );
     }
 
-    // Generate report using LLM
     const reportContent = await generateSituationAnalysisReport(
       session.title,
       session.context,
@@ -171,20 +237,29 @@ export async function POST(
       individualResponses,
     );
 
-    // Save report to database
-    const report = await prisma.situationAnalysisReport.create({
-      data: {
-        sessionId,
-        contentMarkdown: reportContent,
-      },
-    });
+    const { data: report, error: reportError } = await supabase
+      .from("situation_analysis_reports")
+      .insert({
+        session_id: sessionId,
+        content_markdown: reportContent,
+      })
+      .select("id, session_id, content_markdown, created_at")
+      .single();
+
+    if (reportError || !report) {
+      console.error("Failed to save situation analysis report:", reportError);
+      return NextResponse.json(
+        { error: "Failed to generate report" },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
       report: {
         id: report.id,
-        sessionId: report.sessionId,
-        contentMarkdown: report.contentMarkdown,
-        createdAt: report.createdAt,
+        sessionId: report.session_id,
+        contentMarkdown: report.content_markdown,
+        createdAt: report.created_at,
       },
     });
   } catch (error) {

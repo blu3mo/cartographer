@@ -12,14 +12,14 @@
 
 1.  **開発環境のセットアップ**
     * **Next.jsプロジェクト作成**: `create-next-app` を使用してプロジェクトの雛形を生成します。
-    * **ライブラリのインストール**: `tailwindcss`, `prisma` (ORMとして), `axios` (APIクライアント) などをインストールします。
+    * **ライブラリのインストール**: `tailwindcss`, `@supabase/supabase-js` (DBアクセス用), `axios` (APIクライアント) などをインストールします。
     * **Neon DBの準備**: Neonでプロジェクトを作成し、データベース接続文字列（DATABASE\_URL）を取得します。
     * **環境変数設定**: `.env.local`ファイルを作成し、`DATABASE_URL`とOpenRouterの`API_KEY`を設定します。
 
 2.  **データベーススキーマの定義とマイグレーション**
-    * `prisma/schema.prisma` ファイルに、設計書に記載されている `sessions`, `statements`, `participants`, `responses` の4つのテーブルを定義します。
+    * Supabase（PostgreSQL）のSQLエディタなどで、設計書に記載されている `sessions`, `statements`, `participants`, `responses` の4つのテーブルを定義します。
         * *注意: レポート関連のテーブル (`situation_analysis_reports`, `individual_reports`) は後のフェーズで追加します。*
-    * `npx prisma migrate dev` コマンドを実行し、Neon DBにテーブルを作成します。
+    * Supabaseのマイグレーション（SQLファイル）を適用し、Neon/Supabase上にテーブルを作成します。
 
 3.  **バックエンドAPIの実装 (コア部分)**
     * **ユーザー識別ロジック**:
@@ -65,13 +65,13 @@
 #### 📝 やることリスト
 
 1.  **データベーススキーマの追加**
-    * `prisma/schema.prisma` に `situation_analysis_reports` テーブルの定義を追加します。
-    * `npx prisma migrate dev` を実行してDBスキーマを更新します。
+    * Supabaseに `situation_analysis_reports` テーブルを追加するSQLを適用します。
+    * 反映後、DBスキーマを更新して整合性を確認します。
 
 2.  **バックエンドAPIの実装 (管理画面向け)**
     * **管理画面データ取得API (`GET /api/sessions/[sessionId]/admin`)**:
         * リクエストヘッダーの `user_id` がセッションの `host_user_id` と一致するか検証する認可処理を実装します。
-        * **統計処理**: 各Statementに紐づく全回答を `responses` テーブルから集計し、`strongYes`, `yes` などの割合や `agreementScore` を計算するロジックを実装します。Prismaの `groupBy` や `count` を活用します。
+        * **統計処理**: 各Statementに紐づく全回答を `responses` テーブルから集計し、`strongYes`, `yes` などの割合や `agreementScore` を計算するロジックを実装します。SupabaseのクエリやSQL集計を活用します。
         * 最新の `SituationAnalysisReport` も取得し、`SessionAdminData` 型のオブジェクトを構築して返します。
     * **現状分析レポート生成API (`POST /api/sessions/[sessionId]/reports/situation-analysis`)**:
         * 認可処理を実装します。
@@ -109,9 +109,9 @@
 #### 📝 やることリスト
 
 1.  **データベーススキーマの最終更新**
-    * `prisma/schema.prisma` に `individual_reports` テーブルを追加します。
+    * Supabaseに `individual_reports` テーブルを追加するSQLを適用します。
     * `participants` テーブルに `latest_individual_report_id` カラム（`individual_reports.id` への外部キー）を追加します。
-    * `npx prisma migrate dev` を実行します。
+    * マイグレーションを実行し、変更を反映します。
 
 2.  **バックエンドAPIの実装 (高度な機能)**
     * **新規ステートメント生成API (`POST /api/sessions/[sessionId]/statements/generate`)**:
