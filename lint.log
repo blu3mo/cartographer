@@ -1,0 +1,1141 @@
+
+> cartographer@0.1.0 lint
+> biome check --max-diagnostics 200
+
+app/api/sessions/[sessionId]/user-map/route.ts:61:18 lint/style/useExponentiationOperator  FIXABLE  ━━━━━━━━━━
+
+  i Use the '**' operator instead of 'Math.pow'.
+  
+    59 │   for (let j = 0; j < m; j++) {
+    60 │     for (let i = 0; i < n; i++) {
+  > 61 │       stds[j] += Math.pow(data[i][j] - means[j], 2);
+       │                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    62 │     }
+    63 │     stds[j] = Math.sqrt(stds[j] / n);
+  
+  i Safe fix: Use the '**' operator instead of 'Math.pow'.
+  
+     59  59 │     for (let j = 0; j < m; j++) {
+     60  60 │       for (let i = 0; i < n; i++) {
+     61     │ - ······stds[j]·+=·Math.pow(data[i][j]·-·means[j],·2);
+         61 │ + ······stds[j]·+=·(data[i][j]·-·means[j])·**·2;
+     62  62 │       }
+     63  63 │       stds[j] = Math.sqrt(stds[j] / n);
+  
+
+app/api/sessions/[sessionId]/admin/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │          ^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·"next/server";
+      │          +++++                                               
+
+app/api/sessions/[sessionId]/individual-report/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │          ^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·"next/server";
+      │          +++++                                               
+
+app/api/sessions/[sessionId]/participants/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { prisma } from "@/lib/prisma";
+    3 │ import { getUserIdFromRequest } from "@/lib/auth";
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │          ^^^^^^^^^^^
+    2 │ import { prisma } from "@/lib/prisma";
+    3 │ import { getUserIdFromRequest } from "@/lib/auth";
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·"next/server";
+      │          +++++                                               
+
+app/api/sessions/[sessionId]/reports/situation-analysis/route.ts:147:11 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    145 │           }
+    146 │ 
+  > 147 │           participantResponsesMap.get(key)!.push({
+        │           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    148 │             statementText: statement.text,
+    149 │             value: response.value as number,
+  
+  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
+  
+    145 145 │             }
+    146 146 │   
+    147     │ - ··········participantResponsesMap.get(key)!.push({
+        147 │ + ··········participantResponsesMap.get(key)?.push({
+    148 148 │               statementText: statement.text,
+    149 149 │               value: response.value as number,
+  
+
+app/api/sessions/[sessionId]/reports/situation-analysis/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │          ^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·"next/server";
+      │          +++++                                               
+
+app/api/sessions/[sessionId]/route.ts:38:13 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━━━━━━━
+
+  ! This variable participants is unused.
+  
+    36 │     );
+    37 │ 
+  > 38 │     const { participants, ...sessionData } = session;
+       │             ^^^^^^^^^^^^
+    39 │ 
+    40 │     return NextResponse.json({
+  
+  i Unused variables are often the result of an incomplete refactoring, typos, or other sources of bugs.
+  
+  i You can use the ignoreRestSiblings option to ignore unused variables in an object destructuring with a spread.
+  
+
+app/api/sessions/[sessionId]/statements/generate/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │          ^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·"next/server";
+      │          +++++                                               
+
+app/api/sessions/[sessionId]/statements/next/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { prisma } from "@/lib/prisma";
+    3 │ import { getUserIdFromRequest } from "@/lib/auth";
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │          ^^^^^^^^^^^
+    2 │ import { prisma } from "@/lib/prisma";
+    3 │ import { getUserIdFromRequest } from "@/lib/auth";
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·"next/server";
+      │          +++++                                               
+
+app/api/sessions/[sessionId]/user-map/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │          ^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·"next/server";
+      │          +++++                                               
+
+app/api/sessions/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { generateInitialStatements } from "@/lib/llm";
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │          ^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { generateInitialStatements } from "@/lib/llm";
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·"next/server";
+      │          +++++                                               
+
+app/components/UserMap.tsx:89:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    87 │       setData(null);
+    88 │       setError("ユーザーマップのデータが取得できませんでした。");
+  > 89 │     } catch (err: any) {
+       │                   ^^^
+    90 │       console.error("Failed to fetch user map data:", err);
+    91 │       setError("ユーザーマップの取得に失敗しました。");
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app/components/UserMap.tsx:145:47 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    144 │   // Custom tooltip component
+  > 145 │   const CustomTooltip = ({ active, payload }: any) => {
+        │                                               ^^^
+    146 │     if (active && payload && payload.length) {
+    147 │       const point = payload[0].payload as ParticipantPoint;
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app/components/UserMap.tsx:256:39 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    254 │             />
+    255 │             <Scatter name="参加者" data={data.participants} fill="#8884d8">
+  > 256 │               {data.participants.map((entry, index) => (
+        │                                       ^^^^^
+    257 │                 <Cell
+    258 │                   key={`cell-${index}`}
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend entry with an underscore.
+  
+    254 254 │               />
+    255 255 │               <Scatter name="参加者" data={data.participants} fill="#8884d8">
+    256     │ - ··············{data.participants.map((entry,·index)·=>·(
+        256 │ + ··············{data.participants.map((_entry,·index)·=>·(
+    257 257 │                   <Cell
+    258 258 │                     key={`cell-${index}`}
+  
+
+app/globals.css:55:33 lint/complexity/noImportantStyles  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Avoid the use of the !important style.
+  
+    54 │ .markdown-body {
+  > 55 │   background-color: transparent !important;
+       │                                 ^^^^^^^^^^
+    56 │ }
+    57 │ 
+  
+  i This style reverses the cascade logic, and precedence is reversed. This could lead to having styles with higher specificity being overridden by styles with lower specificity.
+  
+  i Unsafe fix: Remove the style.
+  
+    55 │ ··background-color:·transparent·!important;
+       │                                ----------- 
+
+app/lib/auth.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! All these imports are only used as types.
+  
+  > 1 │ import { NextRequest } from "next/server";
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ 
+    3 │ export function getUserIdFromRequest(request: NextRequest): string | null {
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Use import type.
+  
+    1 │ import·type·{·NextRequest·}·from·"next/server";
+      │        +++++                                   
+
+app/sessions/[sessionId]/admin/page.tsx:96:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    94 │       setData(response.data.data);
+    95 │       setError(null);
+  > 96 │     } catch (err: any) {
+       │                   ^^^
+    97 │       console.error("Failed to fetch admin data:", err);
+    98 │       if (err.response?.status === 403) {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+middleware.ts:132:9 lint/complexity/useOptionalChain  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Change to an optional chain.
+  
+    130 │   if (forwarded) {
+    131 │     const [first] = forwarded.split(",");
+  > 132 │     if (first && first.trim()) {
+        │         ^^^^^^^^^^^^^^^^^^^^^
+    133 │       return first.trim();
+    134 │     }
+  
+  i Unsafe fix: Change to an optional chain.
+  
+    130 130 │     if (forwarded) {
+    131 131 │       const [first] = forwarded.split(",");
+    132     │ - ····if·(first·&&·first.trim())·{
+        132 │ + ····if·(first?.trim())·{
+    133 133 │         return first.trim();
+    134 134 │       }
+  
+
+middleware.ts:147:9 lint/complexity/useOptionalChain  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Change to an optional chain.
+  
+    145 │   for (const header of fallbackHeaders) {
+    146 │     const value = request.headers.get(header);
+  > 147 │     if (value && value.trim()) {
+        │         ^^^^^^^^^^^^^^^^^^^^^
+    148 │       return value.trim();
+    149 │     }
+  
+  i Unsafe fix: Change to an optional chain.
+  
+    145 145 │     for (const header of fallbackHeaders) {
+    146 146 │       const value = request.headers.get(header);
+    147     │ - ····if·(value·&&·value.trim())·{
+        147 │ + ····if·(value?.trim())·{
+    148 148 │         return value.trim();
+    149 149 │       }
+  
+
+app/api/sessions/[sessionId]/individual-report/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   import { NextRequest, NextResponse } from "next/server";
+      2   2 │   import { getUserIdFromRequest } from "@/lib/auth";
+      3     │ - import·{·prisma·}·from·"@/lib/prisma";
+      4     │ - import·{·generateIndividualReport·}·from·"@/lib/llm";
+          3 │ + import·{·generateIndividualReport·}·from·"@/lib/llm";
+          4 │ + import·{·prisma·}·from·"@/lib/prisma";
+      5   5 │   
+      6   6 │   export async function GET(
+  
+
+app/api/sessions/[sessionId]/participants/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { prisma } from "@/lib/prisma";
+    3 │ import { getUserIdFromRequest } from "@/lib/auth";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1  1 │   import { NextRequest, NextResponse } from "next/server";
+     2    │ - import·{·prisma·}·from·"@/lib/prisma";
+     3    │ - import·{·getUserIdFromRequest·}·from·"@/lib/auth";
+        2 │ + import·{·getUserIdFromRequest·}·from·"@/lib/auth";
+        3 │ + import·{·prisma·}·from·"@/lib/prisma";
+     4  4 │   
+     5  5 │   export async function POST(
+  
+
+app/api/sessions/[sessionId]/reports/situation-analysis/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   import { NextRequest, NextResponse } from "next/server";
+      2   2 │   import { getUserIdFromRequest } from "@/lib/auth";
+      3     │ - import·{·prisma·}·from·"@/lib/prisma";
+      4     │ - import·{·generateSituationAnalysisReport·}·from·"@/lib/llm";
+          3 │ + import·{·generateSituationAnalysisReport·}·from·"@/lib/llm";
+          4 │ + import·{·prisma·}·from·"@/lib/prisma";
+      5   5 │   
+      6   6 │   type ResponseValue = -2 | -1 | 0 | 1 | 2;
+  
+
+app/api/sessions/[sessionId]/statements/generate/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   import { NextRequest, NextResponse } from "next/server";
+      2   2 │   import { getUserIdFromRequest } from "@/lib/auth";
+      3     │ - import·{·prisma·}·from·"@/lib/prisma";
+      4     │ - import·{·generateNewStatements·}·from·"@/lib/llm";
+          3 │ + import·{·generateNewStatements·}·from·"@/lib/llm";
+          4 │ + import·{·prisma·}·from·"@/lib/prisma";
+      5   5 │   
+      6   6 │   type ResponseValue = -2 | -1 | 0 | 1 | 2;
+  
+
+app/api/sessions/[sessionId]/statements/next/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { prisma } from "@/lib/prisma";
+    3 │ import { getUserIdFromRequest } from "@/lib/auth";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1  1 │   import { NextRequest, NextResponse } from "next/server";
+     2    │ - import·{·prisma·}·from·"@/lib/prisma";
+     3    │ - import·{·getUserIdFromRequest·}·from·"@/lib/auth";
+        2 │ + import·{·getUserIdFromRequest·}·from·"@/lib/auth";
+        3 │ + import·{·prisma·}·from·"@/lib/prisma";
+     4  4 │   
+     5  5 │   export async function GET(
+  
+
+app/api/sessions/[sessionId]/user-map/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { NextRequest, NextResponse } from "next/server";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getUserIdFromRequest } from "@/lib/auth";
+    3 │ import { prisma } from "@/lib/prisma";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1     │ - import·{·NextRequest,·NextResponse·}·from·"next/server";
+      2     │ - import·{·getUserIdFromRequest·}·from·"@/lib/auth";
+      3     │ - import·{·prisma·}·from·"@/lib/prisma";
+      4     │ - import·{·PCA·}·from·"ml-pca";
+          1 │ + import·{·PCA·}·from·"ml-pca";
+          2 │ + import·{·NextRequest,·NextResponse·}·from·"next/server";
+          3 │ + import·{·getUserIdFromRequest·}·from·"@/lib/auth";
+          4 │ + import·{·prisma·}·from·"@/lib/prisma";
+      5   5 │   
+      6   6 │   interface ParticipantPoint {
+  
+
+app/components/UserMap.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+    1 │ "use client";
+    2 │ 
+  > 3 │ import { useEffect, useState } from "react";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ import axios from "axios";
+    5 │ import {
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   "use client";
+      2   2 │   
+      3     │ - import·{·useEffect,·useState·}·from·"react";
+      4     │ - import·axios·from·"axios";
+      5     │ - import·{
+      6     │ - ··ScatterChart,
+      7     │ - ··Scatter,
+      8     │ - ··XAxis,
+      9     │ - ··YAxis,
+     10     │ - ··CartesianGrid,
+     11     │ - ··Tooltip,
+     12     │ - ··ResponsiveContainer,
+     13     │ - ··Cell,
+     14     │ - }·from·"recharts";
+     15     │ - import·{·Loader2·}·from·"lucide-react";
+          3 │ + import·axios·from·"axios";
+          4 │ + import·{·Loader2·}·from·"lucide-react";
+          5 │ + import·{·useEffect,·useState·}·from·"react";
+          6 │ + import·{
+          7 │ + ··CartesianGrid,
+          8 │ + ··Cell,
+          9 │ + ··ResponsiveContainer,
+         10 │ + ··Scatter,
+         11 │ + ··ScatterChart,
+         12 │ + ··Tooltip,
+         13 │ + ··XAxis,
+         14 │ + ··YAxis,
+         15 │ + }·from·"recharts";
+     16  16 │   
+     17  17 │   interface ParticipantPoint {
+  
+
+app/components/UserMap.tsx:52:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━━━━━━
+
+  × This hook does not specify its dependency on fetchUserMapData.
+  
+    50 │   const [error, setError] = useState<string | null>(null);
+    51 │ 
+  > 52 │   useEffect(() => {
+       │   ^^^^^^^^^
+    53 │     fetchUserMapData();
+    54 │   }, [sessionId, userId]);
+  
+  i This dependency is being used here, but is not specified in the hook dependency list.
+  
+    52 │   useEffect(() => {
+  > 53 │     fetchUserMapData();
+       │     ^^^^^^^^^^^^^^^^
+    54 │   }, [sessionId, userId]);
+    55 │ 
+  
+  i Unsafe fix: Add the missing dependency to the list.
+  
+    54 │ ··},·[sessionId,·userId,·fetchUserMapData]);
+       │                        ++++++++++++++++++   
+
+app/components/UserMap.tsx:52:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━━━━━━
+
+  × This hook specifies more dependencies than necessary: sessionId, userId
+  
+    50 │   const [error, setError] = useState<string | null>(null);
+    51 │ 
+  > 52 │   useEffect(() => {
+       │   ^^^^^^^^^
+    53 │     fetchUserMapData();
+    54 │   }, [sessionId, userId]);
+  
+  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
+  
+    52 │   useEffect(() => {
+    53 │     fetchUserMapData();
+  > 54 │   }, [sessionId, userId]);
+       │       ^^^^^^^^^
+    55 │ 
+    56 │   const fetchUserMapData = async () => {
+  
+  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
+  
+    52 │   useEffect(() => {
+    53 │     fetchUserMapData();
+  > 54 │   }, [sessionId, userId]);
+       │                  ^^^^^^
+    55 │ 
+    56 │   const fetchUserMapData = async () => {
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    54 │ ··},·[sessionId,·userId]);
+       │       -----------------   
+
+app/components/UserMap.tsx:187:24 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Avoid using the index of an array as key property in an element.
+  
+    185 │           <ul className="space-y-1.5">
+    186 │             {data.pc1.topStatements.map((stmt, idx) => (
+  > 187 │               <li key={idx} className="text-muted-foreground leading-relaxed">
+        │                        ^^^
+    188 │                 <span className="inline-block w-4 text-foreground/60">
+    189 │                   #{idx + 1}
+  
+  i This is the source of the key value.
+  
+    184 │           </p>
+    185 │           <ul className="space-y-1.5">
+  > 186 │             {data.pc1.topStatements.map((stmt, idx) => (
+        │                                                ^^^
+    187 │               <li key={idx} className="text-muted-foreground leading-relaxed">
+    188 │                 <span className="inline-block w-4 text-foreground/60">
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+app/components/UserMap.tsx:207:24 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Avoid using the index of an array as key property in an element.
+  
+    205 │           <ul className="space-y-1.5">
+    206 │             {data.pc2.topStatements.map((stmt, idx) => (
+  > 207 │               <li key={idx} className="text-muted-foreground leading-relaxed">
+        │                        ^^^
+    208 │                 <span className="inline-block w-4 text-foreground/60">
+    209 │                   #{idx + 1}
+  
+  i This is the source of the key value.
+  
+    204 │           </p>
+    205 │           <ul className="space-y-1.5">
+  > 206 │             {data.pc2.topStatements.map((stmt, idx) => (
+        │                                                ^^^
+    207 │               <li key={idx} className="text-muted-foreground leading-relaxed">
+    208 │                 <span className="inline-block w-4 text-foreground/60">
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+app/components/UserMap.tsx:258:32 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Avoid using the index of an array as key property in an element.
+  
+    256 │               {data.participants.map((entry, index) => (
+    257 │                 <Cell
+  > 258 │                   key={`cell-${index}`}
+        │                                ^^^^^
+    259 │                   fill={getParticipantColor(index)}
+    260 │                   stroke="#fff"
+  
+  i This is the source of the key value.
+  
+    254 │             />
+    255 │             <Scatter name="参加者" data={data.participants} fill="#8884d8">
+  > 256 │               {data.participants.map((entry, index) => (
+        │                                              ^^^^^
+    257 │                 <Cell
+    258 │                   key={`cell-${index}`}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+app/components/ui/Button.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import * as React from "react";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { cva, type VariantProps } from "class-variance-authority";
+    3 │ import { Loader2 } from "lucide-react";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1    │ - import·*·as·React·from·"react";
+     2    │ - import·{·cva,·type·VariantProps·}·from·"class-variance-authority";
+     3    │ - import·{·Loader2·}·from·"lucide-react";
+        1 │ + import·{·cva,·type·VariantProps·}·from·"class-variance-authority";
+        2 │ + import·{·Loader2·}·from·"lucide-react";
+        3 │ + import·*·as·React·from·"react";
+     4  4 │   
+     5  5 │   import { cn } from "@/lib/utils";
+  
+
+app/components/ui/Skeleton.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { motion } from "framer-motion";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { clsx } from "clsx";
+    3 │ 
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1    │ - import·{·motion·}·from·"framer-motion";
+     2    │ - import·{·clsx·}·from·"clsx";
+        1 │ + import·{·clsx·}·from·"clsx";
+        2 │ + import·{·motion·}·from·"framer-motion";
+     3  3 │   
+     4  4 │   interface SkeletonProps {
+  
+
+app/page.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+    1 │ "use client";
+    2 │ 
+  > 3 │ import Link from "next/link";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ import { useEffect, useMemo, useState } from "react";
+    5 │ import { useRouter } from "next/navigation";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   "use client";
+      2   2 │   
+      3     │ - import·Link·from·"next/link";
+      4     │ - import·{·useEffect,·useMemo,·useState·}·from·"react";
+      5     │ - import·{·useRouter·}·from·"next/navigation";
+      6     │ - import·{·useUserId·}·from·"@/lib/useUserId";
+      7     │ - import·{·createAuthorizationHeader·}·from·"@/lib/auth";
+      8     │ - import·axios·from·"axios";
+      9     │ - import·{·Button·}·from·"@/components/ui/Button";
+     10     │ - import·{
+     11     │ - ··Card,
+     12     │ - ··CardContent,
+     13     │ - ··CardDescription,
+     14     │ - ··CardHeader,
+     15     │ - ··CardTitle,
+     16     │ - }·from·"@/components/ui/card";
+     17     │ - import·{·Calendar,·FileText,·Loader2,·Lock,·Plus,·Users·}·from·"lucide-react";
+          3 │ + import·axios·from·"axios";
+          4 │ + import·{·Calendar,·FileText,·Loader2,·Lock,·Plus,·Users·}·from·"lucide-react";
+          5 │ + import·Link·from·"next/link";
+          6 │ + import·{·useRouter·}·from·"next/navigation";
+          7 │ + import·{·useEffect,·useMemo,·useState·}·from·"react";
+          8 │ + import·{·Button·}·from·"@/components/ui/Button";
+          9 │ + import·{
+         10 │ + ··Card,
+         11 │ + ··CardContent,
+         12 │ + ··CardDescription,
+         13 │ + ··CardHeader,
+         14 │ + ··CardTitle,
+         15 │ + }·from·"@/components/ui/card";
+         16 │ + import·{·createAuthorizationHeader·}·from·"@/lib/auth";
+         17 │ + import·{·useUserId·}·from·"@/lib/useUserId";
+     18  18 │   
+     19  19 │   type Session = {
+  
+
+app/page.tsx:179:17 lint/a11y/useSemanticElements ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The elements with this role can be changed to the following elements:
+    <button>
+  
+    177 │                 className="hover:shadow-md transition-shadow cursor-pointer"
+    178 │                 onClick={() => router.push(`/sessions/${session.id}`)}
+  > 179 │                 role="button"
+        │                 ^^^^^^^^^^^^^
+    180 │                 tabIndex={0}
+    181 │                 onKeyDown={(event) => {
+  
+  i For examples and more information, see WAI-ARIA Roles
+  
+
+app/sessions/[sessionId]/admin/page.tsx:81:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
+
+  × This hook does not specify its dependency on fetchAdminData.
+  
+    79 │   const [settingsError, setSettingsError] = useState<string | null>(null);
+    80 │ 
+  > 81 │   useEffect(() => {
+       │   ^^^^^^^^^
+    82 │     if (isUserIdLoading || !userId) return;
+    83 │     fetchAdminData();
+  
+  i This dependency is being used here, but is not specified in the hook dependency list.
+  
+    81 │   useEffect(() => {
+    82 │     if (isUserIdLoading || !userId) return;
+  > 83 │     fetchAdminData();
+       │     ^^^^^^^^^^^^^^
+    84 │   }, [userId, isUserIdLoading, sessionId]);
+    85 │ 
+  
+  i Unsafe fix: Add the missing dependency to the list.
+  
+    84 │ ··},·[userId,·isUserIdLoading,·sessionId,·fetchAdminData]);
+       │                                         ++++++++++++++++   
+
+app/sessions/[sessionId]/admin/page.tsx:81:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
+
+  × This hook specifies more dependencies than necessary: sessionId
+  
+    79 │   const [settingsError, setSettingsError] = useState<string | null>(null);
+    80 │ 
+  > 81 │   useEffect(() => {
+       │   ^^^^^^^^^
+    82 │     if (isUserIdLoading || !userId) return;
+    83 │     fetchAdminData();
+  
+  i This dependency can be removed from the list.
+  
+    82 │     if (isUserIdLoading || !userId) return;
+    83 │     fetchAdminData();
+  > 84 │   }, [userId, isUserIdLoading, sessionId]);
+       │                                ^^^^^^^^^
+    85 │ 
+    86 │   const fetchAdminData = async () => {
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    84 │ ··},·[userId,·isUserIdLoading,·sessionId]);
+       │                              -----------   
+
+app/sessions/[sessionId]/admin/page.tsx:518:17 lint/a11y/useButtonType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Provide an explicit type prop for the button element.
+  
+    516 │               </div>
+    517 │               <div className="mt-3 text-center">
+  > 518 │                 <button
+        │                 ^^^^^^^
+  > 519 │                   onClick={() => setIsReportExpanded(!isReportExpanded)}
+  > 520 │                   className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent"
+  > 521 │                 >
+        │                 ^
+    522 │                   {isReportExpanded ? "▲ 折りたたむ" : "▼ 全文を表示"}
+    523 │                 </button>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app/sessions/[sessionId]/page.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+    1 │ "use client";
+    2 │ 
+  > 3 │ import { use, useCallback, useEffect, useRef, useState } from "react";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ import { useUserId } from "@/lib/useUserId";
+    5 │ import { createAuthorizationHeader } from "@/lib/auth";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+       1    1 │   "use client";
+       2    2 │   
+       3      │ - import·{·use,·useCallback,·useEffect,·useRef,·useState·}·from·"react";
+       4      │ - import·{·useUserId·}·from·"@/lib/useUserId";
+       5      │ - import·{·createAuthorizationHeader·}·from·"@/lib/auth";
+       6      │ - import·axios·from·"axios";
+       7      │ - import·ReactMarkdown·from·"react-markdown";
+       8      │ - import·remarkGfm·from·"remark-gfm";
+       9      │ - import·{·Button·}·from·"@/components/ui/Button";
+      10      │ - import·{
+      11      │ - ··Card,
+      12      │ - ··CardContent,
+      13      │ - ··CardDescription,
+      14      │ - ··CardHeader,
+      15      │ - ··CardTitle,
+      16      │ - ··Skeleton,
+      17      │ - }·from·"@/components/ui/card";
+      18      │ - import·{·Input·}·from·"@/components/ui/input";
+      19      │ - import·{·FileText,·Loader2·}·from·"lucide-react";
+            3 │ + import·axios·from·"axios";
+            4 │ + import·{·FileText,·Loader2·}·from·"lucide-react";
+            5 │ + import·{·use,·useCallback,·useEffect,·useRef,·useState·}·from·"react";
+            6 │ + import·ReactMarkdown·from·"react-markdown";
+            7 │ + import·remarkGfm·from·"remark-gfm";
+            8 │ + import·{·Button·}·from·"@/components/ui/Button";
+            9 │ + import·{
+           10 │ + ··Card,
+           11 │ + ··CardContent,
+           12 │ + ··CardDescription,
+           13 │ + ··CardHeader,
+           14 │ + ··CardTitle,
+           15 │ + ··Skeleton,
+           16 │ + }·from·"@/components/ui/card";
+           17 │ + import·{·Input·}·from·"@/components/ui/input";
+           18 │ + import·{·createAuthorizationHeader·}·from·"@/lib/auth";
+           19 │ + import·{·useUserId·}·from·"@/lib/useUserId";
+      20   20 │   import { cn } from "@/lib/utils";
+      21   21 │   
+  
+
+app/sessions/[sessionId]/page.tsx:301:42 lint/suspicious/useIterableCallbackReturn ━━━━━━━━━━━━━━━━━
+
+  × This callback passed to forEach() iterable method should not return a value.
+  
+    299 │     }
+    300 │ 
+  > 301 │     pendingAnswerStatementIdsRef.current.forEach((id) => ids.add(id));
+        │                                          ^^^^^^^
+    302 │ 
+    303 │     if (ids.size === 0) {
+  
+  i Either remove this return or remove the returned value.
+  
+    299 │     }
+    300 │ 
+  > 301 │     pendingAnswerStatementIdsRef.current.forEach((id) => ids.add(id));
+        │                                                          ^^^^^^^^^^^
+    302 │ 
+    303 │     if (ids.size === 0) {
+  
+
+app/sessions/[sessionId]/page.tsx:405:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
+
+  × This hook does not specify its dependency on buildExcludeQuery.
+  
+    404 │   // Prefetch next statement when current statement is displayed
+  > 405 │   useEffect(() => {
+        │   ^^^^^^^^^
+    406 │     if (!userId || userLoading) return;
+    407 │     if (state !== "ANSWERING") return;
+  
+  i This dependency is being used here, but is not specified in the hook dependency list.
+  
+    413 │     const prefetchNextStatement = async () => {
+    414 │       try {
+  > 415 │         const excludeQuery = buildExcludeQuery();
+        │                              ^^^^^^^^^^^^^^^^^
+    416 │         const response = await axios.get(
+    417 │           `/api/sessions/${sessionId}/statements/next${excludeQuery}`,
+  
+  i Unsafe fix: Add the missing dependency to the list.
+  
+    437 │ ··},·[userId,·userLoading,·sessionId,·currentStatement,·state,·buildExcludeQuery]);
+        │                                                              +++++++++++++++++++   
+
+app/sessions/[sessionId]/page.tsx:877:17 lint/a11y/useButtonType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Provide an explicit type prop for the button element.
+  
+    876 │               <div className="grid grid-cols-5 gap-3">
+  > 877 │                 <button
+        │                 ^^^^^^^
+  > 878 │                   onClick={() => handleAnswer(2)}
+  > 879 │                   disabled={isLoading}
+  > 880 │                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+  > 881 │                 >
+        │                 ^
+    882 │                   <div className="text-3xl">👍</div>
+    883 │                   <span className="text-xs font-semibold">Strong Yes</span>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app/sessions/[sessionId]/page.tsx:885:17 lint/a11y/useButtonType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Provide an explicit type prop for the button element.
+  
+    883 │                   <span className="text-xs font-semibold">Strong Yes</span>
+    884 │                 </button>
+  > 885 │                 <button
+        │                 ^^^^^^^
+  > 886 │                   onClick={() => handleAnswer(1)}
+  > 887 │                   disabled={isLoading}
+  > 888 │                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+  > 889 │                 >
+        │                 ^
+    890 │                   <div className="text-3xl">✓</div>
+    891 │                   <span className="text-xs font-semibold">Yes</span>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app/sessions/[sessionId]/page.tsx:893:17 lint/a11y/useButtonType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Provide an explicit type prop for the button element.
+  
+    891 │                   <span className="text-xs font-semibold">Yes</span>
+    892 │                 </button>
+  > 893 │                 <button
+        │                 ^^^^^^^
+  > 894 │                   onClick={() => handleAnswer(0)}
+  > 895 │                   disabled={isLoading}
+  > 896 │                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+  > 897 │                 >
+        │                 ^
+    898 │                   <div className="text-3xl">🤔</div>
+    899 │                   <span className="text-xs font-semibold">わからない</span>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app/sessions/[sessionId]/page.tsx:901:17 lint/a11y/useButtonType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Provide an explicit type prop for the button element.
+  
+    899 │                   <span className="text-xs font-semibold">わからない</span>
+    900 │                 </button>
+  > 901 │                 <button
+        │                 ^^^^^^^
+  > 902 │                   onClick={() => handleAnswer(-1)}
+  > 903 │                   disabled={isLoading}
+  > 904 │                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+  > 905 │                 >
+        │                 ^
+    906 │                   <div className="text-3xl">✗</div>
+    907 │                   <span className="text-xs font-semibold">No</span>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app/sessions/[sessionId]/page.tsx:909:17 lint/a11y/useButtonType ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Provide an explicit type prop for the button element.
+  
+    907 │                   <span className="text-xs font-semibold">No</span>
+    908 │                 </button>
+  > 909 │                 <button
+        │                 ^^^^^^^
+  > 910 │                   onClick={() => handleAnswer(-2)}
+  > 911 │                   disabled={isLoading}
+  > 912 │                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+  > 913 │                 >
+        │                 ^
+    914 │                   <div className="text-3xl">👎</div>
+    915 │                   <span className="text-xs font-semibold">Strong No</span>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app/sessions/new/page.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+    1 │ "use client";
+    2 │ 
+  > 3 │ import { useEffect, useState } from "react";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ import { useRouter } from "next/navigation";
+    5 │ import { useUserId } from "@/lib/useUserId";
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   "use client";
+      2   2 │   
+      3     │ - import·{·useEffect,·useState·}·from·"react";
+      4     │ - import·{·useRouter·}·from·"next/navigation";
+      5     │ - import·{·useUserId·}·from·"@/lib/useUserId";
+      6     │ - import·{·createAuthorizationHeader·}·from·"@/lib/auth";
+      7     │ - import·axios·from·"axios";
+      8     │ - import·{·Button·}·from·"@/components/ui/Button";
+      9     │ - import·{
+     10     │ - ··Card,
+     11     │ - ··CardContent,
+     12     │ - ··CardDescription,
+     13     │ - ··CardHeader,
+     14     │ - ··CardTitle,
+     15     │ - }·from·"@/components/ui/card";
+     16     │ - import·{·Input·}·from·"@/components/ui/input";
+     17     │ - import·{·Loader2,·Sparkles·}·from·"lucide-react";
+          3 │ + import·axios·from·"axios";
+          4 │ + import·{·Loader2,·Sparkles·}·from·"lucide-react";
+          5 │ + import·{·useRouter·}·from·"next/navigation";
+          6 │ + import·{·useEffect,·useState·}·from·"react";
+          7 │ + import·{·Button·}·from·"@/components/ui/Button";
+          8 │ + import·{
+          9 │ + ··Card,
+         10 │ + ··CardContent,
+         11 │ + ··CardDescription,
+         12 │ + ··CardHeader,
+         13 │ + ··CardTitle,
+         14 │ + }·from·"@/components/ui/card";
+         15 │ + import·{·Input·}·from·"@/components/ui/input";
+         16 │ + import·{·createAuthorizationHeader·}·from·"@/lib/auth";
+         17 │ + import·{·useUserId·}·from·"@/lib/useUserId";
+     18  18 │   
+     19  19 │   export default function NewSessionPage() {
+  
+
+middleware.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { NextResponse } from "next/server";
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import type { NextRequest } from "next/server";
+    3 │ 
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1     │ - import·{·NextResponse·}·from·"next/server";
+      2     │ - import·type·{·NextRequest·}·from·"next/server";
+          1 │ + import·type·{·NextRequest·}·from·"next/server";
+          2 │ + import·{·NextResponse·}·from·"next/server";
+      3   3 │   
+      4   4 │   const ipAllowlist = (process.env.ALLOWED_IPS ?? "")
+  
+
+Checked 35 files in 45ms. No fixes applied.
+Found 29 errors.
+Found 18 warnings.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+

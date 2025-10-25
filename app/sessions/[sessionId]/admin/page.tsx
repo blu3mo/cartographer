@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import { Loader2, Plus, Printer, Sparkles, Trash2 } from "lucide-react";
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import UserMap from "@/components/UserMap";
@@ -78,12 +78,11 @@ export default function AdminPage({
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isUserIdLoading || !userId) return;
-    fetchAdminData();
-  }, [userId, isUserIdLoading, sessionId]);
+  const fetchAdminData = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
 
-  const fetchAdminData = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`/api/sessions/${sessionId}/admin`, {
@@ -93,9 +92,9 @@ export default function AdminPage({
       });
       setData(response.data.data);
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to fetch admin data:", err);
-      if (err.response?.status === 403) {
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
         setError("このセッションの管理権限がありません。");
       } else {
         setError("データの取得に失敗しました。");
@@ -103,7 +102,15 @@ export default function AdminPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId, userId]);
+
+  useEffect(() => {
+    if (isUserIdLoading) {
+      return;
+    }
+
+    void fetchAdminData();
+  }, [fetchAdminData, isUserIdLoading]);
 
   useEffect(() => {
     if (data) {
@@ -516,6 +523,7 @@ export default function AdminPage({
               </div>
               <div className="mt-3 text-center">
                 <button
+                  type="button"
                   onClick={() => setIsReportExpanded(!isReportExpanded)}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-md hover:bg-accent"
                 >

@@ -35,7 +35,7 @@ export async function GET(
       (participant) => participant.userId === userId,
     );
 
-    const { participants, ...sessionData } = session;
+    const { participants: _participants, ...sessionData } = session;
 
     return NextResponse.json({
       session: {

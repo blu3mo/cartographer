@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { PCA } from "ml-pca";
+import { type NextRequest, NextResponse } from "next/server";
+
 import { getUserIdFromRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PCA } from "ml-pca";
 
 interface ParticipantPoint {
   id: string;
@@ -58,7 +59,7 @@ function standardize(data: number[][]): number[][] {
   // Calculate standard deviations
   for (let j = 0; j < m; j++) {
     for (let i = 0; i < n; i++) {
-      stds[j] += Math.pow(data[i][j] - means[j], 2);
+      stds[j] += (data[i][j] - means[j]) ** 2;
     }
     stds[j] = Math.sqrt(stds[j] / n);
     if (stds[j] === 0) stds[j] = 1; // Prevent division by zero

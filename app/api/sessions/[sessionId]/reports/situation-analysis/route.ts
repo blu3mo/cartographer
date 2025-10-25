@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
+
 import { getUserIdFromRequest } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { generateSituationAnalysisReport } from "@/lib/llm";
+import { prisma } from "@/lib/prisma";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
 
@@ -140,11 +141,13 @@ export async function POST(
           const participantName = response.participant?.name || "Unknown";
           const key = `${participantUserId}:${participantName}`;
 
-          if (!participantResponsesMap.has(key)) {
-            participantResponsesMap.set(key, []);
+          let responsesForParticipant = participantResponsesMap.get(key);
+          if (!responsesForParticipant) {
+            responsesForParticipant = [];
+            participantResponsesMap.set(key, responsesForParticipant);
           }
 
-          participantResponsesMap.get(key)!.push({
+          responsesForParticipant.push({
             statementText: statement.text,
             value: response.value as number,
           });

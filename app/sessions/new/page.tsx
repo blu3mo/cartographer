@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useUserId } from "@/lib/useUserId";
-import { createAuthorizationHeader } from "@/lib/auth";
 import axios from "axios";
+import { Loader2, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -14,7 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles } from "lucide-react";
+import { createAuthorizationHeader } from "@/lib/auth";
+import { useUserId } from "@/lib/useUserId";
 
 export default function NewSessionPage() {
   const router = useRouter();

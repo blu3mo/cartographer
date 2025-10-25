@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
+
 import { getUserIdFromRequest } from "@/lib/auth";
 import { generateInitialStatements } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";

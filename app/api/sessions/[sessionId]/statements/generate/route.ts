@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
+
 import { getUserIdFromRequest } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { generateNewStatements } from "@/lib/llm";
+import { prisma } from "@/lib/prisma";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
 

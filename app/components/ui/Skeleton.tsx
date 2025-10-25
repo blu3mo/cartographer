@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
 import { clsx } from "clsx";
+import { motion } from "framer-motion";
 
 interface SkeletonProps {
   className?: string;

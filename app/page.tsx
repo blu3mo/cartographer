@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useUserId } from "@/lib/useUserId";
-import { createAuthorizationHeader } from "@/lib/auth";
 import axios from "axios";
+import { Calendar, FileText, Loader2, Lock, Plus, Users } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -14,7 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Calendar, FileText, Loader2, Lock, Plus, Users } from "lucide-react";
+import { createAuthorizationHeader } from "@/lib/auth";
+import { useUserId } from "@/lib/useUserId";
 
 type Session = {
   id: string;
@@ -174,16 +175,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
             {category.sessions.map((session) => (
               <Card
                 key={session.id}
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => router.push(`/sessions/${session.id}`)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    router.push(`/sessions/${session.id}`);
-                  }
-                }}
+                className="hover:shadow-md transition-shadow"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-4">
