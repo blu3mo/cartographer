@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { generateInitialStatements } from "@/lib/llm";
+import { ensureEventThreadForSession } from "@/lib/server/event-threads";
 import { supabase } from "@/lib/supabase";
 
 type SessionRow = {
@@ -167,27 +167,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate initial statements using LLM (with fallback to defaults)
-    const statementTexts = await generateInitialStatements(title, context);
-
-    // Save statements to database
-    const statementsPayload = statementTexts.map((text, index) => ({
-      session_id: createdSessions.id,
-      text,
-      order_index: index,
-    }));
-
-    const { error: insertStatementsError } = await supabase
-      .from("statements")
-      .insert(statementsPayload);
-
-    if (insertStatementsError) {
-      console.error(
-        "Failed to insert initial statements:",
-        insertStatementsError,
-      );
+    try {
+      await ensureEventThreadForSession({
+        id: createdSessions.id,
+        context,
+        host_user_id: userId,
+        title,
+      });
+    } catch (threadError) {
+      console.error("Failed to provision event thread:", threadError);
       return NextResponse.json(
-        { error: "Failed to create session" },
+        { error: "Failed to finalize session bootstrap" },
         { status: 500 },
       );
     }
