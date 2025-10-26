@@ -96,10 +96,12 @@ export class PtolemyAgent {
       payload: { markdown: "" },
     });
 
-    const [latestAnalysis, userMessages] = await Promise.all([
-      this.getLatestEventMarkdown(context.thread.id, "survey_analysis"),
-      this.getRecentUserMessages(context.thread.id),
-    ]);
+    const [latestAnalysis, userMessages, eventThreadContext] =
+      await Promise.all([
+        this.getLatestEventMarkdown(context.thread.id, "survey_analysis"),
+        this.getRecentUserMessages(context.thread.id),
+        this.getEventThreadContext(context.thread.id),
+      ]);
 
     let markdown: string;
     try {
@@ -108,6 +110,7 @@ export class PtolemyAgent {
         context: context.session.context,
         latestAnalysisMarkdown: latestAnalysis,
         recentUserMessages: userMessages,
+        eventThreadContext,
       });
     } catch (error) {
       const message = this.stringifyError(error);
@@ -178,10 +181,12 @@ export class PtolemyAgent {
       payload: { statementIds: [] },
     });
 
-    const [planMarkdown, latestAnalysisMarkdown] = await Promise.all([
-      this.getLatestEventMarkdown(context.thread.id, "plan"),
-      this.getLatestEventMarkdown(context.thread.id, "survey_analysis"),
-    ]);
+    const [planMarkdown, latestAnalysisMarkdown, eventThreadContext] =
+      await Promise.all([
+        this.getLatestEventMarkdown(context.thread.id, "plan"),
+        this.getLatestEventMarkdown(context.thread.id, "survey_analysis"),
+        this.getEventThreadContext(context.thread.id),
+      ]);
 
     let statementTexts: string[];
     try {
@@ -190,6 +195,7 @@ export class PtolemyAgent {
         context: context.session.context,
         planMarkdown,
         latestAnalysisMarkdown,
+        eventThreadContext,
       });
     } catch (error) {
       const message = this.stringifyError(error);
@@ -380,6 +386,9 @@ export class PtolemyAgent {
 
     const participantCount = await this.getParticipantCount(context.session.id);
     const stats = this.buildStatementStats(statements ?? [], responses ?? []);
+    const eventThreadContext = await this.getEventThreadContext(
+      context.thread.id,
+    );
 
     let markdown: string;
     try {
@@ -388,6 +397,7 @@ export class PtolemyAgent {
         context: context.session.context,
         totalParticipants: participantCount,
         statements: stats,
+        eventThreadContext,
       });
     } catch (error) {
       const message = this.stringifyError(error);
@@ -604,6 +614,147 @@ export class PtolemyAgent {
         },
       };
     });
+  }
+
+  private async getEventThreadContext(threadId: string): Promise<string> {
+    const { data: events, error } = await this.supabase
+      .from("events")
+      .select(
+        "id, type, agent_id, user_id, progress, payload, order_index, created_at",
+      )
+      .eq("thread_id", threadId)
+      .order("order_index", { ascending: true });
+
+    if (error) {
+      console.error("[Ptolemy] Failed to load events for context:", error);
+      return "(failed to load event history)";
+    }
+
+    if (!events || events.length === 0) {
+      return "(no events yet)";
+    }
+
+    const statementIds = new Set<string>();
+    events.forEach((event) => {
+      const payload = (event.payload ?? {}) as { statementIds?: string[] };
+      if (Array.isArray(payload.statementIds)) {
+        for (const id of payload.statementIds) {
+          statementIds.add(id);
+        }
+      }
+    });
+
+    let statements: { id: string; text: string }[] = [];
+    if (statementIds.size > 0) {
+      const { data: statementRows, error: statementsError } =
+        await this.supabase
+          .from("statements")
+          .select("id, text")
+          .in("id", Array.from(statementIds));
+      if (statementsError) {
+        console.error(
+          "[Ptolemy] Failed to load statements for context:",
+          statementsError,
+        );
+      } else if (statementRows) {
+        statements = statementRows;
+      }
+    }
+
+    let responses: { statement_id: string; value: number }[] = [];
+    if (statementIds.size > 0) {
+      const { data: responseRows, error: responsesError } = await this.supabase
+        .from("responses")
+        .select("statement_id, value")
+        .in("statement_id", Array.from(statementIds));
+      if (responsesError) {
+        console.error(
+          "[Ptolemy] Failed to load responses for context:",
+          responsesError,
+        );
+      } else if (responseRows) {
+        responses = responseRows;
+      }
+    }
+
+    const stats = this.buildStatementStats(statements, responses);
+    const statsById = new Map<string, StatementStat>();
+    statements.forEach((statement, index) => {
+      const stat = stats[index];
+      if (stat) {
+        statsById.set(statement.id, stat);
+      }
+    });
+    const statementTextById = new Map(
+      statements.map((statement) => [statement.id, statement.text]),
+    );
+
+    const lines: string[] = [];
+    events.forEach((event, index) => {
+      const orderLabel = String(event.order_index ?? index).padStart(3, "0");
+      const progress = Number(event.progress ?? 0).toFixed(2);
+      lines.push(
+        `- [${orderLabel}] ${event.type.toUpperCase()} (created=${event.created_at}, progress=${progress})`,
+      );
+
+      const meta: string[] = [];
+      if (event.agent_id) meta.push(`agent=${truncate(event.agent_id)}`);
+      if (event.user_id) meta.push(`user=${truncate(event.user_id)}`);
+      if (meta.length > 0) {
+        lines.push(this.indent(meta.join(", "), 1));
+      }
+
+      const payload = (event.payload ?? {}) as {
+        markdown?: string;
+        statementIds?: string[];
+        error?: string;
+      };
+
+      if (payload.error) {
+        lines.push(this.indent(`error: ${payload.error}`, 1));
+      }
+
+      if (
+        Array.isArray(payload.statementIds) &&
+        payload.statementIds.length > 0
+      ) {
+        lines.push(this.indent("statements:", 1));
+        payload.statementIds.forEach((statementId, idx) => {
+          const text = statementTextById.get(statementId) ?? "(text not found)";
+          lines.push(this.indent(`${idx + 1}. ${text}`, 2));
+          const stat = statsById.get(statementId);
+          if (stat) {
+            lines.push(
+              this.indent(
+                `responses: total=${stat.totalCount}, strongYes=${stat.distribution.strongYes}%, yes=${stat.distribution.yes}%, dontKnow=${stat.distribution.dontKnow}%, no=${stat.distribution.no}%, strongNo=${stat.distribution.strongNo}%`,
+                3,
+              ),
+            );
+          }
+        });
+      }
+
+      if (payload.markdown && payload.markdown.trim().length > 0) {
+        lines.push(this.indent("content:", 1));
+        lines.push(this.indent('"""', 2));
+        lines.push(this.indentBlock(payload.markdown, 2));
+        lines.push(this.indent('"""', 2));
+      }
+    });
+
+    return lines.join("\n");
+  }
+
+  private indent(text: string, level = 1) {
+    const pad = "  ".repeat(level);
+    return `${pad}${text}`;
+  }
+
+  private indentBlock(text: string, level = 1) {
+    return text
+      .split("\n")
+      .map((line) => this.indent(line, level))
+      .join("\n");
   }
 
   private log(

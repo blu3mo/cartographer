@@ -8,7 +8,7 @@ interface LLMMessage {
 }
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-pro";
+const MODEL = "google/gemini-2.5-flash-lite";
 
 async function callLLM(
   messages: LLMMessage[],
@@ -76,6 +76,7 @@ export async function generatePlanMarkdown(input: {
   context: string;
   latestAnalysisMarkdown?: string;
   recentUserMessages?: string[];
+  eventThreadContext: string;
 }): Promise<string> {
   const messagesSection =
     input.recentUserMessages && input.recentUserMessages.length > 0
@@ -87,6 +88,10 @@ export async function generatePlanMarkdown(input: {
   const analysisSection = input.latestAnalysisMarkdown
     ? `\n**最新のSurvey Analysis:**\n${input.latestAnalysisMarkdown}\n`
     : "";
+
+  const threadBlock = `<<<EVENT_THREAD_HISTORY>>>
+${input.eventThreadContext}
+<<<END_EVENT_THREAD_HISTORY>>>`;
 
   const prompt = `あなたは組織内のリサーチを指揮するコンサルタントです。
 
@@ -101,6 +106,9 @@ export async function generatePlanMarkdown(input: {
 **コンテキスト:**
 ${input.context}
 ${messagesSection}${analysisSection}
+
+${threadBlock}
+上記のEvent Thread全体の文脈を踏まえて、Planを作成してください。
 Markdownのみを出力してください。`;
 
   try {
@@ -117,6 +125,7 @@ export async function generateSurveyStatements(input: {
   context: string;
   planMarkdown?: string;
   latestAnalysisMarkdown?: string;
+  eventThreadContext: string;
 }): Promise<string[]> {
   const planSection = input.planMarkdown
     ? `\n**最新のPlan:**\n${input.planMarkdown}\n`
@@ -124,6 +133,10 @@ export async function generateSurveyStatements(input: {
   const analysisSection = input.latestAnalysisMarkdown
     ? `\n**最新のSurvey Analysis:**\n${input.latestAnalysisMarkdown}\n`
     : "";
+
+  const threadBlock = `<<<EVENT_THREAD_HISTORY>>>
+${input.eventThreadContext}
+<<<END_EVENT_THREAD_HISTORY>>>`;
 
   const prompt = `あなたは探求的リサーチを設計するアナリストです。
 
@@ -137,6 +150,9 @@ export async function generateSurveyStatements(input: {
 **コンテキスト:**
 ${input.context}
 ${planSection}${analysisSection}
+
+${threadBlock}
+Event ThreadのすべてのPlan/Survey/UserMessage/Analysisを参照し、既存の洞察を踏まえて新しいSurveyを設計してください。
 ["ステートメント1", "ステートメント2", ...] というJSON配列のみを出力してください。`;
 
   try {
@@ -169,6 +185,7 @@ export async function generateSurveyAnalysisMarkdown(input: {
   context: string;
   totalParticipants: number;
   statements: StatementStat[];
+  eventThreadContext: string;
 }): Promise<string> {
   const statementsText = input.statements
     .map((statement, index) => {
@@ -181,6 +198,10 @@ export async function generateSurveyAnalysisMarkdown(input: {
 - Strong No: ${dist.strongNo}%`;
     })
     .join("\n\n");
+
+  const threadBlock = `<<<EVENT_THREAD_HISTORY>>>
+${input.eventThreadContext}
+<<<END_EVENT_THREAD_HISTORY>>>`;
 
   const prompt = `あなたは組織に寄り添うリサーチャーです。
 
@@ -198,6 +219,8 @@ ${input.context}
 **ステートメントと回答状況:**
 ${statementsText}
 
+${threadBlock}
+Event Thread全体の文脈を踏まえて分析してください。
 Markdownのみを出力してください。`;
 
   try {
