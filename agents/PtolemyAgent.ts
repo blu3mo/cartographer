@@ -689,20 +689,19 @@ export class PtolemyAgent {
       statements.map((statement) => [statement.id, statement.text]),
     );
 
-    const lines: string[] = [];
-    events.forEach((event, index) => {
-      const orderLabel = String(event.order_index ?? index).padStart(3, "0");
-      const progress = Number(event.progress ?? 0).toFixed(2);
-      lines.push(
-        `- [${orderLabel}] ${event.type.toUpperCase()} (created=${event.created_at}, progress=${progress})`,
-      );
-
-      const meta: string[] = [];
-      if (event.agent_id) meta.push(`agent=${truncate(event.agent_id)}`);
-      if (event.user_id) meta.push(`user=${truncate(event.user_id)}`);
-      if (meta.length > 0) {
-        lines.push(this.indent(meta.join(", "), 1));
-      }
+    const lines: string[] = ["<event_thread_history>"];
+    events.forEach((event) => {
+      const tagName = event.type ?? "event";
+      const attributes = [
+        event.created_at
+          ? `created_at="${this.formatTimestamp(event.created_at)}"`
+          : null,
+        event.user_id ? `user="${truncate(event.user_id)}"` : null,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const openTag = attributes.length > 0 ? `<${tagName} ${attributes}>` : `<${tagName}>`;
+      lines.push(this.indent(openTag, 1));
 
       const payload = (event.payload ?? {}) as {
         markdown?: string;
@@ -711,38 +710,89 @@ export class PtolemyAgent {
       };
 
       if (payload.error) {
-        lines.push(this.indent(`error: ${payload.error}`, 1));
+        lines.push(this.indent(`<error>${payload.error}</error>`, 2));
       }
 
       if (
         Array.isArray(payload.statementIds) &&
         payload.statementIds.length > 0
       ) {
-        lines.push(this.indent("statements:", 1));
+        lines.push(
+          this.indent(
+            `<statements count="${payload.statementIds.length}">`,
+            2,
+          ),
+        );
         payload.statementIds.forEach((statementId, idx) => {
           const text = statementTextById.get(statementId) ?? "(text not found)";
-          lines.push(this.indent(`${idx + 1}. ${text}`, 2));
+          lines.push(
+            this.indent(
+              `<statement id="${statementId}" index="${idx + 1}">`,
+              3,
+            ),
+          );
+          lines.push(this.indent(`<text>${text}</text>`, 4));
           const stat = statsById.get(statementId);
           if (stat) {
             lines.push(
               this.indent(
-                `responses: total=${stat.totalCount}, strongYes=${stat.distribution.strongYes}%, yes=${stat.distribution.yes}%, dontKnow=${stat.distribution.dontKnow}%, no=${stat.distribution.no}%, strongNo=${stat.distribution.strongNo}%`,
-                3,
+                `responses total=${stat.totalCount}`,
+                4,
+              ),
+            );
+            lines.push(
+              this.indent(
+                `strong_yes=${stat.distribution.strongYes}%`,
+                5,
+              ),
+            );
+            lines.push(
+              this.indent(`yes=${stat.distribution.yes}%`, 5),
+            );
+            lines.push(
+              this.indent(
+                `dont_know=${stat.distribution.dontKnow}%`,
+                5,
+              ),
+            );
+            lines.push(
+              this.indent(`no=${stat.distribution.no}%`, 5),
+            );
+            lines.push(
+              this.indent(
+                `strong_no=${stat.distribution.strongNo}%`,
+                5,
               ),
             );
           }
+          lines.push(this.indent("</statement>", 3));
         });
+        lines.push(this.indent("</statements>", 2));
       }
 
       if (payload.markdown && payload.markdown.trim().length > 0) {
-        lines.push(this.indent("content:", 1));
-        lines.push(this.indent('"""', 2));
-        lines.push(this.indentBlock(payload.markdown, 2));
-        lines.push(this.indent('"""', 2));
+        lines.push(this.indent("<content format=\"markdown\">", 2));
+        lines.push(this.indentBlock(payload.markdown.trim(), 3));
+        lines.push(this.indent("</content>", 2));
       }
+
+      lines.push(this.indent(`</${tagName}>`, 1));
     });
 
+    lines.push("</event_thread_history>");
+
     return lines.join("\n");
+  }
+
+  private formatTimestamp(value?: string | null) {
+    if (!value) return "";
+    const match = value.match(
+      /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?$/,
+    );
+    if (match) {
+      return `${match[1]} ${match[2]}`;
+    }
+    return value.replace("T", " ").slice(0, 16);
   }
 
   private indent(text: string, level = 1) {

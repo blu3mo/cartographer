@@ -89,27 +89,27 @@ export async function generatePlanMarkdown(input: {
     ? `\n**最新のSurvey Analysis:**\n${input.latestAnalysisMarkdown}\n`
     : "";
 
-  const threadBlock = `<<<EVENT_THREAD_HISTORY>>>
+  const prompt = `
+<role>
+あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
+</role>
+<task>
+今までのEventThreadの内容を踏まえて、改めて、調査目的を満たすための戦略ロードマップを、短期・中期・長期のリサーチサイクルとして記述してください。各サイクルで「収集したい情報」「検証する仮説」「想定する分岐」を書いてください。
+3. 次のSurveyで最優先で明らかにしたい問い／仮説を箇条書きで提示し、なぜ重要か一行コメントを添えてください。
+- いきなり深掘りせず、論点の幅と優先順位を俯瞰してください。
+- もし調査を進める上でそもそも前提情報が足りない場合は深掘りを急がずに、欠落している背景や前提の情報を探索的に収集することから始めてください。
+- 参加者群からどのような質問でどんな仮説を検証するかを明確にし、必要があれば探索ルートを更新してください。
+- 個人の利害と、共同体としてのべき論を混同しないように注意してください。
+- 具体/ミクロレベルと、抽象/マクロレベルの両方の認識を必要に応じて収集してください。
+- 常に目的を意識し、目的を達成するために収集すべき情報について収集の順番や優先順位がつけられるとよい。
+</task>
+<session>
+  <title>${input.sessionTitle}</title>
+  <context>${input.context}</context>
+</session>
 ${input.eventThreadContext}
-<<<END_EVENT_THREAD_HISTORY>>>`;
-
-  const prompt = `あなたは組織内のリサーチを指揮するコンサルタントです。
-
-以下の情報を基に、「ここからどのように調査を進めていくか」「次に何をすべきか」をMarkdown形式で簡潔に整理してください。
-- 目的達成に向けた長期的なリサーチの道筋を立てる。
-- 次のSurveyで調査したい問いや仮説、観点を箇条書きで示す
-- Agentやホストが参照すべき具体的な実行ステップを示す
-過去の洞察からの学びも活かしてください。
-
-**セッションタイトル:** ${input.sessionTitle}
-
-**コンテキスト:**
-${input.context}
-${messagesSection}${analysisSection}
-
-${threadBlock}
-上記のEvent Thread全体の文脈を踏まえて、Planを作成してください。
-Markdownのみを出力してください。`;
+<output>MarkdownのみでPLANセクションの中身を返してください。</output>
+`;
 
   try {
     const response = await callLLM([{ role: "user", content: prompt }]);
@@ -134,26 +134,27 @@ export async function generateSurveyStatements(input: {
     ? `\n**最新のSurvey Analysis:**\n${input.latestAnalysisMarkdown}\n`
     : "";
 
-  const threadBlock = `<<<EVENT_THREAD_HISTORY>>>
+  const prompt = `
+<role>
+あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
+</role>
+<task>
+参加者へのYES/NO回答を通じて、立場の背景にある価値観・利害・優先順位を浮き彫りにします。
+今までのEventThreadの内容を踏まえて、新たに15個のステートメントを生成してください。各ステートメントは以下を満たすこと。
+- YES/NOの二択で答えられる断定文であること。
+- 1文のみ、単体で意味が通じること。
+- 表層の主張ではなく、その背後の価値観・利害・時間軸・成功条件を明らかにできること。
+- 個人の利害と共同体としてのべき論を混同せずに、調査目的を踏まえて主語を明確にすること。
+- 解釈のブレが生じないよう、必要であれば5W1Hを明示してシャープに表現すること。
+- 参加者の立ち位置がYES/NOで鮮明に分かれ、背後の動機が推測できるようにする。
+</task>
+<session>
+  <title>${input.sessionTitle}</title>
+  <context>${input.context}</context>
+</session>
 ${input.eventThreadContext}
-<<<END_EVENT_THREAD_HISTORY>>>`;
-
-  const prompt = `あなたは探求的リサーチを設計するアナリストです。
-
-以下の情報をもとに、YES/NOで回答できる挑戦的なステートメントを10個、JSON配列形式で生成してください。
-- 参加者の立場や利害が分かれそうなポイントを捉える
-- 未解決の問い、重要だが議論されていない視点を掘り起こす
-- 1文で完結し、曖昧さが少ない断定形にする
-
-**セッションタイトル:** ${input.sessionTitle}
-
-**コンテキスト:**
-${input.context}
-${planSection}${analysisSection}
-
-${threadBlock}
-Event ThreadのすべてのPlan/Survey/UserMessage/Analysisを参照し、既存の洞察を踏まえて新しいSurveyを設計してください。
-["ステートメント1", "ステートメント2", ...] というJSON配列のみを出力してください。`;
+<output>JSON配列（例: ["文1", "文2", ...]）のみを返してください。</output>
+`;
 
   try {
     const response = await callLLM([{ role: "user", content: prompt }]);
@@ -199,29 +200,29 @@ export async function generateSurveyAnalysisMarkdown(input: {
     })
     .join("\n\n");
 
-  const threadBlock = `<<<EVENT_THREAD_HISTORY>>>
-${input.eventThreadContext}
-<<<END_EVENT_THREAD_HISTORY>>>`;
-
-  const prompt = `あなたは組織に寄り添うリサーチャーです。
-
-以下の回答状況をもとに、Markdown形式のSurvey Analysisを作成してください。
-- 合意が形成されている点 / 意見が割れている点 / まだ不明な点をそれぞれ指摘する
-- 客観的なデータに基づきつつ、示唆に富んだ解説を加える
-
-**セッションタイトル:** ${input.sessionTitle}
-
-**コンテキスト:**
-${input.context}
-
-**総回答者数:** ${input.totalParticipants}人
-
-**ステートメントと回答状況:**
+  const prompt = `
+<role>
+あなたはシニアリサーチャー兼コンサルタント。参加者への質問→分析→計画→再質問のループを通じて、認識の構造を定量・定性の両面から解き明かします。
+</role>
+<task>
+Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果から分かることを分析し、Markdownで以下を出力してください。
+- 合意が存在する点。特に、具体的な合意点や意外な合意点。
+- 意見が二極化・多極化している点。
+- 多くがまだ判断できていない点、わからない点。
+また、それらを考察し、背景にある点を仮説
+- どのような価値観／利害が軸になっているか。
+</task>
+<session>
+  <title>${input.sessionTitle}</title>
+  <context>${input.context}</context>
+  <participants>${input.totalParticipants}</participants>
+</session>
+<survey_results>
 ${statementsText}
-
-${threadBlock}
-Event Thread全体の文脈を踏まえて分析してください。
-Markdownのみを出力してください。`;
+</survey_results>
+${input.eventThreadContext}
+<output>MarkdownのみでSurvey Analysisを返してください。</output>
+`;
 
   try {
     const response = await callLLM([{ role: "user", content: prompt }]);
