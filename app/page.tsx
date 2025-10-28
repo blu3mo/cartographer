@@ -21,6 +21,7 @@ type Session = {
   id: string;
   title: string;
   context: string;
+  goal: string;
   hostUserId: string;
   createdAt: string;
   isPublic: boolean;
@@ -190,7 +191,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                     )}
                   </div>
                   <CardDescription className="line-clamp-2">
-                    {session.context}
+                    {session.goal || session.context}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

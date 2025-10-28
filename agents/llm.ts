@@ -8,7 +8,7 @@ interface LLMMessage {
 }
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash-lite";
+const MODEL = "google/gemini-2.5-flash";
 
 async function callLLM(
   messages: LLMMessage[],
@@ -73,41 +73,40 @@ function extractJsonArray(text: string): string[] | null {
 
 export async function generatePlanMarkdown(input: {
   sessionTitle: string;
-  context: string;
+  sessionGoal: string;
+  initialContext: string;
+  eventThreadContext: string;
   latestAnalysisMarkdown?: string;
   recentUserMessages?: string[];
-  eventThreadContext: string;
+  participantCount?: number;
 }): Promise<string> {
-  const messagesSection =
-    input.recentUserMessages && input.recentUserMessages.length > 0
-      ? `\n**最新のUser Message:**\n${input.recentUserMessages
-        .map((message, index) => `${index + 1}. ${message}`)
-        .join("\n")}\n`
-      : "";
 
-  const analysisSection = input.latestAnalysisMarkdown
-    ? `\n**最新のSurvey Analysis:**\n${input.latestAnalysisMarkdown}\n`
-    : "";
+  const participantsLabel =
+    typeof input.participantCount === "number"
+      ? String(input.participantCount)
+      : "unknown";
 
   const prompt = `
 <role>
 あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
 </role>
 <task>
-今までのEventThreadの内容を踏まえて、改めて、調査目的を満たすための戦略ロードマップを、短期・中期・長期のリサーチサイクルとして記述してください。各サイクルで「収集したい情報」「検証する仮説」「想定する分岐」を書いてください。
-3. 次のSurveyで最優先で明らかにしたい問い／仮説を箇条書きで提示し、なぜ重要か一行コメントを添えてください。
-- いきなり深掘りせず、論点の幅と優先順位を俯瞰してください。
+今までのEventThreadの内容を踏まえて、改めて、調査目的を満たすための戦略ロードマップを、短期（次に参加者全員から引き出したい情報）と長期（ここから何度も情報収集と考察を繰り返す中で目的を達成する道筋）として記述してください。
+- 有限の質問回数の中で、どんな情報を収集したり仮説を検証するのかについて、優先順位を戦略的に立てることが大事です。
 - もし調査を進める上でそもそも前提情報が足りない場合は深掘りを急がずに、欠落している背景や前提の情報を探索的に収集することから始めてください。
-- 参加者群からどのような質問でどんな仮説を検証するかを明確にし、必要があれば探索ルートを更新してください。
 - 個人の利害と、共同体としてのべき論を混同しないように注意してください。
 - 具体/ミクロレベルと、抽象/マクロレベルの両方の認識を必要に応じて収集してください。
-- 常に目的を意識し、目的を達成するために収集すべき情報について収集の順番や優先順位がつけられるとよい。
+- 常にセッションの目的を意識し、目的を達成するために収集すべき情報について収集の順番や優先順位がつけられるとよい。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
-  <context>${input.context}</context>
+  <goal>${input.sessionGoal}</goal>
+  <participants>${participantsLabel}</participants>
 </session>
-${input.eventThreadContext}
+<context>
+  ${input.eventThreadContext}
+  <initial_context>${input.initialContext}</initial_context>
+</context>
 <output>MarkdownのみでPLANセクションの中身を返してください。</output>
 `;
 
@@ -122,37 +121,42 @@ ${input.eventThreadContext}
 
 export async function generateSurveyStatements(input: {
   sessionTitle: string;
-  context: string;
+  sessionGoal: string;
+  initialContext: string;
+  eventThreadContext: string;
   planMarkdown?: string;
   latestAnalysisMarkdown?: string;
-  eventThreadContext: string;
+  participantCount?: number;
 }): Promise<string[]> {
-  const planSection = input.planMarkdown
-    ? `\n**最新のPlan:**\n${input.planMarkdown}\n`
-    : "";
-  const analysisSection = input.latestAnalysisMarkdown
-    ? `\n**最新のSurvey Analysis:**\n${input.latestAnalysisMarkdown}\n`
-    : "";
+
+  const participantsLabel =
+    typeof input.participantCount === "number"
+      ? String(input.participantCount)
+      : "unknown";
 
   const prompt = `
 <role>
 あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
 </role>
 <task>
-参加者へのYES/NO回答を通じて、立場の背景にある価値観・利害・優先順位を浮き彫りにします。
-今までのEventThreadの内容を踏まえて、新たに15個のステートメントを生成してください。各ステートメントは以下を満たすこと。
+ステートメントに対する参加者のYES/NO回答を通じて、立場の背景にある価値観・利害・優先順位を浮き彫りにします。
+今までのEventThreadの内容を踏まえて、新たに15個のステートメントを生成してください。それらに対して参加者全員がYES/NOで回答します。
+各ステートメントは以下を満たすこと。
 - YES/NOの二択で答えられる断定文であること。
 - 1文のみ、単体で意味が通じること。
 - 表層の主張ではなく、その背後の価値観・利害・時間軸・成功条件を明らかにできること。
-- 個人の利害と共同体としてのべき論を混同せずに、調査目的を踏まえて主語を明確にすること。
 - 解釈のブレが生じないよう、必要であれば5W1Hを明示してシャープに表現すること。
 - 参加者の立ち位置がYES/NOで鮮明に分かれ、背後の動機が推測できるようにする。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
-  <context>${input.context}</context>
+  <goal>${input.sessionGoal}</goal>
+  <participants>${participantsLabel}</participants>
 </session>
-${input.eventThreadContext}
+<context>
+  ${input.eventThreadContext}
+  <initial_context>${input.initialContext}</initial_context>
+</context>
 <output>JSON配列（例: ["文1", "文2", ...]）のみを返してください。</output>
 `;
 
@@ -183,7 +187,8 @@ export interface StatementStat {
 
 export async function generateSurveyAnalysisMarkdown(input: {
   sessionTitle: string;
-  context: string;
+  sessionGoal: string;
+  initialContext: string;
   totalParticipants: number;
   statements: StatementStat[];
   eventThreadContext: string;
@@ -202,7 +207,7 @@ export async function generateSurveyAnalysisMarkdown(input: {
 
   const prompt = `
 <role>
-あなたはシニアリサーチャー兼コンサルタント。参加者への質問→分析→計画→再質問のループを通じて、認識の構造を定量・定性の両面から解き明かします。
+あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
 </role>
 <task>
 Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果から分かることを分析し、Markdownで以下を出力してください。
@@ -214,13 +219,16 @@ Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果�
 </task>
 <session>
   <title>${input.sessionTitle}</title>
-  <context>${input.context}</context>
+  <goal>${input.sessionGoal}</goal>
   <participants>${input.totalParticipants}</participants>
 </session>
+<context>
+  ${input.eventThreadContext}
+  <initial_context>${input.initialContext}</initial_context>
+</context>
 <survey_results>
 ${statementsText}
 </survey_results>
-${input.eventThreadContext}
 <output>MarkdownのみでSurvey Analysisを返してください。</output>
 `;
 

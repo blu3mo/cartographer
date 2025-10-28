@@ -41,7 +41,7 @@ export async function GET(
     // Verify that the user is the host of this session
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, title, context, is_public, created_at, host_user_id")
+      .select("id, title, context, goal, is_public, created_at, host_user_id")
       .eq("id", sessionId)
       .single();
 
@@ -197,6 +197,7 @@ export async function GET(
         id: session.id,
         title: session.title,
         context: session.context,
+        goal: session.goal,
         isPublic: session.is_public,
         createdAt: session.created_at,
         statements: statementsWithStats,
@@ -262,9 +263,10 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { title, context, isPublic } = body as {
+    const { title, context, goal, isPublic } = body as {
       title?: unknown;
       context?: unknown;
+      goal?: unknown;
       isPublic?: unknown;
     };
 
@@ -272,8 +274,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid title" }, { status: 400 });
     }
 
-    if (typeof context !== "string" || context.trim().length === 0) {
+    if (typeof context !== "string") {
       return NextResponse.json({ error: "Invalid context" }, { status: 400 });
+    }
+
+    if (typeof goal !== "string" || goal.trim().length === 0) {
+      return NextResponse.json({ error: "Invalid goal" }, { status: 400 });
     }
 
     if (typeof isPublic !== "boolean") {
@@ -288,10 +294,11 @@ export async function PATCH(
       .update({
         title: title.trim(),
         context: context.trim(),
+        goal: goal.trim(),
         is_public: isPublic,
       })
       .eq("id", sessionId)
-      .select("id, title, context, is_public, created_at")
+      .select("id, title, context, goal, is_public, created_at")
       .single();
 
     if (updateError || !updatedSession) {
@@ -307,6 +314,7 @@ export async function PATCH(
         id: updatedSession.id,
         title: updatedSession.title,
         context: updatedSession.context,
+        goal: updatedSession.goal,
         isPublic: updatedSession.is_public,
         createdAt: updatedSession.created_at,
       },

@@ -1,9 +1,9 @@
 "use client";
 
 import axios from "axios";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -24,9 +24,15 @@ export default function NewSessionPage() {
   const [whatToClarify, setWhatToClarify] = useState("");
   const [purpose, setPurpose] = useState("");
   const [backgroundInfo, setBackgroundInfo] = useState("");
+  const [goal, setGoal] = useState("");
+  const [isGoalGenerating, setIsGoalGenerating] = useState(false);
+  const [goalError, setGoalError] = useState<string | null>(null);
+  const [hasGeneratedGoal, setHasGeneratedGoal] = useState(false);
+  const [isGoalStale, setIsGoalStale] = useState(false);
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const goalRequestControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     document.title = "新しいセッションを作成 - Cartographer";
@@ -34,6 +40,82 @@ export default function NewSessionPage() {
       document.title = "Cartographer - 認識を可視化し、合意形成を促進する";
     };
   }, []);
+
+  const canGenerateGoal =
+    title.trim().length > 0 &&
+    whatToClarify.trim().length > 0 &&
+    purpose.trim().length > 0;
+
+  const markGoalAsStale = () => {
+    if (hasGeneratedGoal) {
+      setIsGoalStale(true);
+    }
+  };
+
+  const handleGenerateGoal = async () => {
+    if (isGoalGenerating) {
+      goalRequestControllerRef.current?.abort();
+      setGoalError(null);
+      return;
+    }
+
+    if (!userId) {
+      setGoalError("User ID not available");
+      return;
+    }
+
+    if (!canGenerateGoal) {
+      setGoalError(
+        "タイトル・何の認識を洗い出すか・何のために洗い出すかを入力してください。",
+      );
+      return;
+    }
+
+    const controller = new AbortController();
+    goalRequestControllerRef.current = controller;
+
+    setIsGoalGenerating(true);
+    setGoalError(null);
+
+    try {
+      const response = await axios.post(
+        "/api/sessions/goal",
+        {
+          title,
+          focus: whatToClarify,
+          purpose,
+          background: backgroundInfo,
+        },
+        {
+          headers: createAuthorizationHeader(userId),
+          signal: controller.signal,
+        },
+      );
+
+      const generatedGoal = response.data.goal;
+      if (
+        typeof generatedGoal === "string" &&
+        generatedGoal.trim().length > 0
+      ) {
+        setGoal(generatedGoal.trim());
+        setHasGeneratedGoal(true);
+        setIsGoalStale(false);
+      } else {
+        setGoalError("ゴールの生成結果が不正です。もう一度お試しください。");
+      }
+    } catch (err) {
+      if (axios.isCancel(err)) {
+        return;
+      }
+      console.error("Failed to generate session goal:", err);
+      setGoalError("ゴールの生成に失敗しました。もう一度お試しください。");
+    } finally {
+      if (goalRequestControllerRef.current === controller) {
+        goalRequestControllerRef.current = null;
+        setIsGoalGenerating(false);
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,25 +125,24 @@ export default function NewSessionPage() {
       return;
     }
 
+    if (goal.trim().length === 0) {
+      setGoalError("ゴールを生成または入力してください。");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
+    setGoalError(null);
 
     try {
-      // Combine fields into context
-      const contextSections = [
-        `【何の認識を洗い出すか】\n${whatToClarify}`,
-        `【何のために洗い出すか】\n${purpose}`,
-      ];
-
-      if (backgroundInfo.trim().length > 0) {
-        contextSections.push(`【背景情報】\n${backgroundInfo}`);
-      }
-
-      const context = contextSections.join("\n\n");
-
       const response = await axios.post(
         "/api/sessions",
-        { title, context, isPublic: visibility === "public" },
+        {
+          title: title.trim(),
+          context: backgroundInfo.trim(),
+          goal: goal.trim(),
+          isPublic: visibility === "public",
+        },
         { headers: createAuthorizationHeader(userId) },
       );
 
@@ -111,7 +192,10 @@ export default function NewSessionPage() {
                   type="text"
                   id="title"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    markGoalAsStale();
+                  }}
                   required
                   placeholder="例: プロジェクトXの現状認識"
                 />
@@ -167,11 +251,14 @@ export default function NewSessionPage() {
                 <textarea
                   id="whatToClarify"
                   value={whatToClarify}
-                  onChange={(e) => setWhatToClarify(e.target.value)}
+                  onChange={(e) => {
+                    setWhatToClarify(e.target.value);
+                    markGoalAsStale();
+                  }}
                   required
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="例: プロジェクトXの現状、課題、今後の方向性について"
+                  placeholder="例: プロジェクトXのチームメンバーが抱いている、現状認識、課題意識、および今後の方向性のイメージ"
                 />
                 <p className="text-xs text-muted-foreground">
                   洗い出したいトピックや範囲を具体的に記載してください
@@ -185,11 +272,14 @@ export default function NewSessionPage() {
                 <textarea
                   id="purpose"
                   value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
+                  onChange={(e) => {
+                    setPurpose(e.target.value);
+                    markGoalAsStale();
+                  }}
                   required
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
+                  placeholder="例: チーム全体で認識を合わせ、次の半期のアクションを決めるため"
                 />
                 <p className="text-xs text-muted-foreground">
                   このセッションの目的やゴールを明確にしましょう
@@ -203,14 +293,78 @@ export default function NewSessionPage() {
                 <textarea
                   id="backgroundInfo"
                   value={backgroundInfo}
-                  onChange={(e) => setBackgroundInfo(e.target.value)}
+                  onChange={(e) => {
+                    setBackgroundInfo(e.target.value);
+                    markGoalAsStale();
+                  }}
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="例: プロジェクトXは3ヶ月前に立ち上がり、現在はMVPのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
+                  placeholder="例: プロジェクトXは3ヶ月前に立ち上がり、現在はプロダクトのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
                 />
                 <p className="text-xs text-muted-foreground">
                   セッションの背景となる経緯や関係者情報など、AIに共有したいコンテキストを記載してください
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label htmlFor="sessionGoal" className="text-sm font-medium">
+                    セッションゴール
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleGenerateGoal}
+                    disabled={!canGenerateGoal && !isGoalGenerating}
+                    className="w-full sm:w-auto gap-2"
+                  >
+                    {isGoalGenerating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        生成中...
+                        <span className="text-xs text-muted-foreground">
+                          （クリックで停止）
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4" />
+                        {hasGeneratedGoal ? "ゴールを再生成" : "ゴールを生成"}
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  フォームの内容をもとに、AIが詳細なゴール説明を生成します。必要に応じて手動で編集できます。
+                </p>
+                <textarea
+                  id="sessionGoal"
+                  value={goal}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setGoal(value);
+                    setGoalError(null);
+                    if (isGoalStale) {
+                      setIsGoalStale(false);
+                    }
+                    if (value.trim().length > 0) {
+                      setHasGeneratedGoal(true);
+                    } else {
+                      setHasGeneratedGoal(false);
+                    }
+                  }}
+                  rows={20}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  placeholder="まずフォームを埋めてゴールを生成してください。"
+                />
+                {isGoalStale && (
+                  <p className="text-xs text-amber-600">
+                    フォームの内容が編集されたため、ゴールが古くなっている可能性があります。必要に応じて再生成してください。
+                  </p>
+                )}
+                {goalError && (
+                  <p className="text-xs text-destructive">{goalError}</p>
+                )}
               </div>
 
               {error && (
@@ -223,7 +377,7 @@ export default function NewSessionPage() {
 
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || goal.trim().length === 0}
                 isLoading={isSubmitting}
                 className="w-full"
               >

@@ -13,6 +13,7 @@ export type SessionHostRow = {
   id: string;
   title: string;
   context: string;
+  goal: string;
   is_public: boolean;
   host_user_id: string;
 };
@@ -23,7 +24,7 @@ export async function requireSessionHost(
 ): Promise<SessionHostRow> {
   const { data: session, error } = await supabase
     .from("sessions")
-    .select("id, title, context, is_public, host_user_id")
+    .select("id, title, context, goal, is_public, host_user_id")
     .eq("id", sessionId)
     .single();
 

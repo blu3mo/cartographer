@@ -69,7 +69,7 @@ export class PtolemyAgent {
 
     const { data: session, error: sessionError } = await this.supabase
       .from("sessions")
-      .select("id, title, context")
+      .select("id, title, context, goal")
       .eq("id", thread.session_id)
       .single();
 
@@ -103,14 +103,18 @@ export class PtolemyAgent {
         this.getEventThreadContext(context.thread.id),
       ]);
 
+    const participantCount = await this.getParticipantCount(context.session.id);
+
     let markdown: string;
     try {
       markdown = await generatePlanMarkdown({
         sessionTitle: context.session.title,
-        context: context.session.context,
+        sessionGoal: context.session.goal,
+        initialContext: context.session.context,
         latestAnalysisMarkdown: latestAnalysis,
         recentUserMessages: userMessages,
         eventThreadContext,
+        participantCount,
       });
     } catch (error) {
       const message = this.stringifyError(error);
@@ -181,21 +185,28 @@ export class PtolemyAgent {
       payload: { statementIds: [] },
     });
 
-    const [planMarkdown, latestAnalysisMarkdown, eventThreadContext] =
-      await Promise.all([
-        this.getLatestEventMarkdown(context.thread.id, "plan"),
-        this.getLatestEventMarkdown(context.thread.id, "survey_analysis"),
-        this.getEventThreadContext(context.thread.id),
-      ]);
+    const [
+      planMarkdown,
+      latestAnalysisMarkdown,
+      eventThreadContext,
+      participantCount,
+    ] = await Promise.all([
+      this.getLatestEventMarkdown(context.thread.id, "plan"),
+      this.getLatestEventMarkdown(context.thread.id, "survey_analysis"),
+      this.getEventThreadContext(context.thread.id),
+      this.getParticipantCount(context.session.id),
+    ]);
 
     let statementTexts: string[];
     try {
       statementTexts = await generateSurveyStatements({
         sessionTitle: context.session.title,
-        context: context.session.context,
+        sessionGoal: context.session.goal,
+        initialContext: context.session.context,
         planMarkdown,
         latestAnalysisMarkdown,
         eventThreadContext,
+        participantCount,
       });
     } catch (error) {
       const message = this.stringifyError(error);
@@ -389,12 +400,12 @@ export class PtolemyAgent {
     const eventThreadContext = await this.getEventThreadContext(
       context.thread.id,
     );
-
     let markdown: string;
     try {
       markdown = await generateSurveyAnalysisMarkdown({
         sessionTitle: context.session.title,
-        context: context.session.context,
+        sessionGoal: context.session.goal,
+        initialContext: context.session.context,
         totalParticipants: participantCount,
         statements: stats,
         eventThreadContext,
@@ -700,7 +711,8 @@ export class PtolemyAgent {
       ]
         .filter(Boolean)
         .join(" ");
-      const openTag = attributes.length > 0 ? `<${tagName} ${attributes}>` : `<${tagName}>`;
+      const openTag =
+        attributes.length > 0 ? `<${tagName} ${attributes}>` : `<${tagName}>`;
       lines.push(this.indent(openTag, 1));
 
       const payload = (event.payload ?? {}) as {
@@ -718,10 +730,7 @@ export class PtolemyAgent {
         payload.statementIds.length > 0
       ) {
         lines.push(
-          this.indent(
-            `<statements count="${payload.statementIds.length}">`,
-            2,
-          ),
+          this.indent(`<statements count="${payload.statementIds.length}">`, 2),
         );
         payload.statementIds.forEach((statementId, idx) => {
           const text = statementTextById.get(statementId) ?? "(text not found)";
@@ -734,35 +743,17 @@ export class PtolemyAgent {
           lines.push(this.indent(`<text>${text}</text>`, 4));
           const stat = statsById.get(statementId);
           if (stat) {
+            lines.push(this.indent(`responses total=${stat.totalCount}`, 4));
             lines.push(
-              this.indent(
-                `responses total=${stat.totalCount}`,
-                4,
-              ),
+              this.indent(`strong_yes=${stat.distribution.strongYes}%`, 5),
             );
+            lines.push(this.indent(`yes=${stat.distribution.yes}%`, 5));
             lines.push(
-              this.indent(
-                `strong_yes=${stat.distribution.strongYes}%`,
-                5,
-              ),
+              this.indent(`dont_know=${stat.distribution.dontKnow}%`, 5),
             );
+            lines.push(this.indent(`no=${stat.distribution.no}%`, 5));
             lines.push(
-              this.indent(`yes=${stat.distribution.yes}%`, 5),
-            );
-            lines.push(
-              this.indent(
-                `dont_know=${stat.distribution.dontKnow}%`,
-                5,
-              ),
-            );
-            lines.push(
-              this.indent(`no=${stat.distribution.no}%`, 5),
-            );
-            lines.push(
-              this.indent(
-                `strong_no=${stat.distribution.strongNo}%`,
-                5,
-              ),
+              this.indent(`strong_no=${stat.distribution.strongNo}%`, 5),
             );
           }
           lines.push(this.indent("</statement>", 3));
@@ -771,7 +762,7 @@ export class PtolemyAgent {
       }
 
       if (payload.markdown && payload.markdown.trim().length > 0) {
-        lines.push(this.indent("<content format=\"markdown\">", 2));
+        lines.push(this.indent('<content format="markdown">', 2));
         lines.push(this.indentBlock(payload.markdown.trim(), 3));
         lines.push(this.indent("</content>", 2));
       }

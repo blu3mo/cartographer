@@ -146,6 +146,7 @@ export async function GET(
         id: session.id,
         title: session.title,
         context: session.context,
+        goal: session.goal,
         isPublic: session.is_public,
       },
       thread: {

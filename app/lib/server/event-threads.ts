@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 type SessionForThread = {
   id: string;
   context: string;
+  goal: string;
   host_user_id: string;
   title?: string;
 };
@@ -61,11 +62,11 @@ async function createBootstrapUserMessage(
     user_id: session.host_user_id,
     progress: 1,
     payload: {
-      markdown: session.context,
+      markdown: session.goal,
       metadata: {
-        kind: "session_context",
+        kind: "session_goal",
         createdBy: "system",
-        title: session.title ?? "Session Context",
+        title: session.title ?? "Session Goal",
       },
     },
   });

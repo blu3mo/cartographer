@@ -40,6 +40,7 @@ type SessionState = "NEEDS_NAME" | "ANSWERING" | "COMPLETED";
 type SessionInfo = {
   id: string;
   title: string;
+  goal: string;
   context: string;
   isPublic: boolean;
   hostUserId: string;
@@ -840,10 +841,54 @@ export default function SessionPage({
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {sessionInfo?.title ?? "セッション"}
-          </h1>
+        <div className="mb-8 space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {sessionInfo?.title ?? "セッション"}
+            </h1>
+          </div>
+          {sessionInfo && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>セッションゴール</CardTitle>
+                  <CardDescription>
+                    洗い出したい認識と達成したい状態の概要
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {sessionInfo.goal.trim().length > 0 ? (
+                    <div className="markdown-body prose prose-sm max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {sessionInfo.goal}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      ゴールがまだ設定されていません。
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+              {sessionInfo.context.trim().length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>背景情報</CardTitle>
+                    <CardDescription>
+                      ゴールを理解するための補足情報
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="markdown-body prose prose-sm max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {sessionInfo.context}
+                      </ReactMarkdown>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
         </div>
 
         {state === "NEEDS_NAME" && (

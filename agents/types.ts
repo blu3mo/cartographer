@@ -31,6 +31,7 @@ export interface SessionRow {
   id: string;
   title: string;
   context: string;
+  goal: string;
 }
 
 export type AgentRunResult =

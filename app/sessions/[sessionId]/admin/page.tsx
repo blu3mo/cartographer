@@ -32,6 +32,7 @@ interface SessionAdminData {
   id: string;
   title: string;
   context: string;
+  goal: string;
   isPublic: boolean;
   createdAt: string;
 }
@@ -78,6 +79,7 @@ interface EventThreadResponse {
     id: string;
     title: string;
     context: string;
+    goal: string;
     isPublic: boolean;
   };
   thread: EventThreadSummary;
@@ -129,6 +131,7 @@ export default function AdminPage({
   const [deleting, setDeleting] = useState(false);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingContext, setEditingContext] = useState("");
+  const [editingGoal, setEditingGoal] = useState("");
   const [editingVisibility, setEditingVisibility] = useState<
     "public" | "private"
   >("public");
@@ -165,6 +168,7 @@ export default function AdminPage({
         id: responseData.id,
         title: responseData.title,
         context: responseData.context,
+        goal: responseData.goal ?? "",
         isPublic: responseData.isPublic,
         createdAt: responseData.createdAt,
       });
@@ -232,6 +236,7 @@ export default function AdminPage({
     if (data) {
       setEditingTitle(data.title);
       setEditingContext(data.context);
+      setEditingGoal(data.goal);
       setEditingVisibility(data.isPublic ? "public" : "private");
     }
   }, [data]);
@@ -273,6 +278,7 @@ export default function AdminPage({
         {
           title: editingTitle,
           context: editingContext,
+          goal: editingGoal,
           isPublic: editingVisibility === "public",
         },
         {
@@ -285,6 +291,7 @@ export default function AdminPage({
       const updated = response.data.data as {
         title: string;
         context: string;
+        goal: string;
         isPublic: boolean;
       };
 
@@ -294,6 +301,7 @@ export default function AdminPage({
               ...prev,
               title: updated.title,
               context: updated.context,
+              goal: updated.goal,
               isPublic: updated.isPublic,
             }
           : prev,
@@ -442,7 +450,7 @@ export default function AdminPage({
           <CardHeader>
             <CardTitle>セッション設定</CardTitle>
             <CardDescription>
-              タイトル、公開設定、コンテキストを編集できます
+              タイトル、公開設定、ゴール、背景情報を編集できます
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -504,17 +512,34 @@ export default function AdminPage({
               </div>
 
               <div className="space-y-2">
+                <label htmlFor="sessionGoal" className="text-sm font-medium">
+                  セッションゴール
+                </label>
+                <textarea
+                  id="sessionGoal"
+                  value={editingGoal}
+                  onChange={(event) => setEditingGoal(event.target.value)}
+                  required
+                  rows={10}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  placeholder="ワークショップの目的や、どの認識をどこまで明らかにするかを詳細に記述してください。"
+                />
+                <p className="text-xs text-muted-foreground">
+                  500文字以上のMarkdownを推奨します。参加者が確認できるレベルで、求める認識や期待するアウトカムを明確にしましょう。
+                </p>
+              </div>
+
+              <div className="space-y-2">
                 <label htmlFor="sessionContext" className="text-sm font-medium">
-                  コンテキスト
+                  背景情報
                 </label>
                 <textarea
                   id="sessionContext"
                   value={editingContext}
                   onChange={(event) => setEditingContext(event.target.value)}
-                  required
-                  rows={12}
+                  rows={8}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="セッションの目的や背景など、AIに共有したい情報を記入してください。"
+                  placeholder="セッションの背景となる経緯や関係者情報など、AIに共有したい情報を記入してください。"
                 />
               </div>
 

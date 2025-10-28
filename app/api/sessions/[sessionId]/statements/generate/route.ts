@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { generateNewStatements } from "@/lib/llm";
+import { buildSessionBrief, generateNewStatements } from "@/lib/llm";
 import { supabase } from "@/lib/supabase";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
@@ -23,7 +23,7 @@ export async function POST(
 
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, title, context, host_user_id")
+      .select("id, title, context, goal, host_user_id")
       .eq("id", sessionId)
       .single();
 
@@ -149,9 +149,10 @@ export async function POST(
     }
 
     // Generate new statements using LLM
+    const sessionBrief = buildSessionBrief(session.goal, session.context);
     const newStatementTexts = await generateNewStatements(
       session.title,
-      session.context,
+      sessionBrief,
       statementsWithStats,
       latestReport?.content_markdown,
     );

@@ -120,6 +120,7 @@ create table if not exists public.agent_instances (
 create index if not exists agent_instances_thread_idx
   on public.agent_instances (thread_id);
 
+
 -- Events --------------------------------------------------------------------
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),
@@ -149,3 +150,7 @@ alter publication supabase_realtime add table public.event_threads;
 alter publication supabase_realtime add table public.agent_instances;
 alter publication supabase_realtime add table public.events;
 alter publication supabase_realtime add table public.responses;
+
+-- Migration helpers --------------------------------------------------------
+alter table if exists public.sessions
+  add column if not exists goal text not null default '';

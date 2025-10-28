@@ -8,6 +8,29 @@ interface LLMMessage {
   content: string;
 }
 
+export function buildSessionBrief(
+  goal?: string | null,
+  context?: string | null,
+): string {
+  const sections: string[] = [];
+  const trimmedGoal = goal?.trim();
+  const trimmedContext = context?.trim();
+
+  if (trimmedGoal) {
+    sections.push(`## Goal\n${trimmedGoal}`);
+  }
+
+  if (trimmedContext) {
+    sections.push(`## Background\n${trimmedContext}`);
+  }
+
+  if (sections.length === 0) {
+    return "## Goal\n(未設定)";
+  }
+
+  return sections.join("\n\n");
+}
+
 export async function callLLM(messages: LLMMessage[]): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -109,6 +132,42 @@ JSON配列のみを出力し、他の説明文は含めないでください。`
     );
     return DEFAULT_STATEMENTS;
   }
+}
+
+export async function generateSessionGoal(input: {
+  title: string;
+  focus: string;
+  purpose: string;
+  background?: string;
+}): Promise<string> {
+  const backgroundSection =
+    input.background && input.background.trim().length > 0
+      ? `- 背景情報:\n${input.background.trim()}`
+      : "";
+
+  const prompt = `あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
+  まずはこの調査の目的を明確に言語化したいです。ユーザーの入力を受け取り、調査と探索を進める上での明確な指針となるようなセッションゴールをMarkdownで作成してください。目的を達成する上で調査において洗い出すべきことや、その優先順位が明確になることが望ましいです。考えられることをたくさん並べるのではなく、フォーカスを絞ってシャープに言語化してください。
+  これは、調査エージェントのプロンプトとして使用されます。
+
+**入力**
+- セッションタイトル: "${input.title}"
+- 何の認識を洗い出すか: """${input.focus}"""
+- 何のために洗い出すか: """${input.purpose}
+${backgroundSection}"""
+
+**出力要件**
+- 全体で500-1000文字程度。
+- セッションで認識を洗い出すことの目的（アウトプットを元にユーザーがどんな調整や意思決定をしたいのか）を具体的に述べてください。
+- その目的を達成するために、「誰の」「どのような認識」を対象とするのかを明確に記述してください。また、目的達成のために収集した情報から何を見出したいのかを具体的に説明してください。（合意点・相違点・分かっていないこと、など）
+- 収集したい参加者の認識の情報について探索空間を明確にするために、目的達成に有益なので具体的に収集したい情報を5個、不要なので深く掘らない情報を5個挙げてください。入力に書かれていない情報も、合理的に推測できる内容は積極的に想像して、トピックの候補を挙げてください。パッと読んで理解できる読みやすい文章が望ましいです。
+
+**フォーマット**
+内容のみをMarkdown形式で出力してください。いきなり本文から出力してください。
+`;
+
+  const messages: LLMMessage[] = [{ role: "user", content: prompt }];
+  const response = await callLLM(messages);
+  return response.trim();
 }
 
 interface StatementWithResponses {

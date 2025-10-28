@@ -8,6 +8,7 @@ type SessionRow = {
   id: string;
   title: string;
   context: string;
+  goal: string;
   is_public: boolean;
   host_user_id: string;
   created_at: string;
@@ -21,6 +22,7 @@ function mapSession(row: SessionRow) {
     id: row.id,
     title: row.title,
     context: row.context,
+    goal: row.goal,
     isPublic: row.is_public,
     hostUserId: row.host_user_id,
     createdAt: row.created_at,
@@ -77,6 +79,7 @@ export async function GET(request: NextRequest) {
           id,
           title,
           context,
+          goal,
           is_public,
           host_user_id,
           created_at,
@@ -137,25 +140,51 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, context, isPublic } = body;
+    const { title, context, goal, isPublic } = body as {
+      title?: unknown;
+      context?: unknown;
+      goal?: unknown;
+      isPublic?: unknown;
+    };
 
-    if (!title || !context) {
+    if (typeof title !== "string" || title.trim().length === 0) {
       return NextResponse.json(
-        { error: "Missing required fields: title and context" },
+        { error: "Missing required field: title" },
         { status: 400 },
       );
     }
 
+    if (typeof goal !== "string" || goal.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Missing required field: goal" },
+        { status: 400 },
+      );
+    }
+
+    if (typeof context !== "string") {
+      return NextResponse.json(
+        { error: "Invalid value for context" },
+        { status: 400 },
+      );
+    }
+
+    const trimmedTitle = title.trim();
+    const trimmedGoal = goal.trim();
+    const normalizedContext = context.trim();
+    const normalizedVisibility =
+      typeof isPublic === "boolean" ? isPublic : true;
+
     const { data: createdSessions, error: createSessionError } = await supabase
       .from("sessions")
       .insert({
-        title,
-        context,
-        is_public: typeof isPublic === "boolean" ? isPublic : true,
+        title: trimmedTitle,
+        context: normalizedContext,
+        goal: trimmedGoal,
+        is_public: normalizedVisibility,
         host_user_id: userId,
       })
       .select(
-        "id, title, context, is_public, host_user_id, created_at, updated_at",
+        "id, title, context, goal, is_public, host_user_id, created_at, updated_at",
       )
       .single();
 
@@ -170,9 +199,10 @@ export async function POST(request: NextRequest) {
     try {
       await ensureEventThreadForSession({
         id: createdSessions.id,
-        context,
+        context: normalizedContext,
+        goal: trimmedGoal,
         host_user_id: userId,
-        title,
+        title: trimmedTitle,
       });
     } catch (threadError) {
       console.error("Failed to provision event thread:", threadError);
