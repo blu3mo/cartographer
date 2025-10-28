@@ -2,6 +2,12 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
+type StatementRow = {
+  id: string;
+  text: string;
+  order_index: number;
+};
+
 type ResponseRow = {
   id: string;
   participant_user_id: string;
@@ -9,19 +15,19 @@ type ResponseRow = {
   statement_id: string;
   value: number;
   created_at: string;
-  statement?: {
-    id: string;
-    text: string;
-    order_index: number;
-  } | null;
+  statement?: StatementRow | StatementRow[] | null;
 };
 
 function mapResponse(row: ResponseRow) {
+  const statement = Array.isArray(row.statement)
+    ? row.statement[0] ?? null
+    : row.statement ?? null;
+
   return {
     id: row.id,
     statementId: row.statement_id,
-    statementText: row.statement?.text ?? "",
-    orderIndex: row.statement?.order_index ?? 0,
+    statementText: statement?.text ?? "",
+    orderIndex: statement?.order_index ?? 0,
     value: row.value,
     createdAt: row.created_at,
   };
