@@ -15,10 +15,23 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, focus, purpose, background } = body as {
+    const {
+      title,
+      participants,
+      currentFocus,
+      futureFocus,
+      decision,
+      trigger,
+      insightTargets,
+      background,
+    } = body as {
       title?: unknown;
-      focus?: unknown;
-      purpose?: unknown;
+      participants?: unknown;
+      currentFocus?: unknown;
+      futureFocus?: unknown;
+      decision?: unknown;
+      trigger?: unknown;
+      insightTargets?: unknown;
       background?: unknown;
     };
 
@@ -26,16 +39,64 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid title" }, { status: 400 });
     }
 
-    if (typeof focus !== "string" || focus.trim().length === 0) {
+    if (
+      typeof participants !== "string" ||
+      participants.trim().length === 0
+    ) {
       return NextResponse.json(
-        { error: "Invalid value for focus" },
+        { error: "Invalid value for participants" },
         { status: 400 },
       );
     }
 
-    if (typeof purpose !== "string" || purpose.trim().length === 0) {
+    if (
+      typeof decision !== "string" ||
+      decision.trim().length === 0
+    ) {
       return NextResponse.json(
-        { error: "Invalid value for purpose" },
+        { error: "Invalid value for decision" },
+        { status: 400 },
+      );
+    }
+
+    if (typeof trigger !== "string" || trigger.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Invalid value for trigger" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      currentFocus !== undefined &&
+      typeof currentFocus !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "Invalid value for currentFocus" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      futureFocus !== undefined &&
+      typeof futureFocus !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "Invalid value for futureFocus" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      !Array.isArray(insightTargets) ||
+      insightTargets.length === 0 ||
+      !insightTargets.every(
+        (item) =>
+          typeof item === "string" &&
+          ["agreement", "difference", "unknown"].includes(item),
+      )
+    ) {
+      return NextResponse.json(
+        { error: "Invalid value for insightTargets" },
         { status: 400 },
       );
     }
@@ -47,10 +108,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const sanitizedInsightTargets = Array.from(
+      new Set(
+        (insightTargets as string[]).map((item) => item.trim()),
+      ),
+    );
+
     const goal = await generateSessionGoal({
       title: title.trim(),
-      focus: focus.trim(),
-      purpose: purpose.trim(),
+      participants: participants.trim(),
+      currentFocus:
+        typeof currentFocus === "string" ? currentFocus.trim() : undefined,
+      futureFocus:
+        typeof futureFocus === "string" ? futureFocus.trim() : undefined,
+      insightTargets: sanitizedInsightTargets,
+      decision: decision.trim(),
+      trigger: trigger.trim(),
       background: typeof background === "string" ? background : undefined,
     });
 
