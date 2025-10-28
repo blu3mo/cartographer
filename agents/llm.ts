@@ -8,7 +8,7 @@ interface LLMMessage {
 }
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "google/gemini-2.5-pro";
 
 async function callLLM(
   messages: LLMMessage[],
