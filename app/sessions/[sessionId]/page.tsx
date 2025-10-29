@@ -847,48 +847,6 @@ export default function SessionPage({
               {sessionInfo?.title ?? "セッション"}
             </h1>
           </div>
-          {sessionInfo && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>セッションゴール</CardTitle>
-                  <CardDescription>
-                    洗い出したい認識と達成したい状態の概要
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {sessionInfo.goal.trim().length > 0 ? (
-                    <div className="markdown-body prose prose-sm max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {sessionInfo.goal}
-                      </ReactMarkdown>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      ゴールがまだ設定されていません。
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-              {sessionInfo.context.trim().length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>背景情報</CardTitle>
-                    <CardDescription>
-                      ゴールを理解するための補足情報
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="markdown-body prose prose-sm max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {sessionInfo.context}
-                      </ReactMarkdown>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          )}
         </div>
 
         {state === "NEEDS_NAME" && (
