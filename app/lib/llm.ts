@@ -137,8 +137,7 @@ JSON配列のみを出力し、他の説明文は含めないでください。`
 export async function generateSessionGoal(input: {
   title: string;
   participants: string;
-  currentFocus?: string | null;
-  futureFocus?: string | null;
+  perspectiveFocus?: string | null;
   insightTargets: string[];
   decision: string;
   trigger: string;
@@ -147,13 +146,9 @@ export async function generateSessionGoal(input: {
   const participants = input.participants.trim();
   const decision = input.decision.trim();
   const trigger = input.trigger.trim();
-  const currentFocus =
-    input.currentFocus && input.currentFocus.trim().length > 0
-      ? input.currentFocus.trim()
-      : "特になし";
-  const futureFocus =
-    input.futureFocus && input.futureFocus.trim().length > 0
-      ? input.futureFocus.trim()
+  const perspectiveFocus =
+    input.perspectiveFocus && input.perspectiveFocus.trim().length > 0
+      ? input.perspectiveFocus.trim()
       : "特になし";
   const insightTargetLabels: Record<string, string> = {
     agreement: "合意点を把握する",
@@ -178,8 +173,7 @@ export async function generateSessionGoal(input: {
 **入力**
 - セッションタイトル: "${input.title}"
 - 関わる主な人たち: """${participants}"""
-- 現状について整理したいこと: """${currentFocus}"""
-- 未来について整理したいこと: """${futureFocus}"""
+- 現状と未来について整理したいこと: """${perspectiveFocus}"""
 - 今回特に得たい気づきの種類: """${insightTargetsText}"""
 - この整理を通じて見極めたいこと: """${decision}"""
 - 今この話し合いが必要になった背景: """${trigger}"""

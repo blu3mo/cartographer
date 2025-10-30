@@ -2,21 +2,21 @@
 
 import axios from "axios";
 import {
-  Bot,
   ChevronDown,
-  ChevronRight,
+  Edit3,
   Loader2,
   MessageCircle,
   Pause,
   Play,
   RefreshCcw,
+  Save,
   Trash2,
+  X,
 } from "lucide-react";
 import { use, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import UserMap from "@/components/UserMap";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -58,15 +58,6 @@ interface TimelineEvent {
   statements: TimelineStatement[];
 }
 
-interface AgentInstanceSummary {
-  id: string;
-  agentType: string;
-  state: string;
-  statePayload: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-}
-
 interface EventThreadSummary {
   id: string;
   shouldProceed: boolean;
@@ -84,38 +75,60 @@ interface EventThreadResponse {
   };
   thread: EventThreadSummary;
   events: TimelineEvent[];
-  agents: AgentInstanceSummary[];
+  agents: unknown[];
 }
 
 const EVENT_TYPE_META: Record<
   ThreadEventType,
-  { label: string; badgeClass: string }
+  { label: string; badgeClass: string; color: string }
 > = {
   plan: {
     label: "Plan",
-    badgeClass: "bg-sky-100 text-sky-700 border-sky-200",
+    badgeClass: "bg-sky-50 text-sky-700 border-sky-200",
+    color: "bg-sky-500",
   },
   survey: {
     label: "Survey",
-    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    color: "bg-emerald-500",
   },
   survey_analysis: {
-    label: "Survey Analysis",
-    badgeClass: "bg-purple-100 text-purple-700 border-purple-200",
+    label: "Analysis",
+    badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+    color: "bg-purple-500",
   },
   user_message: {
-    label: "User Message",
-    badgeClass: "bg-amber-100 text-amber-700 border-amber-200",
+    label: "Message",
+    badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
+    color: "bg-amber-500",
   },
 };
 
-const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString("ja-JP", { hour12: false });
+const formatDateTime = (value: string) => {
+  const date = new Date(value);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
 
-const formatCompactId = (value?: string | null) => {
-  if (!value) return "-";
-  if (value.length <= 10) return value;
-  return `${value.slice(0, 4)}…${value.slice(-4)}`;
+  if (minutes < 1) return "たった今";
+  if (minutes < 60) return `${minutes}分前`;
+  if (hours < 24) return `${hours}時間前`;
+  if (days < 7) return `${days}日前`;
+
+  return date.toLocaleString("ja-JP", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
+const truncateText = (text: string, maxLength: number) => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + "...";
 };
 
 export default function AdminPage({
@@ -129,6 +142,9 @@ export default function AdminPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Session settings edit mode
+  const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingContext, setEditingContext] = useState("");
   const [editingGoal, setEditingGoal] = useState("");
@@ -307,6 +323,7 @@ export default function AdminPage({
           : prev,
       );
       setSettingsMessage("セッション情報を更新しました。");
+      setIsEditingSettings(false);
     } catch (err) {
       console.error("Failed to update session settings:", err);
       setSettingsError("セッション情報の更新に失敗しました。");
@@ -438,351 +455,327 @@ export default function AdminPage({
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-5xl mx-auto px-4 py-12 sm:px-6 lg:px-8 space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">
-            {editingTitle || data.title}
-          </h1>
-          <p className="text-muted-foreground">管理画面</p>
+      <div className="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {data.title}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">管理画面</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/sessions/${sessionId}/admin/extra`, '_blank')}
+            className="text-xs"
+          >
+            追加情報
+          </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>セッション設定</CardTitle>
-            <CardDescription>
-              タイトル、公開設定、ゴール、背景情報を編集できます
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSaveSettings} className="space-y-6">
-              <div className="space-y-2">
-                <label htmlFor="sessionTitle" className="text-sm font-medium">
-                  セッションのタイトル
-                </label>
-                <Input
-                  id="sessionTitle"
-                  type="text"
-                  value={editingTitle}
-                  onChange={(event) => setEditingTitle(event.target.value)}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  参加者にとってわかりやすいタイトルを設定しましょう。
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <span className="text-sm font-medium">公開設定</span>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <label className="flex flex-1 items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
-                    <input
-                      type="radio"
-                      name="sessionVisibility"
-                      value="public"
-                      checked={editingVisibility === "public"}
-                      onChange={() => setEditingVisibility("public")}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      <span className="font-medium">公開セッション</span>
-                      <br />
-                      <span className="text-xs text-muted-foreground">
-                        Cartographerのトップページで参加者を募集できます。
-                      </span>
-                    </span>
-                  </label>
-                  <label className="flex flex-1 items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
-                    <input
-                      type="radio"
-                      name="sessionVisibility"
-                      value="private"
-                      checked={editingVisibility === "private"}
-                      onChange={() => setEditingVisibility("private")}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      <span className="font-medium">非公開セッション</span>
-                      <br />
-                      <span className="text-xs text-muted-foreground">
-                        直接URLを共有したメンバーだけがアクセスできます。
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="sessionGoal" className="text-sm font-medium">
-                  セッションゴール
-                </label>
-                <textarea
-                  id="sessionGoal"
-                  value={editingGoal}
-                  onChange={(event) => setEditingGoal(event.target.value)}
-                  required
-                  rows={10}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="ワークショップの目的や、どの認識をどこまで明らかにするかを詳細に記述してください。"
-                />
-                <p className="text-xs text-muted-foreground">
-                  500文字以上のMarkdownを推奨します。参加者が確認できるレベルで、求める認識や期待するアウトカムを明確にしましょう。
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="sessionContext" className="text-sm font-medium">
-                  背景情報
-                </label>
-                <textarea
-                  id="sessionContext"
-                  value={editingContext}
-                  onChange={(event) => setEditingContext(event.target.value)}
-                  rows={8}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="セッションの背景となる経緯や関係者情報など、AIに共有したい情報を記入してください。"
-                />
-              </div>
-
-              {(settingsMessage || settingsError) && (
-                <Card
-                  className={
-                    settingsError ? "border-destructive" : "border-emerald-500"
-                  }
+        {/* Session Settings - Compact View */}
+        <Card className="border-muted">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">セッション設定</CardTitle>
+              {!isEditingSettings && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingSettings(true)}
+                  className="gap-1.5 text-xs h-8"
                 >
-                  <CardContent className="pt-6">
-                    <p
-                      className={`text-sm ${settingsError ? "text-destructive" : "text-emerald-600"}`}
-                    >
-                      {settingsError ?? settingsMessage}
-                    </p>
-                  </CardContent>
-                </Card>
+                  <Edit3 className="h-3.5 w-3.5" />
+                  編集
+                </Button>
               )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {!isEditingSettings ? (
+              <>
+                <div className="grid grid-cols-[100px_1fr] gap-x-4 gap-y-2 text-xs">
+                  <span className="text-muted-foreground">公開設定</span>
+                  <span className="font-medium">
+                    {data.isPublic ? "公開" : "非公開"}
+                  </span>
 
-              <Button
-                type="submit"
-                disabled={isSavingSettings}
-                isLoading={isSavingSettings}
-                className="w-full sm:w-auto"
-              >
-                セッション情報を保存
-              </Button>
-            </form>
+                  <span className="text-muted-foreground">ゴール</span>
+                  <span className="text-foreground/80">
+                    {truncateText(data.goal, 120)}
+                  </span>
+
+                  <span className="text-muted-foreground">背景情報</span>
+                  <span className="text-foreground/80">
+                    {data.context ? truncateText(data.context, 120) : "未設定"}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="sessionTitle" className="text-xs font-medium">
+                    タイトル
+                  </label>
+                  <Input
+                    id="sessionTitle"
+                    type="text"
+                    value={editingTitle}
+                    onChange={(event) => setEditingTitle(event.target.value)}
+                    required
+                    className="text-sm h-9"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium">公開設定</span>
+                  <div className="flex gap-2">
+                    <label className="flex flex-1 items-center gap-2 rounded-md border border-input bg-muted/30 px-3 py-2 text-xs cursor-pointer hover:border-primary/60">
+                      <input
+                        type="radio"
+                        name="sessionVisibility"
+                        value="public"
+                        checked={editingVisibility === "public"}
+                        onChange={() => setEditingVisibility("public")}
+                        className="text-xs"
+                      />
+                      <span>公開</span>
+                    </label>
+                    <label className="flex flex-1 items-center gap-2 rounded-md border border-input bg-muted/30 px-3 py-2 text-xs cursor-pointer hover:border-primary/60">
+                      <input
+                        type="radio"
+                        name="sessionVisibility"
+                        value="private"
+                        checked={editingVisibility === "private"}
+                        onChange={() => setEditingVisibility("private")}
+                        className="text-xs"
+                      />
+                      <span>非公開</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="sessionGoal" className="text-xs font-medium">
+                    ゴール
+                  </label>
+                  <textarea
+                    id="sessionGoal"
+                    value={editingGoal}
+                    onChange={(event) => setEditingGoal(event.target.value)}
+                    required
+                    rows={6}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="sessionContext" className="text-xs font-medium">
+                    背景情報
+                  </label>
+                  <textarea
+                    id="sessionContext"
+                    value={editingContext}
+                    onChange={(event) => setEditingContext(event.target.value)}
+                    rows={5}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                  />
+                </div>
+
+                {(settingsMessage || settingsError) && (
+                  <div
+                    className={`text-xs px-3 py-2 rounded-md ${
+                      settingsError
+                        ? "bg-destructive/10 text-destructive"
+                        : "bg-emerald-50 text-emerald-700"
+                    }`}
+                  >
+                    {settingsError ?? settingsMessage}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    type="submit"
+                    disabled={isSavingSettings}
+                    isLoading={isSavingSettings}
+                    size="sm"
+                    className="gap-1.5 text-xs h-8"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    保存
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingSettings(false);
+                      setSettingsMessage(null);
+                      setSettingsError(null);
+                      if (data) {
+                        setEditingTitle(data.title);
+                        setEditingContext(data.context);
+                        setEditingGoal(data.goal);
+                        setEditingVisibility(data.isPublic ? "public" : "private");
+                      }
+                    }}
+                    className="gap-1.5 text-xs h-8"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    キャンセル
+                  </Button>
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
 
+        {/* Event Thread Timeline */}
         <Card>
-          <CardHeader className="gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <CardTitle>Event Thread</CardTitle>
-              <CardDescription>
-                Plan / Survey / Survey Analysis / User Message の履歴
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fetchEventThread(true)}
-                disabled={threadLoading}
-                className="gap-2"
-              >
-                <RefreshCcw
-                  className={`h-4 w-4 ${threadLoading ? "animate-spin" : ""}`}
-                />
-                更新
-              </Button>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Event Timeline</CardTitle>
+                <CardDescription className="text-xs mt-1">
+                  Plan / Survey / Analysis / Message
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">自動進行:</span>
+                  <span
+                    className={`font-medium ${
+                      threadData?.thread?.shouldProceed
+                        ? "text-emerald-600"
+                        : "text-amber-600"
+                    }`}
+                  >
+                    {threadData?.thread?.shouldProceed ? "ON" : "PAUSED"}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchEventThread(true)}
+                  disabled={threadLoading}
+                  className="gap-1.5 text-xs h-8"
+                >
+                  <RefreshCcw
+                    className={`h-3.5 w-3.5 ${threadLoading ? "animate-spin" : ""}`}
+                  />
+                  更新
+                </Button>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {threadData?.thread && (
-              <div className="flex flex-wrap gap-4 text-xs text-muted-foreground border rounded-md px-4 py-3 bg-muted/30">
-                <span>
-                  Thread ID:{" "}
-                  <span className="font-mono text-[11px]">
-                    {formatCompactId(threadData.thread.id)}
-                  </span>
-                </span>
-                <span>作成: {formatDateTime(threadData.thread.createdAt)}</span>
-                <span>
-                  最終更新: {formatDateTime(threadData.thread.updatedAt)}
-                </span>
-                <span>
-                  shouldProceed:{" "}
-                  <span
-                    className={
-                      threadData.thread.shouldProceed
-                        ? "text-emerald-600 font-medium"
-                        : "text-amber-600 font-medium"
-                    }
-                  >
-                    {threadData.thread.shouldProceed ? "ON" : "PAUSED"}
-                  </span>
-                </span>
+          <CardContent className="space-y-4">
+            {/* Timeline Container with fixed height and scroll */}
+            <div className="relative border rounded-lg bg-muted/20 overflow-hidden">
+              <div className="h-[700px] overflow-y-auto p-4">
+                {threadLoading && !threadData ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : threadError ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-xs text-destructive">{threadError}</p>
+                  </div>
+                ) : threadData?.events.length ? (
+                  <div className="space-y-3">
+                    {threadData.events.map((event, index) => (
+                      <TimelineEventCard
+                        key={event.id}
+                        event={event}
+                        isFirst={index === 0}
+                        isLast={index === threadData.events.length - 1}
+                        expanded={Boolean(expandedEvents[event.id])}
+                        onToggle={() =>
+                          setExpandedEvents((prev) => ({
+                            ...prev,
+                            [event.id]: !prev[event.id],
+                          }))
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-xs text-muted-foreground">
+                      まだイベントはありません
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {threadLoading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            {/* Controls - Compact horizontal layout */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 rounded-lg border bg-card p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium">メッセージ送信</span>
+                </div>
+                <textarea
+                  value={messageDraft}
+                  onChange={(event) => setMessageDraft(event.target.value)}
+                  rows={2}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                  placeholder="Agentへの指示やメモ"
+                />
+                <Button
+                  type="button"
+                  onClick={handleSendMessage}
+                  disabled={sendingMessage || messageDraft.trim().length === 0}
+                  isLoading={sendingMessage}
+                  size="sm"
+                  className="w-full gap-1.5 text-xs h-7"
+                >
+                  <MessageCircle className="h-3 w-3" />
+                  送信
+                </Button>
               </div>
-            ) : threadError ? (
-              <div className="rounded-md border border-destructive/50 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                {threadError}
-              </div>
-            ) : threadData?.events.length ? (
-              <div className="space-y-3">
-                {threadData.events.map((event) => (
-                  <TimelineEventCard
-                    key={event.id}
-                    event={event}
-                    expanded={Boolean(expandedEvents[event.id])}
-                    onToggle={() =>
-                      setExpandedEvents((prev) => ({
-                        ...prev,
-                        [event.id]: !prev[event.id],
-                      }))
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                まだイベントはありません。
-              </p>
-            )}
 
-            <div className="grid gap-6 lg:grid-cols-5">
-              <div className="rounded-lg border bg-muted/30 p-4 lg:col-span-2">
-                <p className="text-sm font-medium text-muted-foreground mb-2">
-                  shouldProceed 制御
-                </p>
-                <p className="text-xs text-muted-foreground mb-4">
-                  AgentのWAITING状態を進行させるかを切り替えます。
+              <div className="sm:w-48 rounded-lg border bg-card p-3 space-y-2">
+                <span className="text-xs font-medium block">進行制御</span>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  Agent の WAITING 状態を制御
                 </p>
                 <Button
                   type="button"
                   variant={
                     threadData?.thread?.shouldProceed ? "secondary" : "default"
                   }
-                  className="w-full gap-2"
+                  className="w-full gap-1.5 text-xs h-7"
                   disabled={togglingProceed}
                   isLoading={togglingProceed}
                   onClick={handleToggleShouldProceed}
+                  size="sm"
                 >
                   {threadData?.thread?.shouldProceed ? (
                     <>
-                      <Pause className="h-4 w-4" />
-                      一時停止する
+                      <Pause className="h-3 w-3" />
+                      一時停止
                     </>
                   ) : (
                     <>
-                      <Play className="h-4 w-4" />
-                      再開する
+                      <Play className="h-3 w-3" />
+                      再開
                     </>
                   )}
                 </Button>
-              </div>
-
-              <div className="rounded-lg border p-4 space-y-3 lg:col-span-3">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm font-medium">User Message を送信</p>
-                </div>
-                <textarea
-                  value={messageDraft}
-                  onChange={(event) => setMessageDraft(event.target.value)}
-                  rows={4}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  placeholder="Agentに伝えたいメモや指示を記入します。"
-                />
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    onClick={handleSendMessage}
-                    disabled={
-                      sendingMessage || messageDraft.trim().length === 0
-                    }
-                    isLoading={sendingMessage}
-                    className="gap-2"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    送信
-                  </Button>
-                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Agent Monitor</CardTitle>
-            <CardDescription>
-              Ptolemyなど、Event Threadに紐づくエージェントの状態
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {threadLoading ? (
-              <div className="flex justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : threadData?.agents.length ? (
-              <div className="space-y-3">
-                {threadData.agents.map((agent) => (
-                  <div
-                    key={agent.id}
-                    className="rounded-lg border border-border/80 bg-muted/30 p-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 text-sm font-semibold">
-                        <Bot className="h-4 w-4 text-muted-foreground" />
-                        {agent.agentType} · {formatCompactId(agent.id)}
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        最終更新: {formatDateTime(agent.updatedAt)}
-                      </span>
-                    </div>
-                    <p className="text-sm mt-2">
-                      状態:{" "}
-                      <span className="font-semibold text-foreground">
-                        {agent.state}
-                      </span>
-                    </p>
-                    {Object.keys(agent.statePayload ?? {}).length > 0 && (
-                      <pre className="mt-3 text-xs bg-background rounded-md border px-3 py-2 overflow-x-auto">
-                        {JSON.stringify(agent.statePayload, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : threadError ? (
-              <p className="text-sm text-destructive">{threadError}</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                このThreadに紐づくAgentはまだありません。
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>ユーザーマップ（PCA分析）</CardTitle>
-            <CardDescription>
-              参加者の回答パターンを2次元マップで可視化
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {userId && <UserMap sessionId={sessionId} userId={userId} />}
-          </CardContent>
-        </Card>
-
-        <Card className="border-destructive">
-          <CardHeader>
-            <CardTitle className="text-destructive">危険な操作</CardTitle>
-            <CardDescription>
+        {/* Danger Zone */}
+        <Card className="border-destructive/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-destructive">危険な操作</CardTitle>
+            <CardDescription className="text-xs">
               このセッションを完全に削除します。この操作は取り消せません。
             </CardDescription>
           </CardHeader>
@@ -792,9 +785,10 @@ export default function AdminPage({
               disabled={deleting}
               isLoading={deleting}
               variant="destructive"
-              className="w-full sm:w-auto"
+              size="sm"
+              className="gap-1.5 text-xs h-8"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
               セッションを削除
             </Button>
           </CardContent>
@@ -806,16 +800,21 @@ export default function AdminPage({
 
 function TimelineEventCard({
   event,
+  isFirst,
+  isLast,
   expanded,
   onToggle,
 }: {
   event: TimelineEvent;
+  isFirst: boolean;
+  isLast: boolean;
   expanded: boolean;
   onToggle: () => void;
 }) {
   const meta = EVENT_TYPE_META[event.type] ?? {
     label: event.type,
     badgeClass: "bg-muted text-foreground border-border",
+    color: "bg-muted-foreground",
   };
 
   const progressPercent = Math.round((event.progress ?? 0) * 100);
@@ -824,133 +823,127 @@ function TimelineEventCard({
       ? (event.payload.markdown as string)
       : "";
 
+  // Preview content
+  const getPreviewContent = () => {
+    if (event.type === "survey" && event.statements.length > 0) {
+      return `${event.statements.length}件のステートメント`;
+    }
+    if (markdown) {
+      const preview = markdown.replace(/[#*_`]/g, "").trim();
+      return truncateText(preview, 100);
+    }
+    return "準備中...";
+  };
+
   return (
-    <div className="rounded-lg border border-border bg-card">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-      >
-        <div className="flex items-center gap-3">
-          <span
-            className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${meta.badgeClass}`}
-          >
-            {meta.label}
-          </span>
-          <div className="flex flex-col text-xs text-muted-foreground">
-            <span>更新: {formatDateTime(event.updatedAt)}</span>
-            <span className="font-mono text-[11px]">
-              #{String(event.orderIndex).padStart(4, "0")}
-            </span>
-          </div>
-        </div>
-        {expanded ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        )}
-      </button>
+    <div className="relative pl-6">
+      {/* Timeline connector */}
+      <div
+        className={`absolute left-[7px] top-0 w-0.5 bg-border ${
+          isFirst ? "top-3" : ""
+        } ${isLast ? "h-3" : "h-full"}`}
+      />
 
-      <div className="px-4 pb-4">
-        <div className="mb-3">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-            <span>進捗</span>
-            <span>{progressPercent}%</span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </div>
+      {/* Timeline dot */}
+      <div
+        className={`absolute left-0 top-3 h-4 w-4 rounded-full border-2 border-background ${meta.color}`}
+      />
 
-        <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-          {event.agentId && (
-            <span>Agent: {formatCompactId(event.agentId)}</span>
-          )}
-          {event.userId && <span>User: {formatCompactId(event.userId)}</span>}
-          <span>作成: {formatDateTime(event.createdAt)}</span>
-          <span>更新: {formatDateTime(event.updatedAt)}</span>
-        </div>
+      {/* Event card */}
+      <div className="rounded-lg border bg-card shadow-sm">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span
+                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.badgeClass}`}
+              >
+                {meta.label}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {formatDateTime(event.updatedAt)}
+              </span>
+              <span className="text-[10px] text-muted-foreground font-mono">
+                #{String(event.orderIndex).padStart(3, "0")}
+              </span>
+            </div>
+
+            {!expanded && (
+              <p className="text-xs text-foreground/80 line-clamp-2">
+                {getPreviewContent()}
+              </p>
+            )}
+
+            {!expanded && progressPercent < 100 && (
+              <div className="mt-2">
+                <div className="h-1 w-full rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full ${meta.color}`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${
+              expanded ? "rotate-180" : ""
+            }`}
+          />
+        </button>
 
         {expanded && (
-          <div className="mt-4 space-y-3 border-t pt-4">
-            {event.type === "survey" && (
+          <div className="px-3 pb-3 pt-1 space-y-3 border-t">
+            {progressPercent < 100 && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                  <span>進捗</span>
+                  <span>{progressPercent}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full ${meta.color} transition-all`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {event.type === "survey" && event.statements.length > 0 && (
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground mb-2">
                   ステートメント（{event.statements.length}件）
                 </p>
-                {event.statements.length ? (
-                  <ul className="space-y-2 text-sm leading-relaxed">
-                    {event.statements.map((statement) => (
-                      <li
-                        key={statement.id}
-                        className="rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2"
-                      >
-                        <span className="text-xs text-muted-foreground mr-2">
-                          #{statement.orderIndex + 1}
-                        </span>
-                        {statement.text}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    ステートメントを準備中です…
-                  </p>
-                )}
+                <ul className="space-y-1.5 text-xs">
+                  {event.statements.map((statement) => (
+                    <li
+                      key={statement.id}
+                      className="rounded border border-dashed bg-muted/30 px-2.5 py-1.5"
+                    >
+                      <span className="text-[10px] text-muted-foreground mr-2">
+                        #{statement.orderIndex + 1}
+                      </span>
+                      {statement.text}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
-            {event.type === "survey_analysis" && (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  対象ステートメント: {event.statements.length}件
-                </p>
-                {markdown ? (
-                  <div className="rounded-md border bg-background px-3 py-2 text-sm markdown-body prose prose-sm">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {markdown}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    分析文章を生成中…
-                  </p>
-                )}
-              </div>
-            )}
-
-            {event.type === "plan" && (
-              <div>
-                {markdown ? (
-                  <div className="rounded-md border bg-background px-3 py-2 text-sm markdown-body prose prose-sm">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {markdown}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    プランを生成中…
-                  </p>
-                )}
-              </div>
-            )}
-
-            {event.type === "user_message" && (
-              <div className="rounded-md border bg-background px-3 py-2 text-sm markdown-body prose prose-sm">
-                {markdown ? (
+            {(event.type === "survey_analysis" ||
+              event.type === "plan" ||
+              event.type === "user_message") &&
+              markdown && (
+                <div className="rounded-md border bg-background px-3 py-2 text-sm markdown-body prose prose-sm">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {markdown}
                   </ReactMarkdown>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    メッセージが空です。
-                  </span>
-                )}
-              </div>
-            )}
+                </div>
+              )}
           </div>
         )}
       </div>

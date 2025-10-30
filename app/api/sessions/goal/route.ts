@@ -18,8 +18,7 @@ export async function POST(request: NextRequest) {
     const {
       title,
       participants,
-      currentFocus,
-      futureFocus,
+      perspectiveFocus,
       decision,
       trigger,
       insightTargets,
@@ -27,8 +26,7 @@ export async function POST(request: NextRequest) {
     } = body as {
       title?: unknown;
       participants?: unknown;
-      currentFocus?: unknown;
-      futureFocus?: unknown;
+      perspectiveFocus?: unknown;
       decision?: unknown;
       trigger?: unknown;
       insightTargets?: unknown;
@@ -67,21 +65,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (
-      currentFocus !== undefined &&
-      typeof currentFocus !== "string"
+      perspectiveFocus !== undefined &&
+      typeof perspectiveFocus !== "string"
     ) {
       return NextResponse.json(
-        { error: "Invalid value for currentFocus" },
-        { status: 400 },
-      );
-    }
-
-    if (
-      futureFocus !== undefined &&
-      typeof futureFocus !== "string"
-    ) {
-      return NextResponse.json(
-        { error: "Invalid value for futureFocus" },
+        { error: "Invalid value for perspectiveFocus" },
         { status: 400 },
       );
     }
@@ -117,10 +105,10 @@ export async function POST(request: NextRequest) {
     const goal = await generateSessionGoal({
       title: title.trim(),
       participants: participants.trim(),
-      currentFocus:
-        typeof currentFocus === "string" ? currentFocus.trim() : undefined,
-      futureFocus:
-        typeof futureFocus === "string" ? futureFocus.trim() : undefined,
+      perspectiveFocus:
+        typeof perspectiveFocus === "string"
+          ? perspectiveFocus.trim()
+          : undefined,
       insightTargets: sanitizedInsightTargets,
       decision: decision.trim(),
       trigger: trigger.trim(),

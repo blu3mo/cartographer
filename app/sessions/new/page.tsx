@@ -22,8 +22,10 @@ export default function NewSessionPage() {
   const { userId, isLoading: userLoading } = useUserId();
   const [title, setTitle] = useState("");
   const [keyStakeholders, setKeyStakeholders] = useState("");
-  const [currentPerspectiveFocus, setCurrentPerspectiveFocus] = useState("");
-  const [futurePerspectiveFocus, setFuturePerspectiveFocus] = useState("");
+  const [
+    participantPerspectiveFocus,
+    setParticipantPerspectiveFocus,
+  ] = useState("");
   const [insightTargets, setInsightTargets] = useState<string[]>([]);
   const [decisionOutcome, setDecisionOutcome] = useState("");
   const [discussionTrigger, setDiscussionTrigger] = useState("");
@@ -121,13 +123,9 @@ export default function NewSessionPage() {
       const payload = {
         title: title.trim(),
         participants: keyStakeholders.trim(),
-        currentFocus:
-          currentPerspectiveFocus.trim().length > 0
-            ? currentPerspectiveFocus.trim()
-            : "特になし",
-        futureFocus:
-          futurePerspectiveFocus.trim().length > 0
-            ? futurePerspectiveFocus.trim()
+        perspectiveFocus:
+          participantPerspectiveFocus.trim().length > 0
+            ? participantPerspectiveFocus.trim()
             : "特になし",
         insightTargets,
         decision: decisionOutcome.trim(),
@@ -320,14 +318,11 @@ export default function NewSessionPage() {
                 <p className="text-sm font-medium">
                   まず、<span className="font-semibold">「話し合いの基本設定」</span>について教えてください。
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  会議のテーマや、どんなメンバーと話すのかをざっくり共有してもらえればOKです。
-                </p>
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="participants" className="text-sm font-medium">
-                  主にどんな人たちと話し、どんな視点を知りたいですか？
+                  主にどんな人が参加者ですか？
                 </label>
                 <textarea
                   id="participants"
@@ -341,62 +336,36 @@ export default function NewSessionPage() {
                   placeholder="例: 開発チームのリーダー陣、プロダクトマネージャー"
                 />
                 <p className="text-xs text-muted-foreground">
-                  関わるメンバーや知りたい視点を教えてください。「部署全員」などざっくりでも大丈夫です。
+                  どんなメンバーに回答者として参加してもらいたいかを教えてください。「部署全員」などざっくりでも大丈夫です。
                 </p>
               </div>
 
               <div className="rounded-lg border border-dashed border-input/60 bg-muted/30 px-4 py-3">
                 <p className="text-sm font-medium">
-                  次に、<span className="font-semibold">「今どんなことを整理したいのか」</span>教えてください。
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  「ここは特に気になっていない」場合は「特になし」と書いてもらえれば大丈夫です。
+                  次に、<span className="font-semibold">「参加者の現状や理想について、どんなことを整理したいのか」</span>教えてください。
                 </p>
               </div>
 
               <div className="space-y-2">
                 <label
-                  htmlFor="currentFocus"
+                  htmlFor="perspectiveFocus"
                   className="text-sm font-medium"
                 >
-                  参加者から見た「現状」について、どんなことを聞いてみたい・整理したいですか？
+                  参加者から見た視点について、どんなことを聞いてみたい・整理したいですか？
                 </label>
                 <textarea
-                  id="currentFocus"
-                  value={currentPerspectiveFocus}
+                  id="perspectiveFocus"
+                  value={participantPerspectiveFocus}
                   onChange={(e) => {
-                    setCurrentPerspectiveFocus(e.target.value);
+                    setParticipantPerspectiveFocus(e.target.value);
                     markGoalAsStale();
                   }}
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="例: 今、何が一番の問題だと感じているか／特になし"
+                  placeholder="例: 今感じている課題、現状と理想のギャップ"
                 />
                 <p className="text-xs text-muted-foreground">
-                  参加者の現状認識について、気になっている点や感触を知りたいトピックがあれば教えてください。なければ「特になし」でOKです。
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="futureFocus"
-                  className="text-sm font-medium"
-                >
-                  参加者から見た「未来（理想や方針）」について、どんなことを聞いてみたい・整理したいですか？
-                </label>
-                <textarea
-                  id="futureFocus"
-                  value={futurePerspectiveFocus}
-                  onChange={(e) => {
-                    setFuturePerspectiveFocus(e.target.value);
-                    markGoalAsStale();
-                  }}
-                  rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="例: プロジェクトの最終的なゴールは何か／特になし"
-                />
-                <p className="text-xs text-muted-foreground">
-                  参加者が考える理想像や方針について気になる点があれば教えてください。特になければ「特になし」でOKです。
+                  現状で気になっている点や、目指したい未来像について参加者に聞いてみたいテーマがあれば教えてください。
                 </p>
               </div>
 
@@ -443,9 +412,9 @@ export default function NewSessionPage() {
                 <p className="text-sm font-medium">
                   最後に、<span className="font-semibold">「なぜ今、考え方を整理したいのか」</span>を共有してください。
                 </p>
-                <p className="text-xs text-muted-foreground">
+                {/* <p className="text-xs text-muted-foreground">
                   このセッションでどうなっていると嬉しいかをイメージしながら書いてみましょう。
-                </p>
+                </p> */}
               </div>
 
               <div className="space-y-2">
