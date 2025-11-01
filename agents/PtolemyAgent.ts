@@ -28,7 +28,7 @@ type ThreadContext = {
 };
 
 export class PtolemyAgent {
-  constructor(private readonly supabase: SupabaseClient) {}
+  constructor(private readonly supabase: SupabaseClient) { }
 
   async run(instance: AgentInstanceRow): Promise<AgentRunResult> {
     this.log(instance, "tick", { state: instance.state });
@@ -225,7 +225,7 @@ export class PtolemyAgent {
     }
 
     const baseIndex = await this.getLastStatementOrderIndex(context.session.id);
-    const preparedStatements = statementTexts.slice(0, 10);
+    const preparedStatements = statementTexts.slice(0, 15);
     const statementsPayload = preparedStatements.map((text, index) => ({
       session_id: context.session.id,
       text,
@@ -384,7 +384,7 @@ export class PtolemyAgent {
 
     const { data: responses, error: responsesError } = await this.supabase
       .from("responses")
-      .select("statement_id, value")
+      .select("statement_id, value, participant_user_id")
       .in("statement_id", statementIds);
 
     if (responsesError) {
@@ -395,8 +395,44 @@ export class PtolemyAgent {
       return { status: "waiting" };
     }
 
+    let participantNameMap: Map<string, string> | undefined;
+    const participantIds = new Set(
+      (responses ?? [])
+        .map((response) => response.participant_user_id)
+        .filter(
+          (participantId): participantId is string => Boolean(participantId),
+        ),
+    );
+
+    if (participantIds.size > 0) {
+      const { data: participantRows, error: participantError } =
+        await this.supabase
+          .from("participants")
+          .select("user_id, name")
+          .eq("session_id", context.session.id)
+          .in("user_id", Array.from(participantIds));
+
+      if (participantError) {
+        console.error(
+          "[Ptolemy] Failed to load participant names for analysis:",
+          participantError,
+        );
+      } else if (participantRows) {
+        participantNameMap = new Map(
+          participantRows.map((participant) => [
+            participant.user_id,
+            participant.name,
+          ]),
+        );
+      }
+    }
+
     const participantCount = await this.getParticipantCount(context.session.id);
-    const stats = this.buildStatementStats(statements ?? [], responses ?? []);
+    const stats = this.buildStatementStats(
+      statements ?? [],
+      responses ?? [],
+      participantNameMap,
+    );
     const eventThreadContext = await this.getEventThreadContext(
       context.thread.id,
     );
@@ -568,17 +604,27 @@ export class PtolemyAgent {
 
   private buildStatementStats(
     statements: Array<{ id: string; text: string }>,
-    responses: Array<{ statement_id: string; value: number }>,
+    responses: Array<{
+      statement_id: string;
+      value: number;
+      participant_user_id?: string;
+    }>,
+    participantNameMap?: Map<string, string>,
   ): StatementStat[] {
-    const responseMap = new Map<string, number[]>();
+    const responseMap = new Map<
+      string,
+      Array<{ value: number; participant_user_id?: string }>
+    >();
     responses.forEach((response) => {
       const list = responseMap.get(response.statement_id) ?? [];
-      list.push(response.value);
+      list.push(response);
       responseMap.set(response.statement_id, list);
     });
 
     return statements.map((statement) => {
-      const statementResponses = responseMap.get(statement.id) ?? [];
+      const statementResponses =
+        responseMap.get(statement.id) ??
+        ([] as Array<{ value: number; participant_user_id?: string }>);
       const totalCount = statementResponses.length;
       const counts = {
         strongYes: 0,
@@ -588,8 +634,13 @@ export class PtolemyAgent {
         strongNo: 0,
       };
 
-      statementResponses.forEach((value) => {
-        switch (value) {
+      const participantResponses = statementResponses.map((response) => {
+        const participantId = response.participant_user_id;
+        const participantName = participantId
+          ? participantNameMap?.get(participantId) ?? truncate(participantId)
+          : "Unknown";
+
+        switch (response.value) {
           case 2:
             counts.strongYes++;
             break;
@@ -608,6 +659,11 @@ export class PtolemyAgent {
           default:
             break;
         }
+        return {
+          participantId: participantId ?? "unknown",
+          participantName,
+          value: response.value,
+        };
       });
 
       const toPercent = (count: number) =>
@@ -623,6 +679,7 @@ export class PtolemyAgent {
           no: toPercent(counts.no),
           strongNo: toPercent(counts.strongNo),
         },
+        participantResponses,
       };
     });
   }
@@ -672,11 +729,15 @@ export class PtolemyAgent {
       }
     }
 
-    let responses: { statement_id: string; value: number }[] = [];
+    let responses: {
+      statement_id: string;
+      value: number;
+      participant_user_id?: string;
+    }[] = [];
     if (statementIds.size > 0) {
       const { data: responseRows, error: responsesError } = await this.supabase
         .from("responses")
-        .select("statement_id, value")
+        .select("statement_id, value, participant_user_id")
         .in("statement_id", Array.from(statementIds));
       if (responsesError) {
         console.error(

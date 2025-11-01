@@ -97,6 +97,8 @@ export async function generatePlanMarkdown(input: {
 - 個人の利害と、共同体としてのべき論を混同しないように注意してください。
 - 具体/ミクロレベルと、抽象/マクロレベルの両方の認識を必要に応じて収集してください。
 - 常にセッションの目的を意識し、目的を達成するために収集すべき情報について収集の順番や優先順位がつけられるとよい。
+
+想定読者は参加者です。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
@@ -139,7 +141,7 @@ export async function generateSurveyStatements(input: {
 あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
 </role>
 <task>
-ステートメントに対する参加者のYES/NO回答を通じて、立場の背景にある価値観・利害・優先順位を浮き彫りにします。
+ステートメントに対する全参加者のYES/NO回答を通じて、立場の背景にある価値観・利害・優先順位を浮き彫りにします。
 今までのEventThreadの内容を踏まえて、新たに15個のステートメントを生成してください。それらに対して参加者全員がYES/NOで回答します。
 各ステートメントは以下を満たすこと。
 - YES/NOの二択で答えられる断定文であること。
@@ -183,6 +185,11 @@ export interface StatementStat {
     no: number;
     strongNo: number;
   };
+  participantResponses: Array<{
+    participantId: string;
+    participantName: string;
+    value: number;
+  }>;
 }
 
 export async function generateSurveyAnalysisMarkdown(input: {
@@ -193,6 +200,23 @@ export async function generateSurveyAnalysisMarkdown(input: {
   statements: StatementStat[];
   eventThreadContext: string;
 }): Promise<string> {
+  const formatValue = (value: number) => {
+    switch (value) {
+      case 2:
+        return "Strong Yes";
+      case 1:
+        return "Yes";
+      case 0:
+        return "わからない";
+      case -1:
+        return "No";
+      case -2:
+        return "Strong No";
+      default:
+        return `Unknown (${value})`;
+    }
+  };
+
   const statementsText = input.statements
     .map((statement, index) => {
       const dist = statement.distribution;
@@ -205,6 +229,44 @@ export async function generateSurveyAnalysisMarkdown(input: {
     })
     .join("\n\n");
 
+  const participantMap = new Map<
+    string,
+    {
+      name: string;
+      responses: string[];
+    }
+  >();
+
+  input.statements.forEach((statement, index) => {
+    statement.participantResponses.forEach((response) => {
+      const key =
+        response.participantId && response.participantId !== "unknown"
+          ? response.participantId
+          : `unknown:${response.participantName}`;
+      let entry = participantMap.get(key);
+      if (!entry) {
+        entry = { name: response.participantName, responses: [] };
+        participantMap.set(key, entry);
+      }
+      entry.responses.push(
+        `${index + 1}. "${statement.text}": ${formatValue(response.value)}`,
+      );
+    });
+  });
+
+  const participantDetailsText =
+    participantMap.size > 0
+      ? Array.from(participantMap.values())
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((entry) => {
+          const lines = entry.responses.map((response) => `  ${response}`);
+          return `${entry.name}:\n${lines.join("\n")}`;
+        })
+        .join("\n\n")
+      : "  (回答なし)";
+
+  const surveyResultsText = `${statementsText}\n\n参加者別回答:\n${participantDetailsText}`;
+
   const prompt = `
 <role>
 あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
@@ -214,8 +276,10 @@ Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果�
 - 合意が存在する点。特に、具体的な合意点や意外な合意点。
 - 意見が二極化・多極化している点。
 - 多くがまだ判断できていない点、わからない点。
-また、それらを考察し、背景にある点を仮説
-- どのような価値観／利害が軸になっているか。
+- 集団の傾向、クラスタなど（バイネームの分析）
+また、それらからわかることを論理的に考察し、仮説を立てる。
+
+想定読者は参加者です。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
@@ -227,7 +291,7 @@ Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果�
   <initial_context>${input.initialContext}</initial_context>
 </context>
 <survey_results>
-${statementsText}
+${surveyResultsText}
 </survey_results>
 <output>MarkdownのみでSurvey Analysisを返してください。</output>
 `;

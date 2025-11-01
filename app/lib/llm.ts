@@ -158,8 +158,8 @@ export async function generateSessionGoal(input: {
   const insightTargetsText =
     input.insightTargets.length > 0
       ? input.insightTargets
-          .map((key) => insightTargetLabels[key] ?? key)
-          .join("・")
+        .map((key) => insightTargetLabels[key] ?? key)
+        .join("・")
       : "特になし";
   const backgroundSection =
     input.background && input.background.trim().length > 0
@@ -320,7 +320,7 @@ ${context}
 **既存のステートメント一覧:**
 ${statementsText}
 ${reportSection}
-既存の回答状況と分析レポートを踏まえ、議論をさらに深めるための新たなステートメントを10個生成してください。
+既存の回答状況と分析レポートを踏まえ、議論をさらに深めるための新たなステートメントを15個生成してください。
 既存のステートメントではわからないような情報を収集できたり、まだ明らかではない点の仮説を検証できるようなステートメントを設計してください。
 
 JSON配列形式で、以下のように出力してください:
