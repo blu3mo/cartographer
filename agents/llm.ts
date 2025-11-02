@@ -117,7 +117,7 @@ export async function generatePlanMarkdown(input: {
   ${input.eventThreadContext}
   <initial_context>${input.initialContext}</initial_context>
 </context>
-<output>MarkdownのみでPLANセクションの中身を返してください。</output>
+<output>MarkdownのみでPLANセクションの中身を返してください。前置きなく、本文のみを生成してください。</output>
 `;
 
   try {
@@ -307,7 +307,7 @@ Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果�
 <survey_results>
 ${surveyResultsText}
 </survey_results>
-<output>MarkdownのみでSurvey Analysisを返してください。</output>
+<output>MarkdownのみでSurvey Analysisを返してください。前置きなく、本文のみを生成してください。</output>
 `;
 
   try {

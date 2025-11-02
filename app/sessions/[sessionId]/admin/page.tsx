@@ -811,21 +811,6 @@ export default function AdminPage({
                     <ThreadStatusPill
                       shouldProceed={threadData?.thread?.shouldProceed ?? false}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => fetchEventThread(true)}
-                      disabled={threadLoading}
-                      className="gap-1.5 text-xs"
-                    >
-                      <RefreshCcw
-                        className={`h-3.5 w-3.5 ${
-                          threadLoading ? "animate-spin" : ""
-                        }`}
-                      />
-                      更新
-                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -1528,8 +1513,17 @@ function ThreadEventBubble({
       ? event.statements.slice(0, 3)
       : event.statements;
 
+  const totalSurveyStatements =
+    event.type === "survey" ? event.statements.length : 0;
+
   const statementsList = (
     <div className="space-y-2">
+      {event.type === "survey" && totalSurveyStatements > 0 ? (
+        <p className="text-base text-slate-900">
+          新しく{totalSurveyStatements}
+          個の質問を作成しました。皆さんの回答をお待ちしています。
+        </p>
+      ) : null}
       {visibleStatements.map((statement) => (
         <div
           key={statement.id}
