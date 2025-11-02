@@ -28,7 +28,11 @@ type ThreadContext = {
 };
 
 export class PtolemyAgent {
-  constructor(private readonly supabase: SupabaseClient) { }
+  constructor(private supabase: SupabaseClient) {}
+
+  setSupabaseClient(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
 
   async run(instance: AgentInstanceRow): Promise<AgentRunResult> {
     this.log(instance, "tick", { state: instance.state });

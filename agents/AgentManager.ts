@@ -9,10 +9,13 @@ import type { AgentInstanceRow, AgentRunResult } from "./types";
 import { delay, truncate } from "./utils";
 
 export class AgentManager {
+  private static readonly RECONNECT_INTERVAL_MS = 60 * 60 * 1000;
   private supabase: SupabaseClient;
-  private readonly ptolemy: PtolemyAgent;
+  private ptolemy: PtolemyAgent;
   private processing = new Set<string>();
   private subscriptions: RealtimeChannel[] = [];
+  private reconnectInterval?: NodeJS.Timeout;
+  private isRefreshing = false;
 
   constructor(
     private readonly supabaseUrl: string = process.env
@@ -26,33 +29,24 @@ export class AgentManager {
       );
     }
 
-    this.supabase = createClient(
-      this.supabaseUrl,
-      this.supabaseServiceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      },
-    );
+    this.supabase = this.createSupabaseClient();
     this.ptolemy = new PtolemyAgent(this.supabase);
   }
 
   async start() {
     console.log("[AgentManager] Starting…");
     await this.bootstrapExistingAgents();
-    await this.subscribeToAgentInstances();
-    await this.subscribeToThreadChanges();
-    await this.subscribeToResponses();
+    await this.initializeRealtimeSubscriptions();
+    this.scheduleReconnect();
     console.log("[AgentManager] Ready");
   }
 
   async stop() {
-    await Promise.all(
-      this.subscriptions.map((channel) => channel.unsubscribe()),
-    );
-    this.subscriptions = [];
+    if (this.reconnectInterval) {
+      clearInterval(this.reconnectInterval);
+      this.reconnectInterval = undefined;
+    }
+    await this.stopRealtimeSubscriptions();
   }
 
   private async bootstrapExistingAgents() {
@@ -233,5 +227,57 @@ export class AgentManager {
     }
   }
 
-  // no periodic sweep; realtime should handle all transitions
+  private createSupabaseClient(): SupabaseClient {
+    return createClient(this.supabaseUrl, this.supabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+
+  private async initializeRealtimeSubscriptions() {
+    await this.subscribeToAgentInstances();
+    await this.subscribeToThreadChanges();
+    await this.subscribeToResponses();
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectInterval) {
+      clearInterval(this.reconnectInterval);
+    }
+    this.reconnectInterval = setInterval(() => {
+      void this.refreshSupabaseConnection();
+    }, AgentManager.RECONNECT_INTERVAL_MS);
+  }
+
+  private async stopRealtimeSubscriptions() {
+    const subscriptions = [...this.subscriptions];
+    this.subscriptions = [];
+    await Promise.all(subscriptions.map((channel) => channel.unsubscribe()));
+  }
+
+  private async refreshSupabaseConnection() {
+    if (this.isRefreshing) {
+      return;
+    }
+
+    this.isRefreshing = true;
+    console.log("[AgentManager] Refreshing Supabase connection…");
+    try {
+      await this.stopRealtimeSubscriptions();
+      this.supabase = this.createSupabaseClient();
+      this.ptolemy.setSupabaseClient(this.supabase);
+      await this.bootstrapExistingAgents();
+      await this.initializeRealtimeSubscriptions();
+      console.log("[AgentManager] Supabase connection refreshed");
+    } catch (error) {
+      console.error(
+        "[AgentManager] Failed to refresh Supabase connection:",
+        error,
+      );
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
 }
