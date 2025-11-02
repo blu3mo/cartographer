@@ -8,6 +8,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ### Prerequisites
 
+**⚠️ Important:** This application requires a real PostgreSQL database and OpenRouter API access. You cannot run it without these services.
+
 Before running the development server, you need to set up environment variables.
 
 1. **Copy the example environment file**:
