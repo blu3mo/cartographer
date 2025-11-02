@@ -169,7 +169,7 @@ export default function NewSessionPage() {
                   value={backgroundInfo}
                   onChange={(e) => setBackgroundInfo(e.target.value)}
                   rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
                   placeholder="例: プロジェクトは3ヶ月前に立ち上がり、現在はプロダクトのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -187,7 +187,7 @@ export default function NewSessionPage() {
                   onChange={(e) => setRecognitionFocus(e.target.value)}
                   required
                   rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
                   placeholder="例: プロジェクトの現状、課題、今後の方向性について"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -205,7 +205,7 @@ export default function NewSessionPage() {
                   onChange={(e) => setRecognitionPurpose(e.target.value)}
                   required
                   rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
                   placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
                 />
                 <p className="text-xs text-muted-foreground">

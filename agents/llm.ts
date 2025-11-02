@@ -12,7 +12,7 @@ const MODEL = "google/gemini-2.5-pro";
 
 async function callLLM(
   messages: LLMMessage[],
-  options?: { temperature?: number },
+  options?: { temperature?: number; reasoning_max_tokens?: number },
 ): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -28,13 +28,24 @@ async function callLLM(
     console.log(message.content);
   });
 
+  const requestBody: {
+    model: string;
+    messages: LLMMessage[];
+    temperature: number;
+    reasoning?: { max_tokens: number };
+  } = {
+    model: MODEL,
+    messages,
+    temperature: options?.temperature ?? 0.7,
+  };
+
+  if (options?.reasoning_max_tokens !== undefined) {
+    requestBody.reasoning = { max_tokens: options.reasoning_max_tokens };
+  }
+
   const response = await axios.post(
     OPENROUTER_API_URL,
-    {
-      model: MODEL,
-      messages,
-      temperature: options?.temperature ?? 0.7,
-    },
+    requestBody,
     {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -88,17 +99,14 @@ export async function generatePlanMarkdown(input: {
 
   const prompt = `
 <role>
-あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
+あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出すことで、調査目的を達成します。
 </role>
 <task>
-今までのEventThreadの内容を踏まえて、改めて、調査目的を満たすための戦略ロードマップを、短期（次に参加者全員から引き出したい情報）と長期（ここから何度も情報収集と考察を繰り返す中で目的を達成する道筋）として記述してください。
-- 有限の質問回数の中で、どんな情報を収集したり仮説を検証するのかについて、優先順位を戦略的に立てることが大事です。
+今までのEventThreadの内容を踏まえて、改めて、調査目的を満たすための道筋を大まかに描いた上で、まず今どんな認識を参加者全員から収集したいか具体的に記述してください。
+- 参加者に対してこの後yes/noで答えられる質問を投げかけるので、それらの質問を通じてどんな情報を集めるべきか考察して方針を立ててください。（具体的な質問は作らなくてよいです）
 - もし調査を進める上でそもそも前提情報が足りない場合は深掘りを急がずに、欠落している背景や前提の情報を探索的に収集することから始めてください。
 - 個人の利害と、共同体としてのべき論を混同しないように注意してください。
-- 具体/ミクロレベルと、抽象/マクロレベルの両方の認識を必要に応じて収集してください。
-- 常にセッションの目的を意識し、目的を達成するために収集すべき情報について収集の順番や優先順位がつけられるとよい。
-
-想定読者は参加者です。
+- 具体レベルと、抽象レベルの両方の認識を必要に応じて収集してください。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
@@ -138,10 +146,10 @@ export async function generateSurveyStatements(input: {
 
   const prompt = `
 <role>
-あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出しすことで目的を達成します。
+あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出します。
 </role>
 <task>
-ステートメントに対する全参加者のYES/NO回答を通じて、立場の背景にある価値観・利害・優先順位を浮き彫りにします。
+ステートメントに対する全参加者のYES/NO回答を通じて、認識・解釈・価値観・利害・優先順位などを浮き彫りにし、収集したい認識の情報を収集します。
 今までのEventThreadの内容を踏まえて、新たに15個のステートメントを生成してください。それらに対して参加者全員がYES/NOで回答します。
 各ステートメントは以下を満たすこと。
 - YES/NOの二択で答えられる断定文であること。
@@ -149,6 +157,7 @@ export async function generateSurveyStatements(input: {
 - 表層の主張ではなく、その背後の価値観・利害・時間軸・成功条件を明らかにできること。
 - 解釈のブレが生じないよう、必要であれば5W1Hを明示してシャープに表現すること。
 - 参加者の立ち位置がYES/NOで鮮明に分かれ、背後の動機が推測できるようにする。
+- 今後も質問を繰り返すので、今回だけで調査目的を達成する必要はない。深掘りを急がずに、まず今集めるべき情報を集めてほしい。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
@@ -163,7 +172,10 @@ export async function generateSurveyStatements(input: {
 `;
 
   try {
-    const response = await callLLM([{ role: "user", content: prompt }]);
+    const response = await callLLM(
+      [{ role: "user", content: prompt }],
+      { reasoning_max_tokens: 1 },
+    );
     const parsed = extractJsonArray(response);
     if (!parsed) {
       throw new Error("LLM response was not valid JSON array");
