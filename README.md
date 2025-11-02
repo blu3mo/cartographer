@@ -1,24 +1,21 @@
+# Cartographer
+
+Cartographer is a web service that visualizes recognition and facilitates consensus building. It collects and analyzes recognition from multiple people on specific themes (e.g., "current status of this project") using LLM-powered insights.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
-First, run the development server:
+Cartographer needs a Supabase project and OpenRouter API access. Follow these quick steps, then read `GUIDE_ja.md` for the full setup and troubleshooting guide.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local   # fill in Supabase + OpenRouter keys
+npm install
+npm run dev                  # Next.js app (http://localhost:3000)
+npm run agent                # optional: Ptolemy agent automation
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Everything after the basics—including schema import, environment tips, and operational flow—is documented in `GUIDE_ja.md`.
 
 ## Learn More
 
