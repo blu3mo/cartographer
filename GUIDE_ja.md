@@ -9,7 +9,7 @@
 - **アプリ本体**: Next.js 15 (App Router) + React 19 で構築されたフロントエンド/バックエンド。`app/api` 配下に API ルートを実装。
 - **データストア**: Supabase（PostgreSQL/Realtime）を採用。`supabase/schema.sql` でテーブルを管理。
 - **LLM 連携**: OpenRouter 経由で Google Gemini 2.5 Pro を呼び出し、セッションゴール・ステートメント・分析レポートを生成。
-- **エージェント**: `npm run agent:dev` で起動する Node.js プロセス。Supabase Realtime を購読し、Plan → Survey → Analysis のイベント生成を自動化（`agents/AgentManager.ts` + `agents/PtolemyAgent.ts`）。
+- **エージェント**: `npm run agent` で起動する Node.js プロセス。Supabase Realtime を購読し、Plan → Survey → Analysis のイベント生成を自動化（`agents/AgentManager.ts` + `agents/PtolemyAgent.ts`）。
 
 ### 1.1 コンポーネントのつながり（ざっくり版）
 
@@ -148,7 +148,7 @@ npm run dev
 Plan → Survey → Analysis の自動生成には、別ターミナルでエージェントを起動する必要があります。
 
 ```bash
-npm run agent:dev
+npm run agent
 ```
 
 - `agents/AgentManager.ts` が Supabase Realtime を購読し、`agent_instances` が変化すると `agents/PtolemyAgent.ts` の状態機械を進めます。
@@ -187,7 +187,7 @@ npm run agent:dev
 | `npm run dev` | Next.js + Turbopack 開発サーバー |
 | `npm run build` | 本番ビルド（Turbopack） |
 | `npm run start` | 本番サーバー起動（ビルド済み成果物を使用） |
-| `npm run agent:dev` | Ptolemy エージェントの常駐プロセス |
+| `npm run agent` | Ptolemy エージェントの常駐プロセス |
 | `npm run lint` | Biome による静的解析 |
 | `npm run format` | Biome による整形（`--write`） |
 

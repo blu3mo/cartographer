@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "agent:dev": "tsx agents/index.ts",
+    "agent": "tsx agents/index.ts",
     "lint": "biome check",
     "format": "biome format --write"
   },
