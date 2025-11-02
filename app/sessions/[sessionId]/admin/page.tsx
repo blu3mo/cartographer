@@ -4,6 +4,8 @@ import axios from "axios";
 import {
   Bot,
   Check,
+  ChevronDown,
+  ChevronUp,
   Copy,
   ExternalLink,
   Loader2,
@@ -15,7 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Image from "next/image";
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -183,16 +185,6 @@ const formatPercentage = (value: number) => {
   return `${rounded.toFixed(1)}%`;
 };
 
-const markdownToPlainText = (markdown: string) => {
-  return markdown
-    .replace(/```[\s\S]*?```/g, "")
-    .replace(/`([^`]*)`/g, "$1")
-    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
-    .replace(/[#>*_~-]/g, "")
-    .replace(/\n+/g, " ")
-    .trim();
-};
-
 export default function AdminPage({
   params,
 }: {
@@ -233,6 +225,8 @@ export default function AdminPage({
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
     "idle",
   );
+  const threadContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastThreadEventIdRef = useRef<string | null>(null);
 
   const fetchAdminData = useCallback(async () => {
     if (!userId) return;
@@ -332,6 +326,25 @@ export default function AdminPage({
       });
     }
   }, [threadData]);
+
+  useEffect(() => {
+    const events = threadData?.events ?? [];
+    if (!events.length) return;
+    const lastEventId = events[events.length - 1]?.id;
+    if (!lastEventId) return;
+    const isInitial = lastThreadEventIdRef.current === null;
+    if (lastThreadEventIdRef.current !== lastEventId) {
+      lastThreadEventIdRef.current = lastEventId;
+      const container = threadContainerRef.current;
+      if (!container) return;
+      window.requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: isInitial ? "auto" : "smooth",
+        });
+      });
+    }
+  }, [threadData?.events]);
 
   useEffect(() => {
     if (data?.title) {
@@ -612,7 +625,7 @@ export default function AdminPage({
   if (error) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <div className="max-w-4xl mx-auto px-6 py-16">
+        <div className="max-w-6xl mx-auto px-6 py-16">
           <Card className="border-red-200/70 bg-red-50/80">
             <CardContent className="pt-6">
               <p className="text-red-700">{error}</p>
@@ -635,7 +648,7 @@ export default function AdminPage({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto px-6 py-10 space-y-10">
+      <div className="max-w-[90rem] mx-auto px-6 py-10 space-y-10">
         <header className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
@@ -645,37 +658,6 @@ export default function AdminPage({
               <h1 className="text-3xl font-semibold text-slate-900">
                 {data.title}
               </h1>
-              <p className="text-sm text-slate-500 max-w-3xl leading-relaxed">
-                {data.goal
-                  ? truncateText(data.goal, 160)
-                  : "ゴールはまだ設定されていません。"}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  window.open(`/sessions/${sessionId}/admin/extra`, "_blank")
-                }
-                className="gap-1.5 text-xs"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                追加情報
-              </Button>
-              {latestReport && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    window.open(`/sessions/${sessionId}/admin/print`, "_blank")
-                  }
-                  className="gap-1.5 text-xs"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  現状分析レポート
-                </Button>
-              )}
             </div>
           </div>
         </header>
@@ -694,11 +676,6 @@ export default function AdminPage({
                   <MonitoringMetric
                     label="参加者"
                     value={`${totalParticipants}人`}
-                    subLabel={
-                      totalStatements > 0
-                        ? `${totalStatements}件のステートメント`
-                        : undefined
-                    }
                   />
                   <MonitoringMetric
                     label="平均回答率"
@@ -708,29 +685,32 @@ export default function AdminPage({
                     tone="emerald"
                   />
                   <MonitoringMetric
-                    label="回答進行中"
-                    value={`${participantSummary.inProgressCount}人`}
+                    label="回答済み"
+                    value={`${participantSummary.completedCount}人`}
                   />
                   <MonitoringMetric
-                    label="未回答"
-                    value={`${participantSummary.notStartedCount}人`}
+                    label="回答進行中"
+                    value={`${
+                      participantSummary.inProgressCount +
+                      participantSummary.notStartedCount
+                    }人`}
                   />
                 </div>
 
-                <div className="space-y-3">
-                  {participants.length === 0 ? (
-                    <p className="text-sm text-slate-500">
-                      まだ参加者はいません。リンクを共有して参加を促しましょう。
-                    </p>
-                  ) : (
-                    rankedParticipants.map((participant) => (
+                {participants.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    まだ参加者はいません。リンクを共有して参加を促しましょう。
+                  </p>
+                ) : (
+                  <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                    {rankedParticipants.map((participant) => (
                       <ParticipantProgressRow
                         key={participant.userId}
                         participant={participant}
                       />
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -785,10 +765,10 @@ export default function AdminPage({
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <CardTitle className="text-lg">
-                      チャットと進行ログ
+                      進行ログ
                     </CardTitle>
                     <CardDescription>
-                      Agentとのやりとりや進行状況をここからフォローできます
+                      ファシリテーターAIの進行状況をここから確認できます
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-3">
@@ -820,7 +800,10 @@ export default function AdminPage({
                       更新中…
                     </div>
                   )}
-                  <div className="h-[620px] overflow-y-auto px-6 py-6 space-y-5">
+                  <div
+                    ref={threadContainerRef}
+                    className="h-[620px] overflow-y-auto px-6 py-6 space-y-5"
+                  >
                     {threadError ? (
                       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                         {threadError}
@@ -857,7 +840,7 @@ export default function AdminPage({
                     htmlFor="adminMessage"
                     className="text-xs font-medium text-slate-600"
                   >
-                    Agentへのメッセージ
+                    ファシリテーターAIへのメッセージ
                   </label>
                   <textarea
                     id="adminMessage"
@@ -865,12 +848,9 @@ export default function AdminPage({
                     onChange={(event) => setMessageDraft(event.target.value)}
                     rows={3}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                    placeholder="Planの再実行や状況説明など、Agentへの指示を書き込めます。"
+                    placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
                   />
                   <div className="flex items-center justify-between">
-                    <p className="text-[11px] text-slate-400">
-                      Markdownで記述できます。
-                    </p>
                     <Button
                       type="button"
                       onClick={handleSendMessage}
@@ -993,16 +973,22 @@ export default function AdminPage({
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
                         ゴール
                       </p>
-                      <p className="mt-1 leading-relaxed">
-                        {data.goal ? data.goal : "未設定"}
+                      <p
+                        className="mt-1 leading-relaxed"
+                        title={data.goal ?? undefined}
+                      >
+                        {data.goal ? truncateText(data.goal, 160) : "未設定"}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
                         背景情報
                       </p>
-                      <p className="mt-1 leading-relaxed whitespace-pre-wrap">
-                        {data.context ? data.context : "未設定"}
+                      <p
+                        className="mt-1 leading-relaxed whitespace-pre-wrap"
+                        title={data.context ?? undefined}
+                      >
+                        {data.context ? truncateText(data.context, 160) : "未設定"}
                       </p>
                     </div>
                   </div>
@@ -1151,6 +1137,7 @@ export default function AdminPage({
                   type="button"
                   onClick={handleToggleShouldProceed}
                   disabled={togglingProceed}
+                  aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
                   className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
                     threadData?.thread?.shouldProceed
                       ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
@@ -1160,22 +1147,34 @@ export default function AdminPage({
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium text-slate-900">
-                        質問の自動生成
+                        新規Statementの自動生成
                       </p>
                       <p className="text-xs text-slate-600">
-                        AgentのshouldProceedを切り替えます
+                        {
+                          threadData?.thread?.shouldProceed
+                            ? "全員が回答を終えると、新しい質問が生成されます"
+                            : "全員が回答を終えても、新しい質問は生成されません"
+                        }
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-sm font-semibold ${
+                    <div className="flex items-center gap-3">
+                      <div
+                        aria-hidden="true"
+                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${
                           threadData?.thread?.shouldProceed
-                            ? "text-emerald-600"
-                            : "text-amber-600"
+                            ? "border-emerald-300 bg-emerald-500/90 justify-end"
+                            : "border-amber-300 bg-amber-200/90 justify-start"
                         }`}
                       >
-                        {threadData?.thread?.shouldProceed ? "ON" : "PAUSED"}
-                      </span>
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
+                          {threadData?.thread?.shouldProceed ? (
+                            <Play className="h-3 w-3 text-emerald-500" />
+                          ) : (
+                            <Pause className="h-3 w-3 text-amber-500" />
+                          )}
+                        </div>
+                      </div>
+                      
                       {togglingProceed && (
                         <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                       )}
@@ -1257,24 +1256,26 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
       : 0;
 
   return (
-    <div className="rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-3 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-slate-900">
+    <div className="flex h-full flex-col gap-2 rounded-xl border border-slate-200/70 bg-white/70 p-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-slate-900">
             {participant.name || "名称未設定"}
           </p>
-          <p className="text-[11px] text-slate-400">最終更新: {updatedLabel}</p>
+          <p className="text-[10px] text-slate-400">
+            最終更新: {updatedLabel}
+          </p>
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold text-slate-900">
             {completionLabel}
           </p>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[10px] text-slate-500">
             {participant.answeredCount}/{participant.totalStatements}
           </p>
         </div>
       </div>
-      <div className="mt-3 h-1.5 w-full rounded-full bg-slate-200">
+      <div className="mt-2 h-1 w-full rounded-full bg-slate-200">
         <div
           className="h-full rounded-full bg-indigo-500 transition-all"
           style={{ width: `${progressRatio}%` }}
@@ -1353,7 +1354,7 @@ function StatementHighlightColumn({
               <span className="font-medium text-amber-700">
                 No {formatPercentage(item.negative)}
               </span>
-              <span>不明 {formatPercentage(item.neutral)}</span>
+              <span>わからない {formatPercentage(item.neutral)}</span>
             </div>
           </div>
         ))
@@ -1397,6 +1398,29 @@ function ThreadEventBubble({
   expanded,
   onToggle,
 }: ThreadEventBubbleProps) {
+  const markdownProseClass =
+    "markdown-body prose prose-sm max-w-none text-slate-800 [&_ol]:list-decimal [&_ul]:list-disc";
+  const fadeGradientClass = isHostMessage
+    ? "from-indigo-50/95 via-indigo-50/50 to-transparent"
+    : "from-white/95 via-white/60 to-transparent";
+
+  const wrapWithFade = (node: JSX.Element) => ({
+    content: (
+      <div className="relative pb-2">
+        {node}
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t ${fadeGradientClass}`}
+        />
+      </div>
+    ),
+    hasFade: true,
+  });
+
+  const plainContent = (node: JSX.Element) => ({
+    content: node,
+    hasFade: false,
+  });
+
   const meta = EVENT_TYPE_META[event.type] ?? {
     label: event.type,
     accent: "text-slate-500",
@@ -1408,8 +1432,6 @@ function ThreadEventBubble({
       ? (event.payload.markdown as string)
       : "";
 
-  const plainPreview = markdownToPlainText(markdown);
-  const preview = truncateText(plainPreview, 220);
   const showToggle =
     event.type === "survey"
       ? event.statements.length > 3
@@ -1429,10 +1451,86 @@ function ThreadEventBubble({
       ? event.statements.slice(0, 3)
       : event.statements;
 
+  const statementsList = (
+    <div className="space-y-2">
+      {visibleStatements.map((statement) => (
+        <div
+          key={statement.id}
+          className="rounded-2xl border border-slate-200/70 bg-white/90 px-3 py-2 text-sm text-slate-700 shadow-sm"
+        >
+          <span className="mr-2 text-[11px] font-medium text-slate-400">
+            #{statement.orderIndex + 1}
+          </span>
+          {statement.text}
+        </div>
+      ))}
+      {/* {!expanded && event.statements.length > visibleStatements.length && (
+        <p className="text-[11px] text-slate-500">
+          他{event.statements.length - visibleStatements.length}
+          件のステートメントがあります。
+        </p>
+      )} */}
+    </div>
+  );
+
+  const showFade = showToggle && !expanded;
+
+  const toggleButton = showToggle ? (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700"
+    >
+      {expanded ? (
+        <>
+          <ChevronUp className="h-3 w-3" />
+          閉じる
+        </>
+      ) : (
+        <>
+          <ChevronDown className="h-3 w-3" />
+          全文を見る
+      </>
+    )}
+  </button>
+) : null;
+
+  const content = (() => {
+    if (event.type === "survey" && visibleStatements.length > 0) {
+      return showFade ? wrapWithFade(statementsList) : plainContent(statementsList);
+    }
+
+    if (markdown) {
+      const markdownNode = (
+        <div className={markdownProseClass}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {markdown}
+          </ReactMarkdown>
+        </div>
+      );
+
+      if (expanded || !showToggle) {
+        return plainContent(markdownNode);
+      }
+
+      return wrapWithFade(
+        <div className={`${markdownProseClass} max-h-48 overflow-hidden`}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {markdown}
+          </ReactMarkdown>
+        </div>,
+      );
+    }
+
+    return plainContent(
+      <p className="text-sm text-slate-600">内容を準備中です。</p>,
+    );
+  })();
+
   return (
     <div
       className={`flex gap-3 ${
-        isHostMessage ? "justify-end text-right" : "justify-start text-left"
+        isHostMessage ? "justify-end" : "justify-start"
       }`}
     >
       {!isHostMessage && (
@@ -1461,44 +1559,20 @@ function ThreadEventBubble({
               : "border-slate-200 bg-white/90"
           }`}
         >
-          {event.type === "survey" && visibleStatements.length > 0 ? (
-            <div className="space-y-2">
-              {visibleStatements.map((statement) => (
-                <div
-                  key={statement.id}
-                  className="rounded-2xl border border-slate-200/70 bg-white/90 px-3 py-2 text-sm text-slate-700 shadow-sm"
-                >
-                  <span className="mr-2 text-[11px] font-medium text-slate-400">
-                    #{statement.orderIndex + 1}
-                  </span>
-                  {statement.text}
-                </div>
-              ))}
-              {!expanded &&
-                event.statements.length > visibleStatements.length && (
-                  <p className="text-[11px] text-slate-500">
-                    他{event.statements.length - visibleStatements.length}
-                    件のステートメントがあります。
-                  </p>
-                )}
-            </div>
-          ) : markdown ? (
-            expanded || !showToggle ? (
-              <div className="markdown-body prose prose-sm max-w-none text-slate-800 [&_ol]:list-decimal [&_ul]:list-disc">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {markdown}
-                </ReactMarkdown>
+          <div className="flex flex-col gap-0">
+            {content.content}
+            {toggleButton && (
+              <div
+                className={`flex ${
+                  isHostMessage ? "justify-end" : "justify-start"
+                } ${content.hasFade ? "-mt-1" : "mt-2"}`}
+              >
+                {toggleButton}
               </div>
-            ) : (
-              <p className="text-sm text-slate-700 leading-relaxed">
-                {preview}
-              </p>
-            )
-          ) : (
-            <p className="text-sm text-slate-600">内容を準備中です。</p>
-          )}
+            )}
+          </div>
         </div>
-        {progressPercent > 0 && progressPercent < 100 && (
+        {/* {progressPercent > 0 && progressPercent < 100 && (
           <div className="flex w-full items-center gap-3 text-[11px] text-slate-500">
             <div className="h-1.5 w-full rounded-full bg-slate-200">
               <div
@@ -1510,16 +1584,7 @@ function ThreadEventBubble({
             </div>
             <span>{progressPercent}%</span>
           </div>
-        )}
-        {showToggle && (
-          <button
-            type="button"
-            onClick={onToggle}
-            className="text-[11px] font-medium text-slate-500 underline-offset-4 hover:underline"
-          >
-            {expanded ? "閉じる" : "全文を見る"}
-          </button>
-        )}
+        )} */}
       </div>
     </div>
   );

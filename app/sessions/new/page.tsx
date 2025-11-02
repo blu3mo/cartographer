@@ -274,19 +274,19 @@ export default function NewSessionPage() {
               </div>
 
               {suggestions.length > 0 && (
-                <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+                <Card className="border-blue-200 bg-blue-50/50">
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-3">
-                      <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <Lightbulb className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 space-y-3">
-                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        <p className="text-sm font-medium text-blue-900">
                           もっとこういう情報を書いてみませんか？
                         </p>
                         <ul className="space-y-2">
                           {suggestions.map((suggestion) => (
                             <li
                               key={suggestion}
-                              className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed"
+                              className="text-sm text-blue-800 leading-relaxed"
                             >
                               {suggestion}
                             </li>
