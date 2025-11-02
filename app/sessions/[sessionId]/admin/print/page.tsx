@@ -18,6 +18,7 @@ interface SessionAdminData {
   id: string;
   title: string;
   context: string;
+  goal: string;
   isPublic: boolean;
   createdAt: string;
   latestSituationAnalysisReport?: SituationAnalysisReport;
@@ -209,6 +210,28 @@ export default function PrintReportPage({
                 </p>
                 <p>生成日時: {reportDate}</p>
               </div>
+            </div>
+
+            <div className="mb-10 space-y-8 text-gray-800">
+              <section>
+                <h2 className="text-xl font-semibold mb-3">セッションゴール</h2>
+                <div className="markdown-body prose prose-slate max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {data.goal}
+                  </ReactMarkdown>
+                </div>
+              </section>
+
+              {data.context.trim().length > 0 && (
+                <section>
+                  <h2 className="text-xl font-semibold mb-3">背景情報</h2>
+                  <div className="markdown-body prose prose-slate max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {data.context}
+                    </ReactMarkdown>
+                  </div>
+                </section>
+              )}
             </div>
 
             {/* Report content */}

@@ -8,6 +8,29 @@ interface LLMMessage {
   content: string;
 }
 
+export function buildSessionBrief(
+  goal?: string | null,
+  context?: string | null,
+): string {
+  const sections: string[] = [];
+  const trimmedGoal = goal?.trim();
+  const trimmedContext = context?.trim();
+
+  if (trimmedGoal) {
+    sections.push(`## Goal\n${trimmedGoal}`);
+  }
+
+  if (trimmedContext) {
+    sections.push(`## Background\n${trimmedContext}`);
+  }
+
+  if (sections.length === 0) {
+    return "## Goal\n(未設定)";
+  }
+
+  return sections.join("\n\n");
+}
+
 export async function callLLM(messages: LLMMessage[]): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -237,7 +260,7 @@ ${context}
 **既存のステートメント一覧:**
 ${statementsText}
 ${reportSection}
-既存の回答状況と分析レポートを踏まえ、議論をさらに深めるための新たなステートメントを10個生成してください。
+既存の回答状況と分析レポートを踏まえ、議論をさらに深めるための新たなステートメントを15個生成してください。
 既存のステートメントではわからないような情報を収集できたり、まだ明らかではない点の仮説を検証できるようなステートメントを設計してください。
 
 JSON配列形式で、以下のように出力してください:

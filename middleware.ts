@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 const ipAllowlist = (process.env.ALLOWED_IPS ?? "")
   .split(",")
@@ -129,8 +129,9 @@ function getClientIp(request: NextRequest): string | null {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     const [first] = forwarded.split(",");
-    if (first && first.trim()) {
-      return first.trim();
+    const trimmedFirst = first?.trim();
+    if (trimmedFirst) {
+      return trimmedFirst;
     }
   }
 
@@ -144,8 +145,9 @@ function getClientIp(request: NextRequest): string | null {
 
   for (const header of fallbackHeaders) {
     const value = request.headers.get(header);
-    if (value && value.trim()) {
-      return value.trim();
+    const trimmedValue = value?.trim();
+    if (trimmedValue) {
+      return trimmedValue;
     }
   }
 

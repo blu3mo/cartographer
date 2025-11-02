@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useCallback, useEffect, useRef, useState } from "react";
-import { useUserId } from "@/lib/useUserId";
-import { createAuthorizationHeader } from "@/lib/auth";
 import axios from "axios";
+import { FileText, Loader2 } from "lucide-react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -16,7 +16,8 @@ import {
   Skeleton,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { FileText, Loader2 } from "lucide-react";
+import { createAuthorizationHeader } from "@/lib/auth";
+import { useUserId } from "@/lib/useUserId";
 import { cn } from "@/lib/utils";
 
 type Statement = {
@@ -39,6 +40,7 @@ type SessionState = "NEEDS_NAME" | "ANSWERING" | "COMPLETED";
 type SessionInfo = {
   id: string;
   title: string;
+  goal: string;
   context: string;
   isPublic: boolean;
   hostUserId: string;
@@ -291,25 +293,30 @@ export default function SessionPage({
     [sortResponsesByRecency],
   );
 
-  const buildExcludeQuery = (additionalIds: string[] = []) => {
-    const ids = new Set<string>(additionalIds.filter(Boolean));
+  const buildExcludeQuery = useCallback(
+    (additionalIds: string[] = []) => {
+      const ids = new Set<string>(additionalIds.filter(Boolean));
 
-    if (currentStatement) {
-      ids.add(currentStatement.id);
-    }
+      if (currentStatement) {
+        ids.add(currentStatement.id);
+      }
 
-    pendingAnswerStatementIdsRef.current.forEach((id) => ids.add(id));
+      pendingAnswerStatementIdsRef.current.forEach((id) => {
+        ids.add(id);
+      });
 
-    if (ids.size === 0) {
-      return "";
-    }
+      if (ids.size === 0) {
+        return "";
+      }
 
-    const query = Array.from(ids)
-      .map((id) => `excludeStatementId=${encodeURIComponent(id)}`)
-      .join("&");
+      const query = Array.from(ids)
+        .map((id) => `excludeStatementId=${encodeURIComponent(id)}`)
+        .join("&");
 
-    return `?${query}`;
-  };
+      return `?${query}`;
+    },
+    [currentStatement],
+  );
 
   useEffect(() => {
     if (!userId || userLoading) return;
@@ -434,7 +441,14 @@ export default function SessionPage({
     };
 
     prefetchNextStatement();
-  }, [userId, userLoading, sessionId, currentStatement, state]);
+  }, [
+    userId,
+    userLoading,
+    sessionId,
+    currentStatement,
+    state,
+    buildExcludeQuery,
+  ]);
 
   useEffect(() => {
     if (!userId || userLoading) return;
@@ -827,10 +841,12 @@ export default function SessionPage({
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {sessionInfo?.title ?? "セッション"}
-          </h1>
+        <div className="mb-8 space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {sessionInfo?.title ?? "セッション"}
+            </h1>
+          </div>
         </div>
 
         {state === "NEEDS_NAME" && (
@@ -875,6 +891,7 @@ export default function SessionPage({
 
               <div className="grid grid-cols-5 gap-3">
                 <button
+                  type="button"
                   onClick={() => handleAnswer(2)}
                   disabled={isLoading}
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -883,6 +900,7 @@ export default function SessionPage({
                   <span className="text-xs font-semibold">Strong Yes</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleAnswer(1)}
                   disabled={isLoading}
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -891,6 +909,7 @@ export default function SessionPage({
                   <span className="text-xs font-semibold">Yes</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleAnswer(0)}
                   disabled={isLoading}
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -899,6 +918,7 @@ export default function SessionPage({
                   <span className="text-xs font-semibold">わからない</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleAnswer(-1)}
                   disabled={isLoading}
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -907,6 +927,7 @@ export default function SessionPage({
                   <span className="text-xs font-semibold">No</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleAnswer(-2)}
                   disabled={isLoading}
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"

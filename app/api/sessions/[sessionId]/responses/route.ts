@@ -1,6 +1,37 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
+
+type StatementRow = {
+  id: string;
+  text: string;
+  order_index: number;
+};
+
+type ResponseRow = {
+  id: string;
+  participant_user_id: string;
+  session_id: string;
+  statement_id: string;
+  value: number;
+  created_at: string;
+  statement?: StatementRow | StatementRow[] | null;
+};
+
+function mapResponse(row: ResponseRow) {
+  const statement = Array.isArray(row.statement)
+    ? row.statement[0] ?? null
+    : row.statement ?? null;
+
+  return {
+    id: row.id,
+    statementId: row.statement_id,
+    statementText: statement?.text ?? "",
+    orderIndex: statement?.order_index ?? 0,
+    value: row.value,
+    createdAt: row.created_at,
+  };
+}
 
 export async function GET(
   request: NextRequest,
@@ -17,14 +48,20 @@ export async function GET(
       );
     }
 
-    const participant = await prisma.participant.findUnique({
-      where: {
-        userId_sessionId: {
-          userId,
-          sessionId,
-        },
-      },
-    });
+    const { data: participant, error: participantError } = await supabase
+      .from("participants")
+      .select("user_id")
+      .eq("user_id", userId)
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (participantError) {
+      console.error("Failed to verify participant:", participantError);
+      return NextResponse.json(
+        { error: "Failed to fetch responses" },
+        { status: 500 },
+      );
+    }
 
     if (!participant) {
       return NextResponse.json(
@@ -33,39 +70,45 @@ export async function GET(
       );
     }
 
-    const responses = await prisma.response.findMany({
-      where: {
-        participantUserId: userId,
-        sessionId,
-      },
-      include: {
-        statement: {
-          select: {
-            id: true,
-            text: true,
-            orderIndex: true,
-          },
-        },
-      },
-      orderBy: [
-        { createdAt: "desc" },
-        {
-          statement: {
-            orderIndex: "asc",
-          },
-        },
-      ],
-    });
+    const { data: responses, error: responsesError } = await supabase
+      .from("responses")
+      .select(
+        `
+          id,
+          participant_user_id,
+          session_id,
+          statement_id,
+          value,
+          created_at,
+          statement:statements (
+            id,
+            text,
+            order_index
+          )
+        `,
+      )
+      .eq("participant_user_id", userId)
+      .eq("session_id", sessionId);
+
+    if (responsesError) {
+      console.error("Failed to fetch participant responses:", responsesError);
+      return NextResponse.json(
+        { error: "Failed to fetch responses" },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
-      responses: responses.map((response) => ({
-        id: response.id,
-        statementId: response.statementId,
-        statementText: response.statement.text,
-        orderIndex: response.statement.orderIndex,
-        value: response.value,
-        createdAt: response.createdAt,
-      })),
+      responses: (responses ?? [])
+        .map((response) => mapResponse(response as ResponseRow))
+        .sort((a, b) => {
+          if (a.createdAt === b.createdAt) {
+            return a.orderIndex - b.orderIndex;
+          }
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        }),
     });
   } catch (error) {
     console.error("Failed to fetch participant responses:", error);
@@ -109,30 +152,41 @@ export async function POST(
       );
     }
 
-    // Verify statement belongs to session
-    const statement = await prisma.statement.findFirst({
-      where: {
-        id: statementId,
-        sessionId,
-      },
-    });
+    const { data: statement, error: statementError } = await supabase
+      .from("statements")
+      .select("id")
+      .eq("id", statementId)
+      .eq("session_id", sessionId)
+      .single();
 
-    if (!statement) {
+    if (statementError || !statement) {
+      if (statementError?.code === "PGRST116") {
+        return NextResponse.json(
+          { error: "Statement not found in this session" },
+          { status: 404 },
+        );
+      }
+      console.error("Failed to verify statement:", statementError);
       return NextResponse.json(
         { error: "Statement not found in this session" },
         { status: 404 },
       );
     }
 
-    // Verify participant exists in session
-    const participant = await prisma.participant.findUnique({
-      where: {
-        userId_sessionId: {
-          userId: userId,
-          sessionId,
-        },
-      },
-    });
+    const { data: participant, error: participantError } = await supabase
+      .from("participants")
+      .select("user_id")
+      .eq("user_id", userId)
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (participantError) {
+      console.error("Failed to verify participant:", participantError);
+      return NextResponse.json(
+        { error: "Failed to submit response" },
+        { status: 500 },
+      );
+    }
 
     if (!participant) {
       return NextResponse.json(
@@ -141,27 +195,46 @@ export async function POST(
       );
     }
 
-    // Create or update response
-    const response = await prisma.response.upsert({
-      where: {
-        participantUserId_sessionId_statementId: {
-          participantUserId: userId,
-          sessionId,
-          statementId,
+    const { data: response, error: upsertError } = await supabase
+      .from("responses")
+      .upsert(
+        {
+          participant_user_id: userId,
+          session_id: sessionId,
+          statement_id: statementId,
+          value,
         },
-      },
-      create: {
-        participantUserId: userId,
-        sessionId,
-        statementId,
-        value,
-      },
-      update: {
-        value,
-      },
-    });
+        { onConflict: "participant_user_id,session_id,statement_id" },
+      )
+      .select(
+        `
+          id,
+          participant_user_id,
+          session_id,
+          statement_id,
+          value,
+          created_at,
+          statement:statements (
+            id,
+            text,
+            order_index
+          )
+        `,
+      )
+      .single();
 
-    return NextResponse.json({ success: true, response });
+    if (upsertError || !response) {
+      console.error("Failed to submit response:", upsertError);
+      return NextResponse.json(
+        { error: "Failed to submit response" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      response: mapResponse(response as ResponseRow),
+    });
   } catch (error) {
     console.error("Response submission error:", error);
     return NextResponse.json(

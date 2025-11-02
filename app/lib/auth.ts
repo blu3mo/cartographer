@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function getUserIdFromRequest(request: NextRequest): string | null {
   const authHeader = request.headers.get("authorization");

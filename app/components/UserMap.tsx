@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import axios from "axios";
+import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ScatterChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
   Scatter,
+  ScatterChart,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
 } from "recharts";
-import { Loader2 } from "lucide-react";
 
 interface ParticipantPoint {
   id: string;
@@ -39,6 +39,10 @@ interface UserMapData {
   totalStatements: number;
 }
 
+interface TooltipPayload {
+  payload: ParticipantPoint;
+}
+
 interface UserMapProps {
   sessionId: string;
   userId: string;
@@ -49,11 +53,7 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchUserMapData();
-  }, [sessionId, userId]);
-
-  const fetchUserMapData = async () => {
+  const fetchUserMapData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -86,13 +86,17 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
 
       setData(null);
       setError("ユーザーマップのデータが取得できませんでした。");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to fetch user map data:", err);
       setError("ユーザーマップの取得に失敗しました。");
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId, userId]);
+
+  useEffect(() => {
+    void fetchUserMapData();
+  }, [fetchUserMapData]);
 
   if (loading) {
     return (
@@ -142,9 +146,15 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
   };
 
   // Custom tooltip component
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean;
+    payload?: TooltipPayload[];
+  }) => {
     if (active && payload && payload.length) {
-      const point = payload[0].payload as ParticipantPoint;
+      const point = payload[0].payload;
       return (
         <div className="bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm">
           <p className="font-semibold mb-1">{point.name}</p>
@@ -184,7 +194,10 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
           </p>
           <ul className="space-y-1.5">
             {data.pc1.topStatements.map((stmt, idx) => (
-              <li key={idx} className="text-muted-foreground leading-relaxed">
+              <li
+                key={`${stmt.text}-${stmt.loading}`}
+                className="text-muted-foreground leading-relaxed"
+              >
                 <span className="inline-block w-4 text-foreground/60">
                   #{idx + 1}
                 </span>
@@ -204,7 +217,10 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
           </p>
           <ul className="space-y-1.5">
             {data.pc2.topStatements.map((stmt, idx) => (
-              <li key={idx} className="text-muted-foreground leading-relaxed">
+              <li
+                key={`${stmt.text}-${stmt.loading}`}
+                className="text-muted-foreground leading-relaxed"
+              >
                 <span className="inline-block w-4 text-foreground/60">
                   #{idx + 1}
                 </span>
@@ -253,9 +269,9 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
               cursor={{ strokeDasharray: "3 3" }}
             />
             <Scatter name="参加者" data={data.participants} fill="#8884d8">
-              {data.participants.map((entry, index) => (
+              {data.participants.map((participant, index) => (
                 <Cell
-                  key={`cell-${index}`}
+                  key={participant.id}
                   fill={getParticipantColor(index)}
                   stroke="#fff"
                   strokeWidth={2}

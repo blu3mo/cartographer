@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
+
 import { getUserIdFromRequest } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { generateNewStatements } from "@/lib/llm";
+import { buildSessionBrief, generateNewStatements } from "@/lib/llm";
+import { supabase } from "@/lib/supabase";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
 
@@ -20,35 +21,67 @@ export async function POST(
       );
     }
 
-    // Verify that the user is the host of this session
-    const session = await prisma.session.findUnique({
-      where: { id: sessionId },
-    });
+    const { data: session, error: sessionError } = await supabase
+      .from("sessions")
+      .select("id, title, context, goal, host_user_id")
+      .eq("id", sessionId)
+      .single();
 
-    if (!session) {
+    if (sessionError || !session) {
+      if (sessionError?.code === "PGRST116") {
+        return NextResponse.json(
+          { error: "Session not found" },
+          { status: 404 },
+        );
+      }
+      console.error("Failed to load session:", sessionError);
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    if (session.hostUserId !== userId) {
+    if (session.host_user_id !== userId) {
       return NextResponse.json(
         { error: "Forbidden: You are not the host of this session" },
         { status: 403 },
       );
     }
 
-    // Fetch all statements with their responses
-    const statements = await prisma.statement.findMany({
-      where: { sessionId },
-      include: {
-        responses: true,
-      },
-      orderBy: { orderIndex: "asc" },
+    const { data: statements, error: statementsError } = await supabase
+      .from("statements")
+      .select("id, text, order_index")
+      .eq("session_id", sessionId)
+      .order("order_index", { ascending: true });
+
+    if (statementsError) {
+      console.error("Failed to fetch statements:", statementsError);
+      return NextResponse.json(
+        { error: "Failed to generate new statements" },
+        { status: 500 },
+      );
+    }
+
+    const { data: responses, error: responsesError } = await supabase
+      .from("responses")
+      .select("statement_id, value")
+      .eq("session_id", sessionId);
+
+    if (responsesError) {
+      console.error("Failed to fetch responses:", responsesError);
+      return NextResponse.json(
+        { error: "Failed to generate new statements" },
+        { status: 500 },
+      );
+    }
+
+    const responseMap = new Map<string, { value: number }[]>();
+    (responses ?? []).forEach((response) => {
+      const list = responseMap.get(response.statement_id) ?? [];
+      list.push({ value: response.value });
+      responseMap.set(response.statement_id, list);
     });
 
-    // Calculate statistics for each statement
-    const statementsWithStats = statements.map((statement) => {
-      const responses = statement.responses;
-      const totalCount = responses.length;
+    const statementsWithStats = (statements ?? []).map((statement) => {
+      const statementResponses = responseMap.get(statement.id) ?? [];
+      const totalCount = statementResponses.length;
 
       let strongYesCount = 0;
       let yesCount = 0;
@@ -56,7 +89,7 @@ export async function POST(
       let noCount = 0;
       let strongNoCount = 0;
 
-      responses.forEach((response) => {
+      statementResponses.forEach((response) => {
         const value = response.value as ResponseValue;
         switch (value) {
           case 2:
@@ -99,46 +132,69 @@ export async function POST(
       };
     });
 
-    // Get the latest situation analysis report
-    const latestReport = await prisma.situationAnalysisReport.findFirst({
-      where: { sessionId },
-      orderBy: { createdAt: "desc" },
-    });
+    const { data: latestReport, error: latestReportError } = await supabase
+      .from("situation_analysis_reports")
+      .select("id, session_id, content_markdown, created_at")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestReportError && latestReportError.code !== "PGRST116") {
+      console.error("Failed to fetch latest report:", latestReportError);
+      return NextResponse.json(
+        { error: "Failed to generate new statements" },
+        { status: 500 },
+      );
+    }
 
     // Generate new statements using LLM
+    const sessionBrief = buildSessionBrief(session.goal, session.context);
     const newStatementTexts = await generateNewStatements(
       session.title,
-      session.context,
+      sessionBrief,
       statementsWithStats,
-      latestReport?.contentMarkdown,
+      latestReport?.content_markdown,
     );
 
     // Get the maximum order index
-    const maxOrderIndex = statements.reduce(
-      (max, s) => Math.max(max, s.orderIndex),
-      -1,
-    );
+    const maxOrderIndex =
+      (statements ?? []).reduce(
+        (max, s) => Math.max(max, s.order_index ?? 0),
+        -1,
+      ) ?? -1;
 
     // Save new statements to database
-    const newStatements = await Promise.all(
-      newStatementTexts.map((text, index) =>
-        prisma.statement.create({
-          data: {
-            sessionId,
-            text,
-            orderIndex: maxOrderIndex + 1 + index,
-          },
-        }),
-      ),
-    );
+    if (newStatementTexts.length === 0) {
+      return NextResponse.json({ newStatements: [] });
+    }
+
+    const newStatementsPayload = newStatementTexts.map((text, index) => ({
+      session_id: sessionId,
+      text,
+      order_index: maxOrderIndex + 1 + index,
+    }));
+
+    const { data: insertedStatements, error: insertError } = await supabase
+      .from("statements")
+      .insert(newStatementsPayload)
+      .select("id, session_id, text, order_index, created_at");
+
+    if (insertError || !insertedStatements) {
+      console.error("Failed to insert new statements:", insertError);
+      return NextResponse.json(
+        { error: "Failed to generate new statements" },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
-      newStatements: newStatements.map((s) => ({
+      newStatements: insertedStatements.map((s) => ({
         id: s.id,
-        sessionId: s.sessionId,
+        sessionId: s.session_id,
         text: s.text,
-        orderIndex: s.orderIndex,
-        createdAt: s.createdAt,
+        orderIndex: s.order_index,
+        createdAt: s.created_at,
       })),
     });
   } catch (error) {

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useUserId } from "@/lib/useUserId";
-import { createAuthorizationHeader } from "@/lib/auth";
 import axios from "axios";
+import { Lightbulb, Loader2, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -14,18 +14,25 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles } from "lucide-react";
+import { createAuthorizationHeader } from "@/lib/auth";
+import { useUserId } from "@/lib/useUserId";
+
+const buildGoalFromInputs = (focus: string, purpose: string) =>
+  `【何の認識を洗い出しますか？】${focus}\n【何のために洗い出しますか？】${purpose}`;
 
 export default function NewSessionPage() {
   const router = useRouter();
   const { userId, isLoading: userLoading } = useUserId();
   const [title, setTitle] = useState("");
-  const [whatToClarify, setWhatToClarify] = useState("");
-  const [purpose, setPurpose] = useState("");
   const [backgroundInfo, setBackgroundInfo] = useState("");
+  const [recognitionFocus, setRecognitionFocus] = useState("");
+  const [recognitionPurpose, setRecognitionPurpose] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const lastFormStateRef = useRef<string>("");
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     document.title = "新しいセッションを作成 - Cartographer";
@@ -33,6 +40,57 @@ export default function NewSessionPage() {
       document.title = "Cartographer - 認識を可視化し、合意形成を促進する";
     };
   }, []);
+
+  const fetchSuggestions = useCallback(async () => {
+    const currentFormState = JSON.stringify({
+      backgroundInfo,
+      recognitionFocus,
+      recognitionPurpose,
+    });
+
+    if (currentFormState === lastFormStateRef.current) {
+      return;
+    }
+
+    lastFormStateRef.current = currentFormState;
+
+    if (
+      !backgroundInfo.trim() &&
+      !recognitionFocus.trim() &&
+      !recognitionPurpose.trim()
+    ) {
+      setSuggestions([]);
+      return;
+    }
+
+    try {
+      const response = await axios.post("/api/sessions/form-suggestions", {
+        backgroundInfo,
+        recognitionFocus,
+        recognitionPurpose,
+      });
+
+      setSuggestions(response.data.suggestions || []);
+    } catch (err) {
+      console.error("Failed to fetch suggestions:", err);
+    }
+  }, [backgroundInfo, recognitionFocus, recognitionPurpose]);
+
+  useEffect(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    pollingIntervalRef.current = setInterval(() => {
+      fetchSuggestions();
+    }, 10000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [fetchSuggestions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,23 +102,17 @@ export default function NewSessionPage() {
 
     setIsSubmitting(true);
     setError(null);
+    const goal = buildGoalFromInputs(recognitionFocus, recognitionPurpose);
 
     try {
-      // Combine fields into context
-      const contextSections = [
-        `【何の認識を洗い出すか】\n${whatToClarify}`,
-        `【何のために洗い出すか】\n${purpose}`,
-      ];
-
-      if (backgroundInfo.trim().length > 0) {
-        contextSections.push(`【背景情報】\n${backgroundInfo}`);
-      }
-
-      const context = contextSections.join("\n\n");
-
       const response = await axios.post(
         "/api/sessions",
-        { title, context, isPublic: visibility === "public" },
+        {
+          title: title.trim(),
+          context: backgroundInfo.trim(),
+          goal,
+          isPublic: visibility === "public",
+        },
         { headers: createAuthorizationHeader(userId) },
       );
 
@@ -70,7 +122,10 @@ export default function NewSessionPage() {
       console.error("Failed to create session:", err);
       setError("セッションの作成に失敗しました。もう一度お試しください。");
       setIsSubmitting(false);
+      return;
     }
+
+    setIsSubmitting(false);
   };
 
   if (userLoading) {
@@ -89,7 +144,7 @@ export default function NewSessionPage() {
             新しいセッションを作成
           </h1>
           <p className="text-muted-foreground">
-            チームの認識を可視化し、合意形成を促進しましょう
+            チームの認識を可視化し、合意形成や新たな気づきにつなげていきましょう
           </p>
         </div>
 
@@ -97,7 +152,7 @@ export default function NewSessionPage() {
           <CardHeader>
             <CardTitle>セッション情報</CardTitle>
             <CardDescription>
-              セッションの目的と範囲を明確にしてください
+              いくつかの質問に答えると、みんなで話したいことが整理されます。
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -112,7 +167,7 @@ export default function NewSessionPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  placeholder="例: プロジェクトXの現状認識"
+                  placeholder="例: プロジェクトの現状認識"
                 />
                 <p className="text-xs text-muted-foreground">
                   セッションを識別しやすいタイトルを付けましょう
@@ -160,42 +215,6 @@ export default function NewSessionPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="whatToClarify" className="text-sm font-medium">
-                  何の認識を洗い出すか
-                </label>
-                <textarea
-                  id="whatToClarify"
-                  value={whatToClarify}
-                  onChange={(e) => setWhatToClarify(e.target.value)}
-                  required
-                  rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="例: プロジェクトXの現状、課題、今後の方向性について"
-                />
-                <p className="text-xs text-muted-foreground">
-                  洗い出したいトピックや範囲を具体的に記載してください
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="purpose" className="text-sm font-medium">
-                  何のために洗い出すか
-                </label>
-                <textarea
-                  id="purpose"
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  required
-                  rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
-                />
-                <p className="text-xs text-muted-foreground">
-                  このセッションの目的やゴールを明確にしましょう
-                </p>
-              </div>
-
-              <div className="space-y-2">
                 <label htmlFor="backgroundInfo" className="text-sm font-medium">
                   背景情報（任意）
                 </label>
@@ -204,13 +223,80 @@ export default function NewSessionPage() {
                   value={backgroundInfo}
                   onChange={(e) => setBackgroundInfo(e.target.value)}
                   rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="例: プロジェクトXは3ヶ月前に立ち上がり、現在はMVPのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                  placeholder="例: プロジェクトは3ヶ月前に立ち上がり、現在はプロダクトのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
                 />
                 <p className="text-xs text-muted-foreground">
-                  セッションの背景となる経緯や関係者情報など、AIに共有したいコンテキストを記載してください
+                  共有しておくと助かる背景や状況があればどうぞ。なくても問題ありません。
                 </p>
               </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="recognitionFocus"
+                  className="text-sm font-medium"
+                >
+                  何の認識を洗い出しますか？
+                </label>
+                <textarea
+                  id="recognitionFocus"
+                  value={recognitionFocus}
+                  onChange={(e) => setRecognitionFocus(e.target.value)}
+                  required
+                  rows={4}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                  placeholder="例: プロジェクトの現状、課題、今後の方向性について"
+                />
+                <p className="text-xs text-muted-foreground">
+                  洗い出したいトピックや範囲を具体的に記載してください。
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="recognitionPurpose"
+                  className="text-sm font-medium"
+                >
+                  何のために洗い出しますか？
+                </label>
+                <textarea
+                  id="recognitionPurpose"
+                  value={recognitionPurpose}
+                  onChange={(e) => setRecognitionPurpose(e.target.value)}
+                  required
+                  rows={4}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                  placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
+                />
+                <p className="text-xs text-muted-foreground">
+                  洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。
+                </p>
+              </div>
+
+              {suggestions.length > 0 && (
+                <Card className="border-blue-200 bg-blue-50/50">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-3">
+                      <Lightbulb className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 space-y-3">
+                        <p className="text-sm font-medium text-blue-900">
+                          もっとこういう情報を書いてみませんか？
+                        </p>
+                        <ul className="space-y-2">
+                          {suggestions.map((suggestion) => (
+                            <li
+                              key={suggestion}
+                              className="text-sm text-blue-800 leading-relaxed"
+                            >
+                              {suggestion}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {error && (
                 <Card className="border-destructive">
