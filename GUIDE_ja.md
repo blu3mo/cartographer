@@ -127,8 +127,6 @@ npm install
 3. Realtime を有効にするため、Supabase の「Database → Replication」で `supabase_realtime` が active になっているか確認します。
 4. 追加テーブルやポリシーを導入する場合は SQL を追記し、再度実行してください。
 
-> Neon + Supabase Realtime を組み合わせる場合は、同じ SQL を適用しつつ Realtime サーバーの設定を済ませる必要があります。
-
 ---
 
 ## 8. 開発サーバーの起動
@@ -142,11 +140,6 @@ npm run dev
 - デフォルトで `http://localhost:3000` が立ち上がります。
 - Turbopack を使用しており、ソース変更は高速に反映されます。
 - `.env.local` の変更を反映させる場合はサーバーを再起動してください。
-
-### 8.1 Basic 認証・IP 制限
-
-- `middleware.ts` が `.env.local` に設定された `BASIC_AUTH_USERNAME`/`BASIC_AUTH_PASSWORD` を検証し、成功時に Cookie を発行します。
-- `ALLOWED_IPS` をカンマ区切りで設定すると、該当 IP 以外からのアクセスは 403 になります。
 
 ---
 
