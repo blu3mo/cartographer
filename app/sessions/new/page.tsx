@@ -1,9 +1,9 @@
 "use client";
 
 import axios from "axios";
-import { Loader2, Sparkles } from "lucide-react";
+import { Lightbulb, Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -30,6 +30,9 @@ export default function NewSessionPage() {
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const lastFormStateRef = useRef<string>("");
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     document.title = "新しいセッションを作成 - Cartographer";
@@ -37,6 +40,57 @@ export default function NewSessionPage() {
       document.title = "Cartographer - 認識を可視化し、合意形成を促進する";
     };
   }, []);
+
+  const fetchSuggestions = useCallback(async () => {
+    const currentFormState = JSON.stringify({
+      backgroundInfo,
+      recognitionFocus,
+      recognitionPurpose,
+    });
+
+    if (currentFormState === lastFormStateRef.current) {
+      return;
+    }
+
+    lastFormStateRef.current = currentFormState;
+
+    if (
+      !backgroundInfo.trim() &&
+      !recognitionFocus.trim() &&
+      !recognitionPurpose.trim()
+    ) {
+      setSuggestions([]);
+      return;
+    }
+
+    try {
+      const response = await axios.post("/api/sessions/form-suggestions", {
+        backgroundInfo,
+        recognitionFocus,
+        recognitionPurpose,
+      });
+
+      setSuggestions(response.data.suggestions || []);
+    } catch (err) {
+      console.error("Failed to fetch suggestions:", err);
+    }
+  }, [backgroundInfo, recognitionFocus, recognitionPurpose]);
+
+  useEffect(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    pollingIntervalRef.current = setInterval(() => {
+      fetchSuggestions();
+    }, 10000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [fetchSuggestions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +232,10 @@ export default function NewSessionPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="recognitionFocus" className="text-sm font-medium">
+                <label
+                  htmlFor="recognitionFocus"
+                  className="text-sm font-medium"
+                >
                   何の認識を洗い出しますか？
                 </label>
                 <textarea
@@ -196,7 +253,10 @@ export default function NewSessionPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="recognitionPurpose" className="text-sm font-medium">
+                <label
+                  htmlFor="recognitionPurpose"
+                  className="text-sm font-medium"
+                >
                   何のために洗い出しますか？
                 </label>
                 <textarea
@@ -212,6 +272,31 @@ export default function NewSessionPage() {
                   洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。
                 </p>
               </div>
+
+              {suggestions.length > 0 && (
+                <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-3">
+                      <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 space-y-3">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                          もっとこういう情報を書いてみませんか？
+                        </p>
+                        <ul className="space-y-2">
+                          {suggestions.map((suggestion) => (
+                            <li
+                              key={suggestion}
+                              className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed"
+                            >
+                              {suggestion}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {error && (
                 <Card className="border-destructive">
