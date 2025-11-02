@@ -158,6 +158,8 @@ export async function generateSurveyStatements(input: {
 - 解釈のブレが生じないよう、必要であれば5W1Hを明示してシャープに表現すること。
 - 参加者の立ち位置がYES/NOで鮮明に分かれ、背後の動機が推測できるようにする。
 - 今後も質問を繰り返すので、今回だけで調査目的を達成する必要はない。深掘りを急がずに、まず今集めるべき情報を集めてほしい。
+
+想定読者は参加者です。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
