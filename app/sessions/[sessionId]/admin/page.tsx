@@ -19,7 +19,15 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -1466,7 +1474,7 @@ function ThreadEventBubble({
     ? "from-indigo-50/95 via-indigo-50/50 to-transparent"
     : "from-white/95 via-white/60 to-transparent";
 
-  const wrapWithFade = (node: JSX.Element) => ({
+  const wrapWithFade = (node: ReactElement) => ({
     content: (
       <div className="relative pb-2">
         {node}
@@ -1478,7 +1486,7 @@ function ThreadEventBubble({
     hasFade: true,
   });
 
-  const plainContent = (node: JSX.Element) => ({
+  const plainContent = (node: ReactElement) => ({
     content: node,
     hasFade: false,
   });
