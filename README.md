@@ -1,8 +1,40 @@
+# Cartographer
+
+Cartographer is a web service that visualizes recognition and facilitates consensus building. It collects and analyzes recognition from multiple people on specific themes (e.g., "current status of this project") using LLM-powered insights.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+Before running the development server, you need to set up environment variables.
+
+1. **Copy the example environment file**:
+
+```bash
+cp env.example .env.local
+```
+
+2. **Set up the database**:
+
+   - Create a PostgreSQL database using [Neon](https://neon.tech) or [Supabase](https://supabase.com)
+   - Get your connection string from the database dashboard
+   - Replace the `DATABASE_URL` in `.env.local` with your connection string
+
+3. **Set up OpenRouter API**:
+
+   - Sign up at [OpenRouter](https://openrouter.ai)
+   - Get your API key from the [keys page](https://openrouter.ai/keys)
+   - Replace `OPENROUTER_API_KEY` in `.env.local` with your API key
+
+4. **Run database migrations**:
+
+```bash
+npx prisma migrate dev
+```
+
+### Run the development server
 
 ```bash
 npm run dev
