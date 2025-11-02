@@ -134,66 +134,6 @@ JSON配列のみを出力し、他の説明文は含めないでください。`
   }
 }
 
-export async function generateSessionGoal(input: {
-  title: string;
-  participants: string;
-  perspectiveFocus?: string | null;
-  insightTargets: string[];
-  decision: string;
-  trigger: string;
-  background?: string;
-}): Promise<string> {
-  const participants = input.participants.trim();
-  const decision = input.decision.trim();
-  const trigger = input.trigger.trim();
-  const perspectiveFocus =
-    input.perspectiveFocus && input.perspectiveFocus.trim().length > 0
-      ? input.perspectiveFocus.trim()
-      : "特になし";
-  const insightTargetLabels: Record<string, string> = {
-    agreement: "合意点を把握する",
-    difference: "相違点を見つける",
-    unknown: "わかっていない点を明らかにする",
-  };
-  const insightTargetsText =
-    input.insightTargets.length > 0
-      ? input.insightTargets
-        .map((key) => insightTargetLabels[key] ?? key)
-        .join("・")
-      : "特になし";
-  const backgroundSection =
-    input.background && input.background.trim().length > 0
-      ? `- 背景情報:\n${input.background.trim()}`
-      : "";
-
-  const prompt = `あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出すことで目的を達成します。
-まずはこの調査の目的を明確に言語化したいです。ユーザーの入力を受け取り、参加者の認識を整理し、合意点・相違点・まだ掘り下げたい論点を探索するための指針となるセッションゴールをMarkdownで作成してください。考えられることをたくさん並べるのではなく、調査で優先的に扱いたい焦点がわかるようにシャープな文章にしてください。
-これは、調査エージェントのプロンプトとして使用されます。
-
-**入力**
-- セッションタイトル: "${input.title}"
-- 関わる主な人たち: """${participants}"""
-- 現状と未来について整理したいこと: """${perspectiveFocus}"""
-- 今回特に得たい気づきの種類: """${insightTargetsText}"""
-- この整理を通じて見極めたいこと: """${decision}"""
-- 今この話し合いが必要になった背景: """${trigger}"""
-${backgroundSection ? `${backgroundSection}\n` : ""}
-
-**出力要件**
-- 全体で500-1000文字程度。
-- セッションで認識を整理・探索する目的（アウトプットを元にユーザーがどんな調整・判断・発見をしたいのか）を具体的に述べてください。
-- その目的を達成するために、「誰の」「どのような認識や視点」を対象にするのかを明確に記述してください。また、収集した情報から何を見出したいのか（合意点・相違点・不明点など）を具体的に説明してください。
-- 収集したい参加者の認識の情報について探索空間を明確にするために、目的達成に有益なので具体的に収集したい情報を5個、不要なので深く掘らない情報を5個挙げてください。入力に書かれていない情報も、合理的に推測できる内容は積極的に想像して、トピックの候補を挙げてください。パッと読んで理解できる読みやすい文章が望ましいです。
-
-**フォーマット**
-内容のみをMarkdown形式で出力してください。いきなり本文から出力してください。
-`;
-
-  const messages: LLMMessage[] = [{ role: "user", content: prompt }];
-  const response = await callLLM(messages);
-  return response.trim();
-}
-
 interface StatementWithResponses {
   text: string;
   responses: {
