@@ -192,6 +192,43 @@ export async function GET(
       );
     }
 
+    const { data: participants, error: participantsError } = await supabase
+      .from("participants")
+      .select("user_id, name, created_at")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
+
+    if (participantsError) {
+      console.error(
+        "Failed to fetch participants for admin view:",
+        participantsError,
+      );
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+
+    // Calculate response progress for each participant
+    const totalStatements = (statements ?? []).length;
+    const participantsWithProgress = (participants ?? []).map((participant) => {
+      const participantResponses = (responses ?? []).filter(
+        (r) => r.participant_user_id === participant.user_id,
+      );
+      const responseCount = participantResponses.length;
+      const progressPercent =
+        totalStatements > 0 ? (responseCount / totalStatements) * 100 : 0;
+
+      return {
+        userId: participant.user_id,
+        name: participant.name,
+        responseCount,
+        totalStatements,
+        progressPercent: Math.round(progressPercent * 100) / 100,
+        createdAt: participant.created_at,
+      };
+    });
+
     return NextResponse.json({
       data: {
         id: session.id,
@@ -201,6 +238,7 @@ export async function GET(
         isPublic: session.is_public,
         createdAt: session.created_at,
         statements: statementsWithStats,
+        participants: participantsWithProgress,
         latestSituationAnalysisReport: latestReport
           ? {
               id: latestReport.id,
