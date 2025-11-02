@@ -23,6 +23,15 @@ interface StatementWithStats {
   agreementScore: number;
 }
 
+interface ParticipantProgress {
+  userId: string;
+  name: string;
+  answeredCount: number;
+  completionRate: number;
+  totalStatements: number;
+  updatedAt: string;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
@@ -83,9 +92,9 @@ export async function GET(
       );
     }
 
-    const { data: responses, error: responsesError } = await supabase
+    const { data: responseRows, error: responsesError } = await supabase
       .from("responses")
-      .select("statement_id, value")
+      .select("statement_id, value, participant_user_id")
       .eq("session_id", sessionId);
 
     if (responsesError) {
@@ -99,14 +108,64 @@ export async function GET(
       );
     }
 
+    const { data: participantRows, error: participantsError } = await supabase
+      .from("participants")
+      .select("user_id, name, updated_at")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
+
+    if (participantsError) {
+      console.error(
+        "Failed to fetch participants for admin view:",
+        participantsError,
+      );
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+
     // Calculate statistics for each statement
     const responseMap = new Map<string, { value: number }[]>();
+    const participantResponseCount = new Map<string, number>();
 
-    (responses ?? []).forEach((response) => {
+    (responseRows ?? []).forEach((response) => {
       const list = responseMap.get(response.statement_id) ?? [];
       list.push({ value: response.value });
       responseMap.set(response.statement_id, list);
+
+      if (response.participant_user_id) {
+        const current = participantResponseCount.get(
+          response.participant_user_id,
+        );
+        participantResponseCount.set(
+          response.participant_user_id,
+          (current ?? 0) + 1,
+        );
+      }
     });
+
+    const totalStatements = statements?.length ?? 0;
+
+    const participants: ParticipantProgress[] = (participantRows ?? []).map(
+      (participant) => {
+        const answeredCount =
+          participantResponseCount.get(participant.user_id) ?? 0;
+        const completionRate =
+          totalStatements > 0
+            ? Math.round((answeredCount / totalStatements) * 1000) / 10
+            : 0;
+
+        return {
+          userId: participant.user_id,
+          name: participant.name,
+          answeredCount,
+          completionRate,
+          totalStatements,
+          updatedAt: participant.updated_at,
+        };
+      },
+    );
 
     const statementsWithStats: StatementWithStats[] = (statements ?? []).map(
       (statement) => {
@@ -201,6 +260,9 @@ export async function GET(
         isPublic: session.is_public,
         createdAt: session.created_at,
         statements: statementsWithStats,
+        participants,
+        totalStatements,
+        totalParticipants: participants.length,
         latestSituationAnalysisReport: latestReport
           ? {
               id: latestReport.id,

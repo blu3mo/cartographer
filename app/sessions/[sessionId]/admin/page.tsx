@@ -2,18 +2,20 @@
 
 import axios from "axios";
 import {
-  ChevronDown,
-  Edit3,
+  Bot,
+  Check,
+  Copy,
+  ExternalLink,
   Loader2,
-  MessageCircle,
   Pause,
   Play,
   RefreshCcw,
-  Save,
+  Send,
+  Sparkles,
   Trash2,
-  X,
 } from "lucide-react";
-import { use, useCallback, useEffect, useState } from "react";
+import Image from "next/image";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -28,6 +30,42 @@ import {
 import { Input } from "@/components/ui/input";
 import { useUserId } from "@/lib/useUserId";
 
+type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
+
+interface StatementResponseStats {
+  strongYes: number;
+  yes: number;
+  dontKnow: number;
+  no: number;
+  strongNo: number;
+  totalCount: number;
+}
+
+interface StatementWithStats {
+  id: string;
+  sessionId: string;
+  text: string;
+  orderIndex: number;
+  responses: StatementResponseStats;
+  agreementScore: number;
+}
+
+interface SituationAnalysisReport {
+  id: string;
+  sessionId: string;
+  contentMarkdown: string;
+  createdAt: string;
+}
+
+interface ParticipantProgress {
+  userId: string;
+  name: string;
+  answeredCount: number;
+  completionRate: number;
+  totalStatements: number;
+  updatedAt: string;
+}
+
 interface SessionAdminData {
   id: string;
   title: string;
@@ -35,9 +73,12 @@ interface SessionAdminData {
   goal: string;
   isPublic: boolean;
   createdAt: string;
+  statements: StatementWithStats[];
+  latestSituationAnalysisReport?: SituationAnalysisReport;
+  participants: ParticipantProgress[];
+  totalStatements: number;
+  totalParticipants: number;
 }
-
-type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
 
 interface TimelineStatement {
   id: string;
@@ -50,7 +91,7 @@ interface TimelineEvent {
   type: ThreadEventType;
   agentId: string | null;
   userId: string | null;
-  progress: number;
+  progress: number | string | null;
   payload: Record<string, unknown>;
   orderIndex: number;
   createdAt: string;
@@ -80,29 +121,31 @@ interface EventThreadResponse {
 
 const EVENT_TYPE_META: Record<
   ThreadEventType,
-  { label: string; badgeClass: string; color: string }
+  { label: string; accent: string; badge: string }
 > = {
   plan: {
     label: "Plan",
-    badgeClass: "bg-sky-50 text-sky-700 border-sky-200",
-    color: "bg-sky-500",
+    accent: "text-sky-600",
+    badge: "bg-sky-50 text-sky-700 border-sky-200",
   },
   survey: {
     label: "Survey",
-    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    color: "bg-emerald-500",
+    accent: "text-emerald-600",
+    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
   survey_analysis: {
     label: "Analysis",
-    badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
-    color: "bg-purple-500",
+    accent: "text-purple-600",
+    badge: "bg-purple-50 text-purple-700 border-purple-200",
   },
   user_message: {
-    label: "Message",
-    badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
-    color: "bg-amber-500",
+    label: "You",
+    accent: "text-indigo-600",
+    badge: "bg-indigo-50 text-indigo-700 border-indigo-200",
   },
 };
+
+const SHARE_QR_SIZE = 176;
 
 const formatDateTime = (value: string) => {
   const date = new Date(value);
@@ -128,7 +171,26 @@ const formatDateTime = (value: string) => {
 
 const truncateText = (text: string, maxLength: number) => {
   if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + "...";
+  return `${text.substring(0, maxLength)}…`;
+};
+
+const formatPercentage = (value: number) => {
+  if (Number.isNaN(value)) return "0%";
+  const rounded = Math.round(value * 10) / 10;
+  if (Math.abs(rounded - Math.round(rounded)) < 0.05) {
+    return `${Math.round(rounded)}%`;
+  }
+  return `${rounded.toFixed(1)}%`;
+};
+
+const markdownToPlainText = (markdown: string) => {
+  return markdown
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/[#>*_~-]/g, "")
+    .replace(/\n+/g, " ")
+    .trim();
 };
 
 export default function AdminPage({
@@ -138,12 +200,18 @@ export default function AdminPage({
 }) {
   const { sessionId } = use(params);
   const { userId, isLoading: isUserIdLoading } = useUserId();
+
   const [data, setData] = useState<SessionAdminData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Session settings edit mode
+  const [threadData, setThreadData] = useState<EventThreadResponse | null>(
+    null,
+  );
+  const [threadLoading, setThreadLoading] = useState(true);
+  const [threadError, setThreadError] = useState<string | null>(null);
+
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingContext, setEditingContext] = useState("");
@@ -155,38 +223,40 @@ export default function AdminPage({
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  const [threadData, setThreadData] = useState<EventThreadResponse | null>(
-    null,
-  );
-  const [threadLoading, setThreadLoading] = useState(true);
-  const [threadError, setThreadError] = useState<string | null>(null);
   const [messageDraft, setMessageDraft] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [togglingProceed, setTogglingProceed] = useState(false);
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>(
     {},
   );
+  const [shareUrl, setShareUrl] = useState("");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
 
   const fetchAdminData = useCallback(async () => {
-    if (!userId) {
-      return;
-    }
+    if (!userId) return;
 
     try {
       setLoading(true);
       const response = await axios.get(`/api/sessions/${sessionId}/admin`, {
-        headers: {
-          Authorization: `Bearer ${userId}`,
-        },
+        headers: { Authorization: `Bearer ${userId}` },
       });
-      const responseData = response.data.data;
+      const responseData = response.data.data as SessionAdminData;
       setData({
-        id: responseData.id,
-        title: responseData.title,
-        context: responseData.context,
+        ...responseData,
         goal: responseData.goal ?? "",
-        isPublic: responseData.isPublic,
-        createdAt: responseData.createdAt,
+        context: responseData.context ?? "",
+        statements: responseData.statements ?? [],
+        participants: responseData.participants ?? [],
+        totalStatements:
+          typeof responseData.totalStatements === "number"
+            ? responseData.totalStatements
+            : (responseData.statements?.length ?? 0),
+        totalParticipants:
+          typeof responseData.totalParticipants === "number"
+            ? responseData.totalParticipants
+            : (responseData.participants?.length ?? 0),
       });
       setError(null);
     } catch (err: unknown) {
@@ -203,9 +273,7 @@ export default function AdminPage({
 
   const fetchEventThread = useCallback(
     async (withSpinner = false) => {
-      if (!userId) {
-        return;
-      }
+      if (!userId) return;
       if (withSpinner) {
         setThreadLoading(true);
       }
@@ -213,14 +281,12 @@ export default function AdminPage({
         const response = await axios.get(
           `/api/sessions/${sessionId}/event-thread`,
           {
-            headers: {
-              Authorization: `Bearer ${userId}`,
-            },
+            headers: { Authorization: `Bearer ${userId}` },
           },
         );
         setThreadData(response.data);
         setThreadError(null);
-      } catch (err: unknown) {
+      } catch (err) {
         console.error("Failed to fetch event thread:", err);
         setThreadError("Event Threadの取得に失敗しました。");
       } finally {
@@ -231,20 +297,16 @@ export default function AdminPage({
   );
 
   useEffect(() => {
-    if (isUserIdLoading) {
-      return;
-    }
+    if (isUserIdLoading) return;
     void fetchAdminData();
   }, [fetchAdminData, isUserIdLoading]);
 
   useEffect(() => {
-    if (isUserIdLoading || !userId) {
-      return;
-    }
+    if (isUserIdLoading || !userId) return;
     void fetchEventThread(true);
     const intervalId = window.setInterval(() => {
       void fetchEventThread();
-    }, 5000);
+    }, 6000);
     return () => window.clearInterval(intervalId);
   }, [fetchEventThread, isUserIdLoading, userId]);
 
@@ -280,6 +342,11 @@ export default function AdminPage({
     };
   }, [data]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setShareUrl(`${window.location.origin}/sessions/${sessionId}`);
+  }, [sessionId]);
+
   const handleSaveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!userId) return;
@@ -298,9 +365,7 @@ export default function AdminPage({
           isPublic: editingVisibility === "public",
         },
         {
-          headers: {
-            Authorization: `Bearer ${userId}`,
-          },
+          headers: { Authorization: `Bearer ${userId}` },
         },
       );
 
@@ -333,18 +398,14 @@ export default function AdminPage({
   };
 
   const handleSendMessage = async () => {
-    if (!userId || messageDraft.trim().length === 0) {
-      return;
-    }
+    if (!userId || messageDraft.trim().length === 0) return;
     setSendingMessage(true);
     try {
       await axios.post(
         `/api/sessions/${sessionId}/event-thread/events/user-message`,
         { markdown: messageDraft },
         {
-          headers: {
-            Authorization: `Bearer ${userId}`,
-          },
+          headers: { Authorization: `Bearer ${userId}` },
         },
       );
       setMessageDraft("");
@@ -358,31 +419,22 @@ export default function AdminPage({
   };
 
   const handleToggleShouldProceed = async () => {
-    if (!userId || !threadData?.thread) {
-      return;
-    }
-
+    if (!userId || !threadData?.thread) return;
     setTogglingProceed(true);
     try {
       const response = await axios.patch(
         `/api/sessions/${sessionId}/event-thread/should-proceed`,
+        { shouldProceed: !threadData.thread.shouldProceed },
         {
-          shouldProceed: !threadData.thread.shouldProceed,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${userId}`,
-          },
+          headers: { Authorization: `Bearer ${userId}` },
         },
       );
-
       const updatedThread = response.data.thread as {
         id: string;
         shouldProceed: boolean;
         createdAt: string;
         updatedAt: string;
       };
-
       setThreadData((prev) =>
         prev
           ? {
@@ -393,7 +445,7 @@ export default function AdminPage({
       );
     } catch (err) {
       console.error("Failed to toggle shouldProceed:", err);
-      alert("shouldProceedの更新に失敗しました。");
+      alert("自動生成の切り替えに失敗しました。");
     } finally {
       setTogglingProceed(false);
     }
@@ -409,9 +461,7 @@ export default function AdminPage({
     try {
       setDeleting(true);
       await axios.delete(`/api/sessions/${sessionId}/admin`, {
-        headers: {
-          Authorization: `Bearer ${userId}`,
-        },
+        headers: { Authorization: `Bearer ${userId}` },
       });
       alert("セッションを削除しました。");
       window.location.href = "/";
@@ -423,21 +473,149 @@ export default function AdminPage({
     }
   };
 
+  const handleCopyLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopyStatus("copied");
+      window.setTimeout(() => setCopyStatus("idle"), 2000);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+      setCopyStatus("error");
+      window.setTimeout(() => setCopyStatus("idle"), 2000);
+    }
+  };
+
+  const participants = data?.participants ?? [];
+  const totalParticipants =
+    data?.totalParticipants ?? participants?.length ?? 0;
+  const totalStatements =
+    data?.totalStatements ?? data?.statements?.length ?? 0;
+  const statements = data?.statements ?? [];
+
+  const participantSummary = useMemo(() => {
+    if (participants.length === 0) {
+      return {
+        averageCompletion: 0,
+        inProgressCount: 0,
+        completedCount: 0,
+        notStartedCount: 0,
+      };
+    }
+
+    const averageCompletion =
+      participants.reduce((sum, item) => sum + item.completionRate, 0) /
+      participants.length;
+    const completedCount = participants.filter(
+      (participant) => participant.completionRate >= 99.9,
+    ).length;
+    const notStartedCount = participants.filter(
+      (participant) => participant.answeredCount === 0,
+    ).length;
+    const inProgressCount =
+      participants.length - completedCount - notStartedCount;
+
+    return {
+      averageCompletion,
+      inProgressCount,
+      completedCount,
+      notStartedCount,
+    };
+  }, [participants]);
+
+  const rankedParticipants = useMemo(() => {
+    return [...participants].sort(
+      (a, b) => b.completionRate - a.completionRate,
+    );
+  }, [participants]);
+
+  const statementHighlights = useMemo(() => {
+    if (!statements.length) {
+      return {
+        agreement: [],
+        conflict: [],
+        dontKnow: [],
+      } as Record<
+        "agreement" | "conflict" | "dontKnow",
+        Array<StatementHighlight>
+      >;
+    }
+
+    const enriched = statements.map<StatementHighlight>((statement) => {
+      const positive = statement.responses.strongYes + statement.responses.yes;
+      const negative = statement.responses.strongNo + statement.responses.no;
+      const neutral = statement.responses.dontKnow;
+      const conflict = Math.min(positive, negative);
+      const responseRate =
+        totalParticipants > 0
+          ? Math.round(
+              (statement.responses.totalCount / totalParticipants) * 100 * 10,
+            ) / 10
+          : 0;
+      return {
+        statement,
+        positive,
+        negative,
+        neutral,
+        conflict,
+        responseRate,
+      };
+    });
+
+    const agreement = enriched
+      .filter((item) => item.statement.responses.totalCount > 0)
+      .sort((a, b) => {
+        if (b.positive === a.positive) {
+          return (
+            b.statement.responses.totalCount - a.statement.responses.totalCount
+          );
+        }
+        return b.positive - a.positive;
+      })
+      .slice(0, 3);
+
+    const conflict = enriched
+      .filter((item) => item.statement.responses.totalCount > 0)
+      .sort((a, b) => {
+        if (b.conflict === a.conflict) {
+          return (
+            b.statement.responses.totalCount - a.statement.responses.totalCount
+          );
+        }
+        return b.conflict - a.conflict;
+      })
+      .slice(0, 3);
+
+    const dontKnow = enriched
+      .filter((item) => item.statement.responses.totalCount > 0)
+      .sort((a, b) => {
+        if (b.neutral === a.neutral) {
+          return (
+            b.statement.responses.totalCount - a.statement.responses.totalCount
+          );
+        }
+        return b.neutral - a.neutral;
+      })
+      .slice(0, 3);
+
+    return { agreement, conflict, dontKnow };
+  }, [statements, totalParticipants]);
+
   if (isUserIdLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-          <Card className="border-destructive">
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-4xl mx-auto px-6 py-16">
+          <Card className="border-red-200/70 bg-red-50/80">
             <CardContent className="pt-6">
-              <p className="text-destructive">{error}</p>
+              <p className="text-red-700">{error}</p>
             </CardContent>
           </Card>
         </div>
@@ -447,504 +625,900 @@ export default function AdminPage({
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <p className="text-muted-foreground">セッションが見つかりません。</p>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {data.title}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">管理画面</p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.open(`/sessions/${sessionId}/admin/extra`, '_blank')}
-            className="text-xs"
-          >
-            追加情報
-          </Button>
-        </div>
+  const latestReport = data.latestSituationAnalysisReport;
 
-        {/* Session Settings - Compact View */}
-        <Card className="border-muted">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">セッション設定</CardTitle>
-              {!isEditingSettings && (
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto px-6 py-10 space-y-10">
+        <header className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-2">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                Session Admin
+              </div>
+              <h1 className="text-3xl font-semibold text-slate-900">
+                {data.title}
+              </h1>
+              <p className="text-sm text-slate-500 max-w-3xl leading-relaxed">
+                {data.goal
+                  ? truncateText(data.goal, 160)
+                  : "ゴールはまだ設定されていません。"}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  window.open(`/sessions/${sessionId}/admin/extra`, "_blank")
+                }
+                className="gap-1.5 text-xs"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                追加情報
+              </Button>
+              {latestReport && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsEditingSettings(true)}
-                  className="gap-1.5 text-xs h-8"
+                  onClick={() =>
+                    window.open(`/sessions/${sessionId}/admin/print`, "_blank")
+                  }
+                  className="gap-1.5 text-xs"
                 >
-                  <Edit3 className="h-3.5 w-3.5" />
-                  編集
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  現状分析レポート
                 </Button>
               )}
             </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!isEditingSettings ? (
-              <>
-                <div className="grid grid-cols-[100px_1fr] gap-x-4 gap-y-2 text-xs">
-                  <span className="text-muted-foreground">公開設定</span>
-                  <span className="font-medium">
-                    {data.isPublic ? "公開" : "非公開"}
-                  </span>
+          </div>
+        </header>
 
-                  <span className="text-muted-foreground">ゴール</span>
-                  <span className="text-foreground/80">
-                    {truncateText(data.goal, 120)}
-                  </span>
-
-                  <span className="text-muted-foreground">背景情報</span>
-                  <span className="text-foreground/80">
-                    {data.context ? truncateText(data.context, 120) : "未設定"}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="sessionTitle" className="text-xs font-medium">
-                    タイトル
-                  </label>
-                  <Input
-                    id="sessionTitle"
-                    type="text"
-                    value={editingTitle}
-                    onChange={(event) => setEditingTitle(event.target.value)}
-                    required
-                    className="text-sm h-9"
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+          <div className="space-y-8">
+            <Card className="border-none bg-white/80 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">モニタリング</CardTitle>
+                <CardDescription>
+                  参加状況・回答状況をリアルタイムに確認できます
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <MonitoringMetric
+                    label="参加者"
+                    value={`${totalParticipants}人`}
+                    subLabel={
+                      totalStatements > 0
+                        ? `${totalStatements}件のステートメント`
+                        : undefined
+                    }
+                  />
+                  <MonitoringMetric
+                    label="平均回答率"
+                    value={formatPercentage(
+                      participantSummary.averageCompletion,
+                    )}
+                    tone="emerald"
+                  />
+                  <MonitoringMetric
+                    label="回答進行中"
+                    value={`${participantSummary.inProgressCount}人`}
+                  />
+                  <MonitoringMetric
+                    label="未回答"
+                    value={`${participantSummary.notStartedCount}人`}
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <span className="text-xs font-medium">公開設定</span>
-                  <div className="flex gap-2">
-                    <label className="flex flex-1 items-center gap-2 rounded-md border border-input bg-muted/30 px-3 py-2 text-xs cursor-pointer hover:border-primary/60">
-                      <input
-                        type="radio"
-                        name="sessionVisibility"
-                        value="public"
-                        checked={editingVisibility === "public"}
-                        onChange={() => setEditingVisibility("public")}
-                        className="text-xs"
+                <div className="space-y-3">
+                  {participants.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                      まだ参加者はいません。リンクを共有して参加を促しましょう。
+                    </p>
+                  ) : (
+                    rankedParticipants.map((participant) => (
+                      <ParticipantProgressRow
+                        key={participant.userId}
+                        participant={participant}
                       />
-                      <span>公開</span>
-                    </label>
-                    <label className="flex flex-1 items-center gap-2 rounded-md border border-input bg-muted/30 px-3 py-2 text-xs cursor-pointer hover:border-primary/60">
-                      <input
-                        type="radio"
-                        name="sessionVisibility"
-                        value="private"
-                        checked={editingVisibility === "private"}
-                        onChange={() => setEditingVisibility("private")}
-                        className="text-xs"
-                      />
-                      <span>非公開</span>
-                    </label>
-                  </div>
+                    ))
+                  )}
                 </div>
+              </CardContent>
+            </Card>
 
-                <div className="space-y-1.5">
-                  <label htmlFor="sessionGoal" className="text-xs font-medium">
-                    ゴール
-                  </label>
-                  <textarea
-                    id="sessionGoal"
-                    value={editingGoal}
-                    onChange={(event) => setEditingGoal(event.target.value)}
-                    required
-                    rows={6}
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+            <Card className="border-none bg-white/80 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">
+                  ステートメントのハイライト
+                </CardTitle>
+                <CardDescription>
+                  合意・対立・迷いが大きいテーマを把握できます
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <StatementHighlightColumn
+                    title="合意度トップ3"
+                    tone="emerald"
+                    items={statementHighlights.agreement}
+                  />
+                  <StatementHighlightColumn
+                    title="対立度トップ3"
+                    tone="amber"
+                    items={statementHighlights.conflict}
+                  />
+                  <StatementHighlightColumn
+                    title="わからない度トップ3"
+                    tone="slate"
+                    items={statementHighlights.dontKnow}
                   />
                 </div>
-
-                <div className="space-y-1.5">
-                  <label htmlFor="sessionContext" className="text-xs font-medium">
-                    背景情報
-                  </label>
-                  <textarea
-                    id="sessionContext"
-                    value={editingContext}
-                    onChange={(event) => setEditingContext(event.target.value)}
-                    rows={5}
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-                  />
-                </div>
-
-                {(settingsMessage || settingsError) && (
-                  <div
-                    className={`text-xs px-3 py-2 rounded-md ${
-                      settingsError
-                        ? "bg-destructive/10 text-destructive"
-                        : "bg-emerald-50 text-emerald-700"
-                    }`}
-                  >
-                    {settingsError ?? settingsMessage}
-                  </div>
-                )}
-
-                <div className="flex gap-2">
+                <div className="flex justify-end">
                   <Button
-                    type="submit"
-                    disabled={isSavingSettings}
-                    isLoading={isSavingSettings}
-                    size="sm"
-                    className="gap-1.5 text-xs h-8"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    保存
-                  </Button>
-                  <Button
-                    type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      setIsEditingSettings(false);
-                      setSettingsMessage(null);
-                      setSettingsError(null);
-                      if (data) {
-                        setEditingTitle(data.title);
-                        setEditingContext(data.context);
-                        setEditingGoal(data.goal);
-                        setEditingVisibility(data.isPublic ? "public" : "private");
-                      }
-                    }}
-                    className="gap-1.5 text-xs h-8"
+                    onClick={() =>
+                      window.open(
+                        `/sessions/${sessionId}/admin/statements`,
+                        "_blank",
+                      )
+                    }
+                    className="gap-1.5 text-xs"
                   >
-                    <X className="h-3.5 w-3.5" />
-                    キャンセル
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    ステートメント一覧へ
                   </Button>
                 </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
-        {/* Event Thread Timeline */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Event Timeline</CardTitle>
-                <CardDescription className="text-xs mt-1">
-                  Plan / Survey / Analysis / Message
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground">自動進行:</span>
-                  <span
-                    className={`font-medium ${
-                      threadData?.thread?.shouldProceed
-                        ? "text-emerald-600"
-                        : "text-amber-600"
-                    }`}
-                  >
-                    {threadData?.thread?.shouldProceed ? "ON" : "PAUSED"}
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchEventThread(true)}
-                  disabled={threadLoading}
-                  className="gap-1.5 text-xs h-8"
-                >
-                  <RefreshCcw
-                    className={`h-3.5 w-3.5 ${threadLoading ? "animate-spin" : ""}`}
-                  />
-                  更新
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Timeline Container with fixed height and scroll */}
-            <div className="relative border rounded-lg bg-muted/20 overflow-hidden">
-              <div className="h-[700px] overflow-y-auto p-4">
-                {threadLoading && !threadData ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Card className="border-none bg-white/80 shadow-lg">
+              <CardHeader className="pb-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-lg">
+                      チャットと進行ログ
+                    </CardTitle>
+                    <CardDescription>
+                      Agentとのやりとりや進行状況をここからフォローできます
+                    </CardDescription>
                   </div>
-                ) : threadError ? (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-xs text-destructive">{threadError}</p>
-                  </div>
-                ) : threadData?.events.length ? (
-                  <div className="space-y-3">
-                    {threadData.events.map((event, index) => (
-                      <TimelineEventCard
-                        key={event.id}
-                        event={event}
-                        isFirst={index === 0}
-                        isLast={index === threadData.events.length - 1}
-                        expanded={Boolean(expandedEvents[event.id])}
-                        onToggle={() =>
-                          setExpandedEvents((prev) => ({
-                            ...prev,
-                            [event.id]: !prev[event.id],
-                          }))
-                        }
+                  <div className="flex items-center gap-3">
+                    <ThreadStatusPill
+                      shouldProceed={threadData?.thread?.shouldProceed ?? false}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => fetchEventThread(true)}
+                      disabled={threadLoading}
+                      className="gap-1.5 text-xs"
+                    >
+                      <RefreshCcw
+                        className={`h-3.5 w-3.5 ${
+                          threadLoading ? "animate-spin" : ""
+                        }`}
                       />
-                    ))}
+                      更新
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-inner">
+                  {threadLoading && (
+                    <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-white/90 to-white/30 py-2 text-center text-xs text-slate-500">
+                      更新中…
+                    </div>
+                  )}
+                  <div className="h-[620px] overflow-y-auto px-6 py-6 space-y-5">
+                    {threadError ? (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                        {threadError}
+                      </div>
+                    ) : threadData?.events.length ? (
+                      threadData.events.map((event) => {
+                        const isHostMessage = event.type === "user_message";
+                        const expanded = Boolean(expandedEvents[event.id]);
+                        return (
+                          <ThreadEventBubble
+                            key={event.id}
+                            event={event}
+                            isHostMessage={isHostMessage}
+                            expanded={expanded}
+                            onToggle={() =>
+                              setExpandedEvents((prev) => ({
+                                ...prev,
+                                [event.id]: !prev[event.id],
+                              }))
+                            }
+                          />
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        まだイベントはありません。Agentとの会話はここに表示されます。
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+                  <label
+                    htmlFor="adminMessage"
+                    className="text-xs font-medium text-slate-600"
+                  >
+                    Agentへのメッセージ
+                  </label>
+                  <textarea
+                    id="adminMessage"
+                    value={messageDraft}
+                    onChange={(event) => setMessageDraft(event.target.value)}
+                    rows={3}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
+                    placeholder="Planの再実行や状況説明など、Agentへの指示を書き込めます。"
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] text-slate-400">
+                      Markdownで記述できます。
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={handleSendMessage}
+                      disabled={
+                        sendingMessage || messageDraft.trim().length === 0
+                      }
+                      isLoading={sendingMessage}
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      送信
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-8">
+            <Card className="border-none bg-white/80 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">参加用リンク</CardTitle>
+                <CardDescription>
+                  共有リンクやQRコードから参加者を招待できます
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="shareLink"
+                    className="text-xs font-medium text-slate-600"
+                  >
+                    コピー用URL
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="shareLink"
+                      readOnly
+                      value={shareUrl}
+                      className="text-sm"
+                      onFocus={(event) => event.currentTarget.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyLink}
+                      className="gap-1.5 text-xs"
+                    >
+                      {copyStatus === "copied" ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      {copyStatus === "copied"
+                        ? "コピー済み"
+                        : copyStatus === "error"
+                          ? "コピー失敗"
+                          : "コピー"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
+                  {shareUrl ? (
+                    <Image
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
+                        shareUrl,
+                      )}`}
+                      alt="参加用QRコード"
+                      width={SHARE_QR_SIZE}
+                      height={SHARE_QR_SIZE}
+                      className="mx-auto h-[176px] w-[176px] rounded-xl border border-slate-200 bg-white object-contain p-2 shadow-sm"
+                    />
+                  ) : (
+                    <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-xs text-slate-400">
+                      QRコードを生成できませんでした
+                    </div>
+                  )}
+                  <p className="mt-3 text-xs text-slate-500">
+                    参加登録ページへ直接アクセスできます。
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none bg-white/80 shadow-sm">
+              <CardHeader className="pb-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-lg">セッション情報</CardTitle>
+                    <CardDescription>
+                      基本情報を編集してアップデートできます
+                    </CardDescription>
+                  </div>
+                  {!isEditingSettings && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditingSettings(true)}
+                      className="gap-1.5 text-xs"
+                    >
+                      編集
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {!isEditingSettings ? (
+                  <div className="space-y-4 text-sm text-slate-600">
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
+                        公開設定
+                      </p>
+                      <p className="mt-1 text-slate-800 font-medium">
+                        {data.isPublic ? "公開" : "非公開"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
+                        ゴール
+                      </p>
+                      <p className="mt-1 leading-relaxed">
+                        {data.goal ? data.goal : "未設定"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
+                        背景情報
+                      </p>
+                      <p className="mt-1 leading-relaxed whitespace-pre-wrap">
+                        {data.context ? data.context : "未設定"}
+                      </p>
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-xs text-muted-foreground">
-                      まだイベントはありません
-                    </p>
-                  </div>
+                  <form onSubmit={handleSaveSettings} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="sessionTitle"
+                        className="text-xs font-medium text-slate-600"
+                      >
+                        タイトル
+                      </label>
+                      <Input
+                        id="sessionTitle"
+                        type="text"
+                        value={editingTitle}
+                        onChange={(event) =>
+                          setEditingTitle(event.target.value)
+                        }
+                        required
+                        className="text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-slate-600">
+                        公開設定
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-700 shadow-sm">
+                          <input
+                            type="radio"
+                            name="sessionVisibility"
+                            value="public"
+                            checked={editingVisibility === "public"}
+                            onChange={() => setEditingVisibility("public")}
+                          />
+                          <span>公開</span>
+                        </label>
+                        <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-700 shadow-sm">
+                          <input
+                            type="radio"
+                            name="sessionVisibility"
+                            value="private"
+                            checked={editingVisibility === "private"}
+                            onChange={() => setEditingVisibility("private")}
+                          />
+                          <span>非公開</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="sessionGoal"
+                        className="text-xs font-medium text-slate-600"
+                      >
+                        ゴール
+                      </label>
+                      <textarea
+                        id="sessionGoal"
+                        value={editingGoal}
+                        onChange={(event) => setEditingGoal(event.target.value)}
+                        required
+                        rows={5}
+                        className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="sessionContext"
+                        className="text-xs font-medium text-slate-600"
+                      >
+                        背景情報
+                      </label>
+                      <textarea
+                        id="sessionContext"
+                        value={editingContext}
+                        onChange={(event) =>
+                          setEditingContext(event.target.value)
+                        }
+                        rows={5}
+                        className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
+                      />
+                    </div>
+
+                    {(settingsMessage || settingsError) && (
+                      <div
+                        className={`rounded-xl px-3 py-2 text-xs ${
+                          settingsError
+                            ? "bg-red-50 text-red-600"
+                            : "bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        {settingsError ?? settingsMessage}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="submit"
+                        disabled={isSavingSettings}
+                        isLoading={isSavingSettings}
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                      >
+                        保存
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsEditingSettings(false);
+                          setSettingsMessage(null);
+                          setSettingsError(null);
+                          if (data) {
+                            setEditingTitle(data.title);
+                            setEditingContext(data.context);
+                            setEditingGoal(data.goal);
+                            setEditingVisibility(
+                              data.isPublic ? "public" : "private",
+                            );
+                          }
+                        }}
+                        className="gap-1.5 text-xs"
+                      >
+                        キャンセル
+                      </Button>
+                    </div>
+                  </form>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Controls - Compact horizontal layout */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 rounded-lg border bg-card p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium">メッセージ送信</span>
-                </div>
-                <textarea
-                  value={messageDraft}
-                  onChange={(event) => setMessageDraft(event.target.value)}
-                  rows={2}
-                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-                  placeholder="Agentへの指示やメモ"
-                />
-                <Button
+            <Card className="border-none bg-white/80 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">進行設定</CardTitle>
+                <CardDescription>
+                  自動質問生成の制御やセッションの管理を行えます
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <button
                   type="button"
-                  onClick={handleSendMessage}
-                  disabled={sendingMessage || messageDraft.trim().length === 0}
-                  isLoading={sendingMessage}
-                  size="sm"
-                  className="w-full gap-1.5 text-xs h-7"
-                >
-                  <MessageCircle className="h-3 w-3" />
-                  送信
-                </Button>
-              </div>
-
-              <div className="sm:w-48 rounded-lg border bg-card p-3 space-y-2">
-                <span className="text-xs font-medium block">進行制御</span>
-                <p className="text-[10px] text-muted-foreground leading-tight">
-                  Agent の WAITING 状態を制御
-                </p>
-                <Button
-                  type="button"
-                  variant={
-                    threadData?.thread?.shouldProceed ? "secondary" : "default"
-                  }
-                  className="w-full gap-1.5 text-xs h-7"
-                  disabled={togglingProceed}
-                  isLoading={togglingProceed}
                   onClick={handleToggleShouldProceed}
-                  size="sm"
+                  disabled={togglingProceed}
+                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                    threadData?.thread?.shouldProceed
+                      ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
+                      : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
+                  }`}
                 >
-                  {threadData?.thread?.shouldProceed ? (
-                    <>
-                      <Pause className="h-3 w-3" />
-                      一時停止
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-3 w-3" />
-                      再開
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        質問の自動生成
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        AgentのshouldProceedを切り替えます
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-sm font-semibold ${
+                          threadData?.thread?.shouldProceed
+                            ? "text-emerald-600"
+                            : "text-amber-600"
+                        }`}
+                      >
+                        {threadData?.thread?.shouldProceed ? "ON" : "PAUSED"}
+                      </span>
+                      {togglingProceed && (
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                      )}
+                    </div>
+                  </div>
+                </button>
 
-        {/* Danger Zone */}
-        <Card className="border-destructive/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-destructive">危険な操作</CardTitle>
-            <CardDescription className="text-xs">
-              このセッションを完全に削除します。この操作は取り消せません。
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={handleDeleteSession}
-              disabled={deleting}
-              isLoading={deleting}
-              variant="destructive"
-              size="sm"
-              className="gap-1.5 text-xs h-8"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              セッションを削除
-            </Button>
-          </CardContent>
-        </Card>
+                <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
+                  <p className="text-sm font-medium text-red-700">
+                    セッションを削除
+                  </p>
+                  <p className="mt-1 text-xs text-red-600">
+                    この操作は取り消せません。全てのデータが削除されます。
+                  </p>
+                  <Button
+                    onClick={handleDeleteSession}
+                    disabled={deleting}
+                    isLoading={deleting}
+                    variant="destructive"
+                    size="sm"
+                    className="mt-3 gap-1.5 text-xs"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    セッションを削除
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function TimelineEventCard({
-  event,
-  isFirst,
-  isLast,
-  expanded,
-  onToggle,
-}: {
+interface MonitoringMetricProps {
+  label: string;
+  value: string;
+  subLabel?: string;
+  tone?: "default" | "emerald";
+}
+
+function MonitoringMetric({
+  label,
+  value,
+  subLabel,
+  tone = "default",
+}: MonitoringMetricProps) {
+  const toneClass =
+    tone === "emerald"
+      ? "bg-emerald-50/80 border-emerald-100 text-emerald-700"
+      : "bg-slate-100/60 border-slate-100 text-slate-700";
+  return (
+    <div className={`rounded-2xl border px-4 py-4 shadow-sm ${toneClass}`}>
+      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-xl font-semibold">{value}</p>
+      {subLabel && <p className="mt-2 text-xs text-slate-500">{subLabel}</p>}
+    </div>
+  );
+}
+
+interface ParticipantProgressRowProps {
+  participant: ParticipantProgress;
+}
+
+function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
+  const completionLabel = formatPercentage(participant.completionRate);
+  const updatedLabel = formatDateTime(participant.updatedAt);
+  const progressRatio =
+    participant.totalStatements > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (participant.answeredCount / participant.totalStatements) * 100,
+          ),
+        )
+      : 0;
+
+  return (
+    <div className="rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-slate-900">
+            {participant.name || "名称未設定"}
+          </p>
+          <p className="text-[11px] text-slate-400">最終更新: {updatedLabel}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-semibold text-slate-900">
+            {completionLabel}
+          </p>
+          <p className="text-[11px] text-slate-500">
+            {participant.answeredCount}/{participant.totalStatements}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 h-1.5 w-full rounded-full bg-slate-200">
+        <div
+          className="h-full rounded-full bg-indigo-500 transition-all"
+          style={{ width: `${progressRatio}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+type HighlightTone = "emerald" | "amber" | "slate";
+
+interface StatementHighlight {
+  statement: StatementWithStats;
+  positive: number;
+  negative: number;
+  neutral: number;
+  conflict: number;
+  responseRate: number;
+}
+
+interface StatementHighlightColumnProps {
+  title: string;
+  tone: HighlightTone;
+  items: StatementHighlight[];
+}
+
+function StatementHighlightColumn({
+  title,
+  tone,
+  items,
+}: StatementHighlightColumnProps) {
+  const toneClass =
+    tone === "emerald"
+      ? "bg-emerald-50 border-emerald-100"
+      : tone === "amber"
+        ? "bg-amber-50 border-amber-100"
+        : "bg-slate-50 border-slate-100";
+
+  const badgeClass =
+    tone === "emerald"
+      ? "bg-emerald-100 text-emerald-800"
+      : tone === "amber"
+        ? "bg-amber-100 text-amber-800"
+        : "bg-slate-200 text-slate-700";
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      {items.length === 0 ? (
+        <p className="text-xs text-slate-500">
+          まだ十分な回答データがありません。
+        </p>
+      ) : (
+        items.map((item, index) => (
+          <div
+            key={item.statement.id}
+            className={`rounded-2xl border px-4 py-4 shadow-sm ${toneClass}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span
+                className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${badgeClass}`}
+              >
+                #{index + 1}
+              </span>
+              <div className="text-[11px] text-slate-500">
+                回答率 {formatPercentage(item.responseRate)}
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-800 leading-relaxed">
+              {item.statement.text}
+            </p>
+            <div className="mt-4 flex items-center gap-3 text-[11px] text-slate-600">
+              <span className="font-medium text-emerald-700">
+                Yes {formatPercentage(item.positive)}
+              </span>
+              <span className="font-medium text-amber-700">
+                No {formatPercentage(item.negative)}
+              </span>
+              <span>不明 {formatPercentage(item.neutral)}</span>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
+  return (
+    <div
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+        shouldProceed
+          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+          : "bg-amber-50 text-amber-600 border border-amber-200"
+      }`}
+    >
+      {shouldProceed ? (
+        <>
+          <Play className="h-3 w-3" /> 自動生成 ON
+        </>
+      ) : (
+        <>
+          <Pause className="h-3 w-3" /> 一時停止中
+        </>
+      )}
+    </div>
+  );
+}
+
+interface ThreadEventBubbleProps {
   event: TimelineEvent;
-  isFirst: boolean;
-  isLast: boolean;
+  isHostMessage: boolean;
   expanded: boolean;
   onToggle: () => void;
-}) {
+}
+
+function ThreadEventBubble({
+  event,
+  isHostMessage,
+  expanded,
+  onToggle,
+}: ThreadEventBubbleProps) {
   const meta = EVENT_TYPE_META[event.type] ?? {
     label: event.type,
-    badgeClass: "bg-muted text-foreground border-border",
-    color: "bg-muted-foreground",
+    accent: "text-slate-500",
+    badge: "bg-slate-100 text-slate-600 border-slate-200",
   };
 
-  const progressPercent = Math.round((event.progress ?? 0) * 100);
   const markdown =
     typeof event.payload.markdown === "string"
       ? (event.payload.markdown as string)
       : "";
 
-  // Preview content
-  const getPreviewContent = () => {
-    if (event.type === "survey" && event.statements.length > 0) {
-      return `${event.statements.length}件のステートメント`;
-    }
-    if (markdown) {
-      const preview = markdown.replace(/[#*_`]/g, "").trim();
-      return truncateText(preview, 100);
-    }
-    return "準備中...";
-  };
+  const plainPreview = markdownToPlainText(markdown);
+  const preview = truncateText(plainPreview, 220);
+  const showToggle =
+    event.type === "survey"
+      ? event.statements.length > 3
+      : markdown.length > 240;
+
+  const progressValue =
+    typeof event.progress === "number"
+      ? event.progress
+      : Number(event.progress ?? 0);
+  const progressPercent = Math.max(
+    0,
+    Math.min(100, Math.round(progressValue * 100)),
+  );
+
+  const visibleStatements =
+    event.type === "survey" && !expanded && event.statements.length > 3
+      ? event.statements.slice(0, 3)
+      : event.statements;
 
   return (
-    <div className="relative pl-6">
-      {/* Timeline connector */}
+    <div
+      className={`flex gap-3 ${
+        isHostMessage ? "justify-end text-right" : "justify-start text-left"
+      }`}
+    >
+      {!isHostMessage && (
+        <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
+          <Bot className="h-4 w-4" />
+        </div>
+      )}
       <div
-        className={`absolute left-[7px] top-0 w-0.5 bg-border ${
-          isFirst ? "top-3" : ""
-        } ${isLast ? "h-3" : "h-full"}`}
-      />
-
-      {/* Timeline dot */}
-      <div
-        className={`absolute left-0 top-3 h-4 w-4 rounded-full border-2 border-background ${meta.color}`}
-      />
-
-      {/* Event card */}
-      <div className="rounded-lg border bg-card shadow-sm">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${
+          isHostMessage ? "items-end" : "items-start"
+        }`}
+      >
+        <div
+          className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
         >
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.badgeClass}`}
-              >
-                {meta.label}
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                {formatDateTime(event.updatedAt)}
-              </span>
-              <span className="text-[10px] text-muted-foreground font-mono">
-                #{String(event.orderIndex).padStart(3, "0")}
-              </span>
+          <span>{meta.label}</span>
+          <span className="text-[10px] text-slate-400">
+            #{String(event.orderIndex).padStart(3, "0")}・
+            {formatDateTime(event.updatedAt)}
+          </span>
+        </div>
+        <div
+          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${
+            isHostMessage
+              ? "border-indigo-100 bg-indigo-50/80"
+              : "border-slate-200 bg-white/90"
+          }`}
+        >
+          {event.type === "survey" && visibleStatements.length > 0 ? (
+            <div className="space-y-2">
+              {visibleStatements.map((statement) => (
+                <div
+                  key={statement.id}
+                  className="rounded-2xl border border-slate-200/70 bg-white/90 px-3 py-2 text-sm text-slate-700 shadow-sm"
+                >
+                  <span className="mr-2 text-[11px] font-medium text-slate-400">
+                    #{statement.orderIndex + 1}
+                  </span>
+                  {statement.text}
+                </div>
+              ))}
+              {!expanded &&
+                event.statements.length > visibleStatements.length && (
+                  <p className="text-[11px] text-slate-500">
+                    他{event.statements.length - visibleStatements.length}
+                    件のステートメントがあります。
+                  </p>
+                )}
             </div>
-
-            {!expanded && (
-              <p className="text-xs text-foreground/80 line-clamp-2">
-                {getPreviewContent()}
+          ) : markdown ? (
+            expanded || !showToggle ? (
+              <div className="markdown-body prose prose-sm max-w-none text-slate-800 [&_ol]:list-decimal [&_ul]:list-disc">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {markdown}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {preview}
               </p>
-            )}
-
-            {!expanded && progressPercent < 100 && (
-              <div className="mt-2">
-                <div className="h-1 w-full rounded-full bg-muted">
-                  <div
-                    className={`h-full rounded-full ${meta.color}`}
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-            )}
+            )
+          ) : (
+            <p className="text-sm text-slate-600">内容を準備中です。</p>
+          )}
+        </div>
+        {progressPercent > 0 && progressPercent < 100 && (
+          <div className="flex w-full items-center gap-3 text-[11px] text-slate-500">
+            <div className="h-1.5 w-full rounded-full bg-slate-200">
+              <div
+                className={`h-full rounded-full ${
+                  isHostMessage ? "bg-indigo-400" : "bg-slate-500"
+                }`}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <span>{progressPercent}%</span>
           </div>
-
-          <ChevronDown
-            className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${
-              expanded ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-
-        {expanded && (
-          <div className="px-3 pb-3 pt-1 space-y-3 border-t">
-            {progressPercent < 100 && (
-              <div>
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-                  <span>進捗</span>
-                  <span>{progressPercent}%</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-muted">
-                  <div
-                    className={`h-full rounded-full ${meta.color} transition-all`}
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {event.type === "survey" && event.statements.length > 0 && (
-              <div>
-                <p className="text-[10px] font-medium text-muted-foreground mb-2">
-                  ステートメント（{event.statements.length}件）
-                </p>
-                <ul className="space-y-1.5 text-xs">
-                  {event.statements.map((statement) => (
-                    <li
-                      key={statement.id}
-                      className="rounded border border-dashed bg-muted/30 px-2.5 py-1.5"
-                    >
-                      <span className="text-[10px] text-muted-foreground mr-2">
-                        #{statement.orderIndex + 1}
-                      </span>
-                      {statement.text}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {(event.type === "survey_analysis" ||
-              event.type === "plan" ||
-              event.type === "user_message") &&
-              markdown && (
-                <div className="rounded-md border bg-background px-3 py-2 text-sm markdown-body prose prose-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {markdown}
-                  </ReactMarkdown>
-                </div>
-              )}
-          </div>
+        )}
+        {showToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="text-[11px] font-medium text-slate-500 underline-offset-4 hover:underline"
+          >
+            {expanded ? "閉じる" : "全文を見る"}
+          </button>
         )}
       </div>
     </div>
