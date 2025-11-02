@@ -9,12 +9,14 @@ import {
   Copy,
   ExternalLink,
   Loader2,
+  Maximize2,
   Pause,
   Play,
   RefreshCcw,
   Send,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -148,6 +150,7 @@ const EVENT_TYPE_META: Record<
 };
 
 const SHARE_QR_SIZE = 176;
+const FULLSCREEN_QR_SIZE = 768;
 
 const formatDateTime = (value: string) => {
   const date = new Date(value);
@@ -225,6 +228,7 @@ export default function AdminPage({
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
     "idle",
   );
+  const [isShareQrFullscreen, setIsShareQrFullscreen] = useState(false);
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const lastThreadEventIdRef = useRef<string | null>(null);
 
@@ -359,6 +363,38 @@ export default function AdminPage({
     if (typeof window === "undefined") return;
     setShareUrl(`${window.location.origin}/sessions/${sessionId}`);
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!isShareQrFullscreen || typeof document === "undefined") return;
+    const { style } = document.body;
+    const previousOverflow = style.overflow;
+    style.overflow = "hidden";
+    return () => {
+      style.overflow = previousOverflow;
+    };
+  }, [isShareQrFullscreen]);
+
+  useEffect(() => {
+    if (!isShareQrFullscreen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsShareQrFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isShareQrFullscreen]);
+
+  const shareQrUrl = shareUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
+        shareUrl,
+      )}`
+    : null;
+  const fullscreenQrUrl = shareUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=${FULLSCREEN_QR_SIZE}x${FULLSCREEN_QR_SIZE}&data=${encodeURIComponent(
+        shareUrl,
+      )}`
+    : null;
 
   const handleSaveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -914,12 +950,21 @@ export default function AdminPage({
                     </Button>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
-                  {shareUrl ? (
+                <div className="relative rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
+                  {shareQrUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsShareQrFullscreen(true)}
+                      className="absolute right-4 top-4 gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 text-xs text-slate-700 shadow-sm hover:bg-white"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {shareQrUrl ? (
                     <Image
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
-                        shareUrl,
-                      )}`}
+                      src={shareQrUrl}
                       alt="参加用QRコード"
                       width={SHARE_QR_SIZE}
                       height={SHARE_QR_SIZE}
@@ -930,12 +975,44 @@ export default function AdminPage({
                       QRコードを生成できませんでした
                     </div>
                   )}
-                  <p className="mt-3 text-xs text-slate-500">
-                    参加登録ページへ直接アクセスできます。
-                  </p>
                 </div>
               </CardContent>
             </Card>
+            {isShareQrFullscreen && fullscreenQrUrl && (
+              <div
+                className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm"
+                onClick={() => setIsShareQrFullscreen(false)}
+              >
+                <div
+                  className="relative flex w-full max-w-5xl flex-col items-center gap-6 text-center"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsShareQrFullscreen(false)}
+                    className="absolute right-0 top-0 text-white hover:bg-white/10 focus-visible:ring-white"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
+                    <Image
+                      src={fullscreenQrUrl}
+                      alt="参加用QRコード"
+                      width={FULLSCREEN_QR_SIZE}
+                      height={FULLSCREEN_QR_SIZE}
+                      className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-3xl font-semibold text-white">
+                      QRコードを携帯でスキャン
+                    </h2>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
