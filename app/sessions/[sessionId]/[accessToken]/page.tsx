@@ -12,9 +12,7 @@ import {
   Maximize2,
   Pause,
   Play,
-  RefreshCcw,
   Send,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -292,7 +290,7 @@ export default function AdminPage({
       }
       try {
         const response = await axios.get(
-          `/api/sessions/${sessionId}/event-thread`,
+          `/api/sessions/${sessionId}/${accessToken}/event-thread`,
           {
             headers: { Authorization: `Bearer ${userId}` },
           },
@@ -306,7 +304,7 @@ export default function AdminPage({
         setThreadLoading(false);
       }
     },
-    [sessionId, userId],
+    [sessionId, accessToken, userId],
   );
 
   useEffect(() => {
@@ -462,7 +460,7 @@ export default function AdminPage({
   };
 
   const handleSendMessage = async () => {
-    if (!userId || messageDraft.trim().length === 0) return;
+    if (!userId || !canEdit || messageDraft.trim().length === 0) return;
     setSendingMessage(true);
     try {
       await axios.post(
@@ -483,7 +481,7 @@ export default function AdminPage({
   };
 
   const handleToggleShouldProceed = async () => {
-    if (!userId || !threadData?.thread) return;
+    if (!userId || !canEdit || !threadData?.thread) return;
     setTogglingProceed(true);
     try {
       const response = await axios.patch(
@@ -555,7 +553,7 @@ export default function AdminPage({
   const participants = data?.participants ?? [];
   const totalParticipants =
     data?.totalParticipants ?? participants?.length ?? 0;
-  const totalStatements =
+  const _totalStatements =
     data?.totalStatements ?? data?.statements?.length ?? 0;
   const statements = data?.statements ?? [];
 
@@ -697,7 +695,7 @@ export default function AdminPage({
     );
   }
 
-  const latestReport = data.latestSituationAnalysisReport;
+  const _latestReport = data.latestSituationAnalysisReport;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -1521,7 +1519,7 @@ function ThreadEventBubble({
     typeof event.progress === "number"
       ? event.progress
       : Number(event.progress ?? 0);
-  const progressPercent = Math.max(
+  const _progressPercent = Math.max(
     0,
     Math.min(100, Math.round(progressValue * 100)),
   );
