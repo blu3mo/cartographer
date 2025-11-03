@@ -201,9 +201,9 @@ export class PtolemyAgent {
       this.getParticipantCount(context.session.id),
     ]);
 
-    let statementTexts: string[];
+    let surveyResult: { binaryStatements: string[]; openQuestion: string };
     try {
-      statementTexts = await generateSurveyStatements({
+      surveyResult = await generateSurveyStatements({
         sessionTitle: context.session.title,
         sessionGoal: context.session.goal,
         initialContext: context.session.context,
@@ -228,16 +228,11 @@ export class PtolemyAgent {
       return { status: "idle" };
     }
 
-    const baseIndex = await this.getLastStatementOrderIndex(context.session.id);
-    const preparedStatements = statementTexts.slice(0, 15);
-    const statementsPayload = preparedStatements.map((text, index) => ({
-      session_id: context.session.id,
-      text,
-      order_index: baseIndex + index + 1,
-    }));
-
-    if (statementsPayload.length === 0) {
-      const message = "No statements generated for survey";
+    if (
+      !surveyResult.binaryStatements ||
+      surveyResult.binaryStatements.length !== 15
+    ) {
+      const message = "Invalid number of binary statements generated";
       this.warn(instance, message);
       await this.supabase
         .from("events")
@@ -250,11 +245,36 @@ export class PtolemyAgent {
       return { status: "idle" };
     }
 
+    const baseIndex = await this.getLastStatementOrderIndex(context.session.id);
+
+    const binaryStatementsPayload = surveyResult.binaryStatements.map(
+      (text, index) => ({
+        session_id: context.session.id,
+        text,
+        order_index: baseIndex + index + 1,
+        kind: "BINARY",
+        survey_event_id: surveyEventId,
+      }),
+    );
+
+    const openStatementPayload = {
+      session_id: context.session.id,
+      text: surveyResult.openQuestion,
+      order_index: baseIndex + 16,
+      kind: "OPEN",
+      survey_event_id: surveyEventId,
+    };
+
+    const allStatementsPayload = [
+      ...binaryStatementsPayload,
+      openStatementPayload,
+    ];
+
     const { data: insertedStatements, error: statementsError } =
       await this.supabase
         .from("statements")
-        .insert(statementsPayload)
-        .select("id");
+        .insert(allStatementsPayload)
+        .select("id, kind");
 
     if (statementsError || !insertedStatements) {
       console.error(
@@ -264,18 +284,28 @@ export class PtolemyAgent {
       return { status: "waiting" };
     }
 
-    const statementIds = insertedStatements.map((row) => row.id);
+    const binaryStatementIds = insertedStatements
+      .filter((row) => row.kind === "BINARY")
+      .map((row) => row.id);
+
+    const openStatementId = insertedStatements.find(
+      (row) => row.kind === "OPEN",
+    )?.id;
 
     await this.supabase
       .from("events")
       .update({
-        payload: { statementIds },
+        payload: {
+          statementIds: binaryStatementIds,
+          openStatementId: openStatementId ?? null,
+        },
         progress: 0.5,
         updated_at: new Date().toISOString(),
       })
       .eq("id", surveyEventId);
     this.log(instance, "survey statements ready", {
-      statementCount: statementIds.length,
+      binaryCount: binaryStatementIds.length,
+      hasOpenQuestion: !!openStatementId,
     });
 
     await this.transition(instance.id, "COLLECTING_SURVEY", {
@@ -376,6 +406,19 @@ export class PtolemyAgent {
       payload: { statementIds, markdown: "" },
     });
 
+    const { data: latestSurveyEvent } = await this.supabase
+      .from("events")
+      .select("payload")
+      .eq("thread_id", context.thread.id)
+      .eq("type", "survey")
+      .order("order_index", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const openStatementId =
+      (latestSurveyEvent?.payload as { openStatementId?: string })
+        ?.openStatementId ?? null;
+
     const { data: statements, error: statementsError } = await this.supabase
       .from("statements")
       .select("id, text")
@@ -399,12 +442,54 @@ export class PtolemyAgent {
       return { status: "waiting" };
     }
 
+    let openQuestionData:
+      | { text: string; responses: Array<{ name: string; answer: string }> }
+      | undefined;
+
+    if (openStatementId) {
+      const { data: openStatement } = await this.supabase
+        .from("statements")
+        .select("text")
+        .eq("id", openStatementId)
+        .maybeSingle();
+
+      const { data: openResponses } = await this.supabase
+        .from("responses")
+        .select("text_answer, participant_user_id, session_id")
+        .eq("statement_id", openStatementId)
+        .not("text_answer", "is", null);
+
+      if (openStatement && openResponses && openResponses.length > 0) {
+        const participantIds = openResponses
+          .map((r) => r.participant_user_id)
+          .filter((id): id is string => Boolean(id));
+
+        const { data: participantRows } = await this.supabase
+          .from("participants")
+          .select("user_id, name")
+          .eq("session_id", context.session.id)
+          .in("user_id", participantIds);
+
+        const nameMap = new Map(
+          (participantRows ?? []).map((p) => [p.user_id, p.name]),
+        );
+
+        openQuestionData = {
+          text: openStatement.text,
+          responses: openResponses.map((r) => ({
+            name: nameMap.get(r.participant_user_id) ?? "Unknown",
+            answer: r.text_answer ?? "",
+          })),
+        };
+      }
+    }
+
     let participantNameMap: Map<string, string> | undefined;
     const participantIds = new Set(
       (responses ?? [])
         .map((response) => response.participant_user_id)
-        .filter(
-          (participantId): participantId is string => Boolean(participantId),
+        .filter((participantId): participantId is string =>
+          Boolean(participantId),
         ),
     );
 
@@ -449,6 +534,7 @@ export class PtolemyAgent {
         totalParticipants: participantCount,
         statements: stats,
         eventThreadContext,
+        openQuestion: openQuestionData,
       });
     } catch (error) {
       const message = this.stringifyError(error);
@@ -641,7 +727,7 @@ export class PtolemyAgent {
       const participantResponses = statementResponses.map((response) => {
         const participantId = response.participant_user_id;
         const participantName = participantId
-          ? participantNameMap?.get(participantId) ?? truncate(participantId)
+          ? (participantNameMap?.get(participantId) ?? truncate(participantId))
           : "Unknown";
 
         switch (response.value) {

@@ -154,3 +154,37 @@ alter publication supabase_realtime add table public.responses;
 -- Migration helpers --------------------------------------------------------
 alter table if exists public.sessions
   add column if not exists goal text not null default '';
+
+-- Add support for open-ended questions -------------------------------------
+alter table if exists public.statements
+  add column if not exists kind text not null default 'BINARY';
+
+alter table if exists public.statements
+  add constraint statements_kind_chk check (kind in ('BINARY', 'OPEN'));
+
+alter table if exists public.statements
+  add column if not exists survey_event_id uuid null references public.events(id) on delete set null;
+
+alter table if exists public.statements
+  add column if not exists metadata jsonb not null default '{}'::jsonb;
+
+create index if not exists statements_session_kind_idx on public.statements (session_id, kind);
+create index if not exists statements_survey_event_idx on public.statements (survey_event_id);
+
+alter table if exists public.responses
+  add column if not exists text_answer text null;
+
+alter table if exists public.responses
+  alter column value drop not null;
+
+alter table if exists public.responses
+  add constraint responses_value_xor_text_chk check (
+    (value is not null and text_answer is null) or
+    (value is null and text_answer is not null)
+  );
+
+alter table if exists public.responses
+  add constraint responses_value_range_chk check (value is null or value between -2 and 2);
+
+alter table if exists public.responses
+  add constraint responses_text_len_chk check (text_answer is null or char_length(text_answer) <= 5000);

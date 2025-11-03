@@ -43,19 +43,15 @@ async function callLLM(
     requestBody.reasoning = { max_tokens: options.reasoning_max_tokens };
   }
 
-  const response = await axios.post(
-    OPENROUTER_API_URL,
-    requestBody,
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://cartographer.app",
-        "X-Title": "Cartographer-Agent",
-      },
-      timeout: 45000,
+  const response = await axios.post(OPENROUTER_API_URL, requestBody, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://cartographer.app",
+      "X-Title": "Cartographer-Agent",
     },
-  );
+    timeout: 45000,
+  });
 
   const content = response.data.choices[0].message.content;
   console.log("[LLM] response length", content?.length ?? 0);
@@ -91,7 +87,6 @@ export async function generatePlanMarkdown(input: {
   recentUserMessages?: string[];
   participantCount?: number;
 }): Promise<string> {
-
   const participantsLabel =
     typeof input.participantCount === "number"
       ? String(input.participantCount)
@@ -129,6 +124,11 @@ export async function generatePlanMarkdown(input: {
   }
 }
 
+export interface SurveyStatementsResult {
+  binaryStatements: string[];
+  openQuestion: string;
+}
+
 export async function generateSurveyStatements(input: {
   sessionTitle: string;
   sessionGoal: string;
@@ -137,8 +137,7 @@ export async function generateSurveyStatements(input: {
   planMarkdown?: string;
   latestAnalysisMarkdown?: string;
   participantCount?: number;
-}): Promise<string[]> {
-
+}): Promise<SurveyStatementsResult> {
   const participantsLabel =
     typeof input.participantCount === "number"
       ? String(input.participantCount)
@@ -149,15 +148,23 @@ export async function generateSurveyStatements(input: {
 あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出します。
 </role>
 <task>
-ステートメントに対する全参加者のYES/NO回答を通じて、認識・解釈・価値観・利害・優先順位などを浮き彫りにし、収集したい認識の情報を収集します。
-今までのEventThreadの内容を踏まえて、新たに15個のステートメントを生成してください。それらに対して参加者全員がYES/NOで回答します。
-各ステートメントは以下を満たすこと。
-- YES/NOの二択で答えられる断定文であること。
-- 1文のみ、単体で意味が通じること。
-- 表層の主張ではなく、その背後の価値観・利害・時間軸・成功条件を明らかにできること。
-- 解釈のブレが生じないよう、必要であれば5W1Hを明示してシャープに表現すること。
-- 参加者の立ち位置がYES/NOで鮮明に分かれ、背後の動機が推測できるようにする。
-- 今後も質問を繰り返すので、今回だけで調査目的を達成する必要はない。深掘りを急がずに、まず今集めるべき情報を集めてほしい。
+今までのEventThreadの内容を踏まえて、以下の2種類の質問を生成してください：
+
+1. YES/NO質問（15個）：
+   - ステートメントに対する全参加者のYES/NO回答を通じて、認識・解釈・価値観・利害・優先順位などを浮き彫りにします。
+   - 各ステートメントは以下を満たすこと：
+     * YES/NOの二択で答えられる断定文であること
+     * 1文のみ、単体で意味が通じること
+     * 表層の主張ではなく、その背後の価値観・利害・時間軸・成功条件を明らかにできること
+     * 解釈のブレが生じないよう、必要であれば5W1Hを明示してシャープに表現すること
+     * 参加者の立ち位置がYES/NOで鮮明に分かれ、背後の動機が推測できるようにする
+
+2. 自由記述質問（1個）：
+   - YES/NOでは聞けないようなオープンエンドで具体的な質問を1つ生成してください。
+   - この質問を通じて、新たな論点や重要なインサイトを引き出すことを目的とします。
+   - YES/NO質問では捉えきれない参加者の考えや経験、具体的な事例を引き出せる質問にしてください。
+
+今後も質問を繰り返すので、今回だけで調査目的を達成する必要はない。深掘りを急がずに、まず今集めるべき情報を集めてほしい。
 
 想定読者は参加者です。
 </task>
@@ -170,18 +177,50 @@ export async function generateSurveyStatements(input: {
   ${input.eventThreadContext}
   <initial_context>${input.initialContext}</initial_context>
 </context>
-<output>JSON配列（例: ["文1", "文2", ...]）のみを返してください。</output>
+<output>
+以下のJSON形式のみを返してください（他の説明文は含めないでください）：
+{
+  "binaryStatements": ["文1", "文2", ..., "文15"],
+  "openQuestion": "自由記述質問"
+}
+</output>
 `;
 
   try {
-    const response = await callLLM(
-      [{ role: "user", content: prompt }],
-      { reasoning_max_tokens: 1 },
-    );
-    const parsed = extractJsonArray(response);
-    if (!parsed) {
-      throw new Error("LLM response was not valid JSON array");
+    const response = await callLLM([{ role: "user", content: prompt }], {
+      reasoning_max_tokens: 1,
+    });
+
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn(
+        "[LLM] No JSON object found in response, trying array fallback",
+      );
+      const arrayMatch = extractJsonArray(response);
+      if (arrayMatch && arrayMatch.length >= 16) {
+        return {
+          binaryStatements: arrayMatch.slice(0, 15),
+          openQuestion: arrayMatch[15],
+        };
+      }
+      throw new Error("LLM response was not valid JSON");
     }
+
+    const parsed = JSON.parse(jsonMatch[0]) as SurveyStatementsResult;
+
+    if (
+      !parsed.binaryStatements ||
+      !Array.isArray(parsed.binaryStatements) ||
+      parsed.binaryStatements.length !== 15 ||
+      !parsed.binaryStatements.every((item) => typeof item === "string")
+    ) {
+      throw new Error("Invalid binaryStatements: must be array of 15 strings");
+    }
+
+    if (!parsed.openQuestion || typeof parsed.openQuestion !== "string") {
+      throw new Error("Invalid openQuestion: must be a non-empty string");
+    }
+
     return parsed;
   } catch (error) {
     console.error("[LLM] Survey statement generation failed:", error);
@@ -213,6 +252,10 @@ export async function generateSurveyAnalysisMarkdown(input: {
   totalParticipants: number;
   statements: StatementStat[];
   eventThreadContext: string;
+  openQuestion?: {
+    text: string;
+    responses: Array<{ name: string; answer: string }>;
+  };
 }): Promise<string> {
   const formatValue = (value: number) => {
     switch (value) {
@@ -271,15 +314,34 @@ export async function generateSurveyAnalysisMarkdown(input: {
   const participantDetailsText =
     participantMap.size > 0
       ? Array.from(participantMap.values())
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((entry) => {
-          const lines = entry.responses.map((response) => `  ${response}`);
-          return `${entry.name}:\n${lines.join("\n")}`;
-        })
-        .join("\n\n")
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((entry) => {
+            const lines = entry.responses.map((response) => `  ${response}`);
+            return `${entry.name}:\n${lines.join("\n")}`;
+          })
+          .join("\n\n")
       : "  (回答なし)";
 
   const surveyResultsText = `${statementsText}\n\n参加者別回答:\n${participantDetailsText}`;
+
+  let openQuestionSection = "";
+  if (input.openQuestion && input.openQuestion.responses.length > 0) {
+    const maxResponsesToShow = 20;
+    const responsesToShow = input.openQuestion.responses.slice(
+      0,
+      maxResponsesToShow,
+    );
+    const hasMore = input.openQuestion.responses.length > maxResponsesToShow;
+
+    openQuestionSection = `\n\n自由記述質問:\n"${input.openQuestion.text}"\n\n回答（${input.openQuestion.responses.length}件）:\n${responsesToShow
+      .map(
+        (r) =>
+          `- ${r.name}: ${r.answer.substring(0, 500)}${r.answer.length > 500 ? "..." : ""}`,
+      )
+      .join(
+        "\n",
+      )}${hasMore ? `\n\n（他${input.openQuestion.responses.length - maxResponsesToShow}件の回答あり）` : ""}`;
+  }
 
   const prompt = `
 <role>
@@ -291,6 +353,7 @@ Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果�
 - 意見が二極化・多極化している点。
 - 多くがまだ判断できていない点、わからない点。
 - 集団の傾向、クラスタなど（バイネームの分析）
+${input.openQuestion ? "- 自由記述質問の回答から見える、YES/NO質問では捉えきれなかった新たな論点やインサイト" : ""}
 また、それらからわかることを論理的に考察し、仮説を立てる。
 
 想定読者は参加者です。
@@ -305,7 +368,7 @@ Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果�
   <initial_context>${input.initialContext}</initial_context>
 </context>
 <survey_results>
-${surveyResultsText}
+${surveyResultsText}${openQuestionSection}
 </survey_results>
 <output>MarkdownのみでSurvey Analysisを返してください。前置きなく、本文のみを生成してください。</output>
 `;

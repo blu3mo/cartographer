@@ -13,15 +13,16 @@ type ResponseRow = {
   participant_user_id: string;
   session_id: string;
   statement_id: string;
-  value: number;
+  value: number | null;
+  text_answer: string | null;
   created_at: string;
   statement?: StatementRow | StatementRow[] | null;
 };
 
 function mapResponse(row: ResponseRow) {
   const statement = Array.isArray(row.statement)
-    ? row.statement[0] ?? null
-    : row.statement ?? null;
+    ? (row.statement[0] ?? null)
+    : (row.statement ?? null);
 
   return {
     id: row.id,
@@ -29,6 +30,7 @@ function mapResponse(row: ResponseRow) {
     statementText: statement?.text ?? "",
     orderIndex: statement?.order_index ?? 0,
     value: row.value,
+    textAnswer: row.text_answer,
     createdAt: row.created_at,
   };
 }
@@ -79,6 +81,7 @@ export async function GET(
           session_id,
           statement_id,
           value,
+          text_answer,
           created_at,
           statement:statements (
             id,
@@ -135,19 +138,45 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { statementId, value } = body;
+    const { statementId, value, textAnswer } = body;
 
-    if (!statementId || value === undefined) {
+    if (!statementId) {
       return NextResponse.json(
-        { error: "Missing required fields: statementId and value" },
+        { error: "Missing required field: statementId" },
         { status: 400 },
       );
     }
 
-    // Validate value is in range
-    if (![-2, -1, 0, 1, 2].includes(value)) {
+    const hasValue = value !== undefined && value !== null;
+    const hasTextAnswer =
+      textAnswer !== undefined && textAnswer !== null && textAnswer !== "";
+
+    if (!hasValue && !hasTextAnswer) {
+      return NextResponse.json(
+        { error: "Either value or textAnswer must be provided" },
+        { status: 400 },
+      );
+    }
+
+    if (hasValue && hasTextAnswer) {
+      return NextResponse.json(
+        { error: "Cannot provide both value and textAnswer" },
+        { status: 400 },
+      );
+    }
+
+    // Validate value is in range if provided
+    if (hasValue && ![-2, -1, 0, 1, 2].includes(value)) {
       return NextResponse.json(
         { error: "Invalid value: must be -2, -1, 0, 1, or 2" },
+        { status: 400 },
+      );
+    }
+
+    // Validate textAnswer length if provided
+    if (hasTextAnswer && textAnswer.length > 5000) {
+      return NextResponse.json(
+        { error: "Text answer must be 5000 characters or less" },
         { status: 400 },
       );
     }
@@ -195,17 +224,29 @@ export async function POST(
       );
     }
 
+    const responseData: {
+      participant_user_id: string;
+      session_id: string;
+      statement_id: string;
+      value?: number;
+      text_answer?: string;
+    } = {
+      participant_user_id: userId,
+      session_id: sessionId,
+      statement_id: statementId,
+    };
+
+    if (hasValue) {
+      responseData.value = value;
+    } else if (hasTextAnswer) {
+      responseData.text_answer = textAnswer;
+    }
+
     const { data: response, error: upsertError } = await supabase
       .from("responses")
-      .upsert(
-        {
-          participant_user_id: userId,
-          session_id: sessionId,
-          statement_id: statementId,
-          value,
-        },
-        { onConflict: "participant_user_id,session_id,statement_id" },
-      )
+      .upsert(responseData, {
+        onConflict: "participant_user_id,session_id,statement_id",
+      })
       .select(
         `
           id,
@@ -213,6 +254,7 @@ export async function POST(
           session_id,
           statement_id,
           value,
+          text_answer,
           created_at,
           statement:statements (
             id,

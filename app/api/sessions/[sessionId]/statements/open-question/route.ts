@@ -56,69 +56,57 @@ export async function GET(
       );
     }
 
-    // Get excludeStatementId(s) from query params if provided
-    const { searchParams } = new URL(request.url);
-    const excludeStatementIds = new Set(
-      searchParams.getAll("excludeStatementId").filter(Boolean),
-    );
+    const { data: latestSurveyEvent } = await supabase
+      .from("events")
+      .select("payload")
+      .eq("thread_id", sessionId)
+      .eq("type", "survey")
+      .order("order_index", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const { data: allStatements, error: statementsError } = await supabase
-      .from("statements")
-      .select("id, session_id, text, order_index, created_at")
-      .eq("session_id", sessionId)
-      .eq("kind", "BINARY")
-      .order("order_index", { ascending: true });
+    const openStatementId =
+      (latestSurveyEvent?.payload as { openStatementId?: string })
+        ?.openStatementId ?? null;
 
-    if (statementsError) {
-      console.error("Failed to load statements:", statementsError);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
-    }
-
-    // Get all responses by this participant
-    const { data: existingResponses, error: responsesError } = await supabase
-      .from("responses")
-      .select("statement_id")
-      .eq("participant_user_id", userId)
-      .eq("session_id", sessionId);
-
-    if (responsesError) {
-      console.error("Failed to load responses:", responsesError);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
-    }
-
-    const answeredStatementIds = new Set(
-      (existingResponses ?? []).map((r) => r.statement_id),
-    );
-
-    // Filter unanswered statements
-    let unansweredStatements = (allStatements ?? []).filter(
-      (s) => !answeredStatementIds.has(s.id),
-    );
-
-    // Exclude the currently displayed statement(s) if provided
-    if (excludeStatementIds.size > 0) {
-      unansweredStatements = unansweredStatements.filter(
-        (s) => !excludeStatementIds.has(s.id),
-      );
-    }
-
-    if (unansweredStatements.length === 0) {
+    if (!openStatementId) {
       return NextResponse.json({ statement: null });
     }
 
-    // Return a random unanswered statement
-    const randomIndex = Math.floor(Math.random() * unansweredStatements.length);
-    const statement = unansweredStatements[randomIndex] as StatementRow;
+    const { data: existingResponse } = await supabase
+      .from("responses")
+      .select("statement_id")
+      .eq("participant_user_id", userId)
+      .eq("session_id", sessionId)
+      .eq("statement_id", openStatementId)
+      .maybeSingle();
 
-    return NextResponse.json({ statement: mapStatement(statement) });
+    if (existingResponse) {
+      return NextResponse.json({ statement: null });
+    }
+
+    const { data: openStatement, error: statementError } = await supabase
+      .from("statements")
+      .select("id, session_id, text, order_index, created_at")
+      .eq("id", openStatementId)
+      .eq("kind", "OPEN")
+      .maybeSingle();
+
+    if (statementError) {
+      console.error("Failed to load open statement:", statementError);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+
+    if (!openStatement) {
+      return NextResponse.json({ statement: null });
+    }
+
+    return NextResponse.json({ statement: mapStatement(openStatement) });
   } catch (error) {
-    console.error("Get next statement error:", error);
+    console.error("Get open question error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
