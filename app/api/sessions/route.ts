@@ -26,7 +26,6 @@ function mapSession(row: SessionRow) {
     goal: row.goal,
     isPublic: row.is_public,
     hostUserId: row.host_user_id,
-    adminAccessToken: row.admin_access_token,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -115,6 +114,7 @@ export async function GET(request: NextRequest) {
         ...mappedSession,
         isHost,
         isParticipant,
+        adminAccessToken: isHost ? session.admin_access_token : undefined,
         _count: {
           participants: participants.length,
           statements: statements.length,
