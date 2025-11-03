@@ -979,13 +979,24 @@ export default function AdminPage({
               </CardContent>
             </Card>
             {isShareQrFullscreen && fullscreenQrUrl && (
-              <div
-                className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm"
-                onClick={() => setIsShareQrFullscreen(false)}
-              >
+              <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm relative">
+                <button
+                  type="button"
+                  aria-label="全画面表示を閉じる"
+                  className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
+                  onClick={() => setIsShareQrFullscreen(false)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setIsShareQrFullscreen(false);
+                    }
+                  }}
+                />
                 <div
-                  className="relative flex w-full max-w-5xl flex-col items-center gap-6 text-center"
-                  onClick={(event) => event.stopPropagation()}
+                  className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 text-center"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="参加用QRコードの全画面表示"
                 >
                   <Button
                     type="button"
