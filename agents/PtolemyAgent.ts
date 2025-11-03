@@ -310,11 +310,11 @@ export class PtolemyAgent {
 
     await this.transition(instance.id, "COLLECTING_SURVEY", {
       surveyEventId,
-      statementIds,
+      statementIds: binaryStatementIds,
     });
     this.log(instance, "transitioned to COLLECTING_SURVEY", {
       surveyEventId,
-      statementCount: statementIds.length,
+      statementCount: binaryStatementIds.length,
     });
 
     return { status: "transitioned" };
