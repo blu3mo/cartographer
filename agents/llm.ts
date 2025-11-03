@@ -43,19 +43,15 @@ async function callLLM(
     requestBody.reasoning = { max_tokens: options.reasoning_max_tokens };
   }
 
-  const response = await axios.post(
-    OPENROUTER_API_URL,
-    requestBody,
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://cartographer.app",
-        "X-Title": "Cartographer-Agent",
-      },
-      timeout: 45000,
+  const response = await axios.post(OPENROUTER_API_URL, requestBody, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://cartographer.app",
+      "X-Title": "Cartographer-Agent",
     },
-  );
+    timeout: 45000,
+  });
 
   const content = response.data.choices[0].message.content;
   console.log("[LLM] response length", content?.length ?? 0);
@@ -91,7 +87,6 @@ export async function generatePlanMarkdown(input: {
   recentUserMessages?: string[];
   participantCount?: number;
 }): Promise<string> {
-
   const participantsLabel =
     typeof input.participantCount === "number"
       ? String(input.participantCount)
@@ -138,7 +133,6 @@ export async function generateSurveyStatements(input: {
   latestAnalysisMarkdown?: string;
   participantCount?: number;
 }): Promise<string[]> {
-
   const participantsLabel =
     typeof input.participantCount === "number"
       ? String(input.participantCount)
@@ -174,10 +168,9 @@ export async function generateSurveyStatements(input: {
 `;
 
   try {
-    const response = await callLLM(
-      [{ role: "user", content: prompt }],
-      { reasoning_max_tokens: 1 },
-    );
+    const response = await callLLM([{ role: "user", content: prompt }], {
+      reasoning_max_tokens: 1,
+    });
     const parsed = extractJsonArray(response);
     if (!parsed) {
       throw new Error("LLM response was not valid JSON array");
@@ -271,12 +264,12 @@ export async function generateSurveyAnalysisMarkdown(input: {
   const participantDetailsText =
     participantMap.size > 0
       ? Array.from(participantMap.values())
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((entry) => {
-          const lines = entry.responses.map((response) => `  ${response}`);
-          return `${entry.name}:\n${lines.join("\n")}`;
-        })
-        .join("\n\n")
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((entry) => {
+            const lines = entry.responses.map((response) => `  ${response}`);
+            return `${entry.name}:\n${lines.join("\n")}`;
+          })
+          .join("\n\n")
       : "  (回答なし)";
 
   const surveyResultsText = `${statementsText}\n\n参加者別回答:\n${participantDetailsText}`;

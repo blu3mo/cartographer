@@ -199,12 +199,13 @@ const formatPercentage = (value: number) => {
 export default function AdminPage({
   params,
 }: {
-  params: Promise<{ sessionId: string }>;
+  params: Promise<{ sessionId: string; accessToken: string }>;
 }) {
-  const { sessionId } = use(params);
+  const { sessionId, accessToken } = use(params);
   const { userId, isLoading: isUserIdLoading } = useUserId();
 
   const [data, setData] = useState<SessionAdminData | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -245,10 +246,15 @@ export default function AdminPage({
 
     try {
       setLoading(true);
-      const response = await axios.get(`/api/sessions/${sessionId}/admin`, {
-        headers: { Authorization: `Bearer ${userId}` },
-      });
-      const responseData = response.data.data as SessionAdminData;
+      const response = await axios.get(
+        `/api/sessions/${sessionId}/${accessToken}`,
+        {
+          headers: { Authorization: `Bearer ${userId}` },
+        },
+      );
+      const responseData = response.data.data as SessionAdminData & {
+        canEdit?: boolean;
+      };
       setData({
         ...responseData,
         goal: responseData.goal ?? "",
@@ -264,18 +270,19 @@ export default function AdminPage({
             ? responseData.totalParticipants
             : (responseData.participants?.length ?? 0),
       });
+      setCanEdit(responseData.canEdit ?? false);
       setError(null);
     } catch (err: unknown) {
       console.error("Failed to fetch admin data:", err);
       if (axios.isAxiosError(err) && err.response?.status === 403) {
-        setError("このセッションの管理権限がありません。");
+        setError("このセッションへのアクセス権限がありません。");
       } else {
         setError("データの取得に失敗しました。");
       }
     } finally {
       setLoading(false);
     }
-  }, [sessionId, userId]);
+  }, [sessionId, accessToken, userId]);
 
   const fetchEventThread = useCallback(
     async (withSpinner = false) => {
@@ -406,7 +413,7 @@ export default function AdminPage({
 
   const handleSaveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!userId) return;
+    if (!userId || !canEdit) return;
 
     setIsSavingSettings(true);
     setSettingsMessage(null);
@@ -414,7 +421,7 @@ export default function AdminPage({
 
     try {
       const response = await axios.patch(
-        `/api/sessions/${sessionId}/admin`,
+        `/api/sessions/${sessionId}/${accessToken}`,
         {
           title: editingTitle,
           context: editingContext,
@@ -509,6 +516,8 @@ export default function AdminPage({
   };
 
   const handleDeleteSession = async () => {
+    if (!canEdit) return;
+
     if (
       !confirm("このセッションを完全に削除しますか？この操作は取り消せません。")
     ) {
@@ -517,7 +526,7 @@ export default function AdminPage({
 
     try {
       setDeleting(true);
-      await axios.delete(`/api/sessions/${sessionId}/admin`, {
+      await axios.delete(`/api/sessions/${sessionId}/${accessToken}`, {
         headers: { Authorization: `Bearer ${userId}` },
       });
       alert("セッションを削除しました。");
@@ -1011,10 +1020,12 @@ export default function AdminPage({
                   <div>
                     <CardTitle className="text-lg">セッション情報</CardTitle>
                     <CardDescription>
-                      基本情報を編集してアップデートできます
+                      {canEdit
+                        ? "基本情報を編集してアップデートできます"
+                        : "セッションの基本情報"}
                     </CardDescription>
                   </div>
-                  {!isEditingSettings && (
+                  {!isEditingSettings && canEdit && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1205,14 +1216,15 @@ export default function AdminPage({
               <CardContent className="space-y-5">
                 <button
                   type="button"
-                  onClick={handleToggleShouldProceed}
-                  disabled={togglingProceed}
+                  こ
+                  onClick={canEdit ? handleToggleShouldProceed : undefined}
+                  disabled={togglingProceed || !canEdit}
                   aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
                   className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
                     threadData?.thread?.shouldProceed
                       ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
                       : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                  }`}
+                  } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -1250,25 +1262,27 @@ export default function AdminPage({
                   </div>
                 </button>
 
-                <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
-                  <p className="text-sm font-medium text-red-700">
-                    セッションを削除
-                  </p>
-                  <p className="mt-1 text-xs text-red-600">
-                    この操作は取り消せません。全てのデータが削除されます。
-                  </p>
-                  <Button
-                    onClick={handleDeleteSession}
-                    disabled={deleting}
-                    isLoading={deleting}
-                    variant="destructive"
-                    size="sm"
-                    className="mt-3 gap-1.5 text-xs"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    セッションを削除
-                  </Button>
-                </div>
+                {canEdit && (
+                  <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
+                    <p className="text-sm font-medium text-red-700">
+                      セッションを削除
+                    </p>
+                    <p className="mt-1 text-xs text-red-600">
+                      この操作は取り消せません。全てのデータが削除されます。
+                    </p>
+                    <Button
+                      onClick={handleDeleteSession}
+                      disabled={deleting}
+                      isLoading={deleting}
+                      variant="destructive"
+                      size="sm"
+                      className="mt-3 gap-1.5 text-xs"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      セッションを削除
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

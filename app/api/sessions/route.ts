@@ -11,6 +11,7 @@ type SessionRow = {
   goal: string;
   is_public: boolean;
   host_user_id: string;
+  admin_access_token: string;
   created_at: string;
   updated_at: string;
   participants?: { user_id: string }[] | null;
@@ -25,6 +26,7 @@ function mapSession(row: SessionRow) {
     goal: row.goal,
     isPublic: row.is_public,
     hostUserId: row.host_user_id,
+    adminAccessToken: row.admin_access_token,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -82,6 +84,7 @@ export async function GET(request: NextRequest) {
           goal,
           is_public,
           host_user_id,
+          admin_access_token,
           created_at,
           updated_at,
           participants ( user_id ),
@@ -184,7 +187,7 @@ export async function POST(request: NextRequest) {
         host_user_id: userId,
       })
       .select(
-        "id, title, context, goal, is_public, host_user_id, created_at, updated_at",
+        "id, title, context, goal, is_public, host_user_id, admin_access_token, created_at, updated_at",
       )
       .single();
 

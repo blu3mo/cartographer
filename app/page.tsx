@@ -23,6 +23,7 @@ type Session = {
   context: string;
   goal: string;
   hostUserId: string;
+  adminAccessToken: string;
   createdAt: string;
   isPublic: boolean;
   _count: {
@@ -221,7 +222,9 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                           size="sm"
                           onClick={(event) => {
                             event.stopPropagation();
-                            router.push(`/sessions/${session.id}/admin`);
+                            router.push(
+                              `/sessions/${session.id}/${session.adminAccessToken}`,
+                            );
                           }}
                         >
                           管理

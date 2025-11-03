@@ -403,8 +403,8 @@ export class PtolemyAgent {
     const participantIds = new Set(
       (responses ?? [])
         .map((response) => response.participant_user_id)
-        .filter(
-          (participantId): participantId is string => Boolean(participantId),
+        .filter((participantId): participantId is string =>
+          Boolean(participantId),
         ),
     );
 
@@ -641,7 +641,7 @@ export class PtolemyAgent {
       const participantResponses = statementResponses.map((response) => {
         const participantId = response.participant_user_id;
         const participantName = participantId
-          ? participantNameMap?.get(participantId) ?? truncate(participantId)
+          ? (participantNameMap?.get(participantId) ?? truncate(participantId))
           : "Unknown";
 
         switch (response.value) {

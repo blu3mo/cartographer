@@ -121,9 +121,7 @@ export default function AdminExtraPage({
           <h1 className="text-3xl font-bold tracking-tight mb-2">
             追加情報・モニタリング
           </h1>
-          <p className="text-muted-foreground">
-            Agent Monitor と PCA 分析
-          </p>
+          <p className="text-muted-foreground">Agent Monitor と PCA 分析</p>
         </div>
 
         <Card>
