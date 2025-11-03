@@ -869,37 +869,39 @@ export default function AdminPage({
                   </div>
                 </div>
 
-                <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                  <label
-                    htmlFor="adminMessage"
-                    className="text-xs font-medium text-slate-600"
-                  >
-                    ファシリテーターAIへのメッセージ
-                  </label>
-                  <textarea
-                    id="adminMessage"
-                    value={messageDraft}
-                    onChange={(event) => setMessageDraft(event.target.value)}
-                    rows={3}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                    placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
-                  />
-                  <div className="flex items-center justify-between">
-                    <Button
-                      type="button"
-                      onClick={handleSendMessage}
-                      disabled={
-                        sendingMessage || messageDraft.trim().length === 0
-                      }
-                      isLoading={sendingMessage}
-                      size="sm"
-                      className="gap-1.5 text-xs"
+                {canEdit && (
+                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+                    <label
+                      htmlFor="adminMessage"
+                      className="text-xs font-medium text-slate-600"
                     >
-                      <Send className="h-3.5 w-3.5" />
-                      送信
-                    </Button>
+                      ファシリテーターAIへのメッセージ
+                    </label>
+                    <textarea
+                      id="adminMessage"
+                      value={messageDraft}
+                      onChange={(event) => setMessageDraft(event.target.value)}
+                      rows={3}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
+                      placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
+                    />
+                    <div className="flex items-center justify-between">
+                      <Button
+                        type="button"
+                        onClick={handleSendMessage}
+                        disabled={
+                          sendingMessage || messageDraft.trim().length === 0
+                        }
+                        isLoading={sendingMessage}
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        送信
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
