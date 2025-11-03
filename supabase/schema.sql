@@ -154,3 +154,9 @@ alter publication supabase_realtime add table public.responses;
 -- Migration helpers --------------------------------------------------------
 alter table if exists public.sessions
   add column if not exists goal text not null default '';
+
+alter table if exists public.sessions
+  add column if not exists admin_access_token uuid not null default gen_random_uuid();
+
+create unique index if not exists sessions_admin_access_token_idx 
+  on public.sessions (admin_access_token);

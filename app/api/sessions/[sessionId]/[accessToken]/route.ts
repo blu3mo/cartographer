@@ -34,10 +34,10 @@ interface ParticipantProgress {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> },
+  { params }: { params: Promise<{ sessionId: string; accessToken: string }> },
 ) {
   try {
-    const { sessionId } = await params;
+    const { sessionId, accessToken } = await params;
     const userId = getUserIdFromRequest(request);
 
     if (!userId) {
@@ -47,10 +47,11 @@ export async function GET(
       );
     }
 
-    // Verify that the user is the host of this session
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, title, context, goal, is_public, created_at, host_user_id")
+      .select(
+        "id, title, context, goal, is_public, created_at, host_user_id, admin_access_token",
+      )
       .eq("id", sessionId)
       .single();
 
@@ -68,12 +69,14 @@ export async function GET(
       );
     }
 
-    if (session.host_user_id !== userId) {
+    if (session.admin_access_token !== accessToken) {
       return NextResponse.json(
-        { error: "Forbidden: You are not the host of this session" },
+        { error: "Forbidden: Invalid access token" },
         { status: 403 },
       );
     }
+
+    const isHost = session.host_user_id === userId;
 
     const { data: statements, error: statementsError } = await supabase
       .from("statements")
@@ -125,7 +128,6 @@ export async function GET(
       );
     }
 
-    // Calculate statistics for each statement
     const responseMap = new Map<string, { value: number }[]>();
     const participantResponseCount = new Map<string, number>();
 
@@ -208,7 +210,6 @@ export async function GET(
         const strongNoPercent =
           totalCount > 0 ? (strongNoCount / totalCount) * 100 : 0;
 
-        // Agreement score: absolute value of (yes+strongYes) - (no+strongNo)
         const positiveCount = strongYesCount + yesCount;
         const negativeCount = strongNoCount + noCount;
         const agreementScore = Math.abs(positiveCount - negativeCount);
@@ -231,7 +232,6 @@ export async function GET(
       },
     );
 
-    // Fetch the latest situation analysis report
     const { data: latestReport, error: latestReportError } = await supabase
       .from("situation_analysis_reports")
       .select("id, session_id, content_markdown, created_at")
@@ -271,6 +271,7 @@ export async function GET(
               createdAt: latestReport.created_at,
             }
           : undefined,
+        canEdit: isHost,
       },
     });
   } catch (error) {
@@ -284,10 +285,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> },
+  { params }: { params: Promise<{ sessionId: string; accessToken: string }> },
 ) {
   try {
-    const { sessionId } = await params;
+    const { sessionId, accessToken } = await params;
     const userId = getUserIdFromRequest(request);
 
     if (!userId) {
@@ -299,7 +300,7 @@ export async function PATCH(
 
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, host_user_id")
+      .select("id, host_user_id, admin_access_token")
       .eq("id", sessionId)
       .single();
 
@@ -317,9 +318,16 @@ export async function PATCH(
       );
     }
 
+    if (session.admin_access_token !== accessToken) {
+      return NextResponse.json(
+        { error: "Forbidden: Invalid access token" },
+        { status: 403 },
+      );
+    }
+
     if (session.host_user_id !== userId) {
       return NextResponse.json(
-        { error: "Forbidden: You are not the host of this session" },
+        { error: "Forbidden: Only the host can edit this session" },
         { status: 403 },
       );
     }
@@ -392,10 +400,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> },
+  { params }: { params: Promise<{ sessionId: string; accessToken: string }> },
 ) {
   try {
-    const { sessionId } = await params;
+    const { sessionId, accessToken } = await params;
     const userId = getUserIdFromRequest(request);
 
     if (!userId) {
@@ -407,7 +415,7 @@ export async function DELETE(
 
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, host_user_id")
+      .select("id, host_user_id, admin_access_token")
       .eq("id", sessionId)
       .single();
 
@@ -425,9 +433,16 @@ export async function DELETE(
       );
     }
 
+    if (session.admin_access_token !== accessToken) {
+      return NextResponse.json(
+        { error: "Forbidden: Invalid access token" },
+        { status: 403 },
+      );
+    }
+
     if (session.host_user_id !== userId) {
       return NextResponse.json(
-        { error: "Forbidden: You are not the host of this session" },
+        { error: "Forbidden: Only the host can delete this session" },
         { status: 403 },
       );
     }

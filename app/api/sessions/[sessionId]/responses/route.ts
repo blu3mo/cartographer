@@ -20,8 +20,8 @@ type ResponseRow = {
 
 function mapResponse(row: ResponseRow) {
   const statement = Array.isArray(row.statement)
-    ? row.statement[0] ?? null
-    : row.statement ?? null;
+    ? (row.statement[0] ?? null)
+    : (row.statement ?? null);
 
   return {
     id: row.id,

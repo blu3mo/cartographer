@@ -117,7 +117,8 @@ export default function NewSessionPage() {
       );
 
       const sessionId = response.data.session.id;
-      router.push(`/sessions/${sessionId}/admin`);
+      const adminAccessToken = response.data.session.adminAccessToken;
+      router.push(`/sessions/${sessionId}/${adminAccessToken}`);
     } catch (err) {
       console.error("Failed to create session:", err);
       setError("セッションの作成に失敗しました。もう一度お試しください。");

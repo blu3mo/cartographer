@@ -12,21 +12,19 @@ import {
   Maximize2,
   Pause,
   Play,
-  RefreshCcw,
   Send,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import {
+  type ReactElement,
   use,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactElement,
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -199,12 +197,13 @@ const formatPercentage = (value: number) => {
 export default function AdminPage({
   params,
 }: {
-  params: Promise<{ sessionId: string }>;
+  params: Promise<{ sessionId: string; accessToken: string }>;
 }) {
-  const { sessionId } = use(params);
+  const { sessionId, accessToken } = use(params);
   const { userId, isLoading: isUserIdLoading } = useUserId();
 
   const [data, setData] = useState<SessionAdminData | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -245,10 +244,15 @@ export default function AdminPage({
 
     try {
       setLoading(true);
-      const response = await axios.get(`/api/sessions/${sessionId}/admin`, {
-        headers: { Authorization: `Bearer ${userId}` },
-      });
-      const responseData = response.data.data as SessionAdminData;
+      const response = await axios.get(
+        `/api/sessions/${sessionId}/${accessToken}`,
+        {
+          headers: { Authorization: `Bearer ${userId}` },
+        },
+      );
+      const responseData = response.data.data as SessionAdminData & {
+        canEdit?: boolean;
+      };
       setData({
         ...responseData,
         goal: responseData.goal ?? "",
@@ -264,18 +268,19 @@ export default function AdminPage({
             ? responseData.totalParticipants
             : (responseData.participants?.length ?? 0),
       });
+      setCanEdit(responseData.canEdit ?? false);
       setError(null);
     } catch (err: unknown) {
       console.error("Failed to fetch admin data:", err);
       if (axios.isAxiosError(err) && err.response?.status === 403) {
-        setError("このセッションの管理権限がありません。");
+        setError("このセッションへのアクセス権限がありません。");
       } else {
         setError("データの取得に失敗しました。");
       }
     } finally {
       setLoading(false);
     }
-  }, [sessionId, userId]);
+  }, [sessionId, accessToken, userId]);
 
   const fetchEventThread = useCallback(
     async (withSpinner = false) => {
@@ -285,7 +290,7 @@ export default function AdminPage({
       }
       try {
         const response = await axios.get(
-          `/api/sessions/${sessionId}/event-thread`,
+          `/api/sessions/${sessionId}/${accessToken}/event-thread`,
           {
             headers: { Authorization: `Bearer ${userId}` },
           },
@@ -299,7 +304,7 @@ export default function AdminPage({
         setThreadLoading(false);
       }
     },
-    [sessionId, userId],
+    [sessionId, accessToken, userId],
   );
 
   useEffect(() => {
@@ -406,7 +411,7 @@ export default function AdminPage({
 
   const handleSaveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!userId) return;
+    if (!userId || !canEdit) return;
 
     setIsSavingSettings(true);
     setSettingsMessage(null);
@@ -414,7 +419,7 @@ export default function AdminPage({
 
     try {
       const response = await axios.patch(
-        `/api/sessions/${sessionId}/admin`,
+        `/api/sessions/${sessionId}/${accessToken}`,
         {
           title: editingTitle,
           context: editingContext,
@@ -455,7 +460,7 @@ export default function AdminPage({
   };
 
   const handleSendMessage = async () => {
-    if (!userId || messageDraft.trim().length === 0) return;
+    if (!userId || !canEdit || messageDraft.trim().length === 0) return;
     setSendingMessage(true);
     try {
       await axios.post(
@@ -476,7 +481,7 @@ export default function AdminPage({
   };
 
   const handleToggleShouldProceed = async () => {
-    if (!userId || !threadData?.thread) return;
+    if (!userId || !canEdit || !threadData?.thread) return;
     setTogglingProceed(true);
     try {
       const response = await axios.patch(
@@ -509,6 +514,8 @@ export default function AdminPage({
   };
 
   const handleDeleteSession = async () => {
+    if (!canEdit) return;
+
     if (
       !confirm("このセッションを完全に削除しますか？この操作は取り消せません。")
     ) {
@@ -517,7 +524,7 @@ export default function AdminPage({
 
     try {
       setDeleting(true);
-      await axios.delete(`/api/sessions/${sessionId}/admin`, {
+      await axios.delete(`/api/sessions/${sessionId}/${accessToken}`, {
         headers: { Authorization: `Bearer ${userId}` },
       });
       alert("セッションを削除しました。");
@@ -546,7 +553,7 @@ export default function AdminPage({
   const participants = data?.participants ?? [];
   const totalParticipants =
     data?.totalParticipants ?? participants?.length ?? 0;
-  const totalStatements =
+  const _totalStatements =
     data?.totalStatements ?? data?.statements?.length ?? 0;
   const statements = data?.statements ?? [];
 
@@ -688,7 +695,7 @@ export default function AdminPage({
     );
   }
 
-  const latestReport = data.latestSituationAnalysisReport;
+  const _latestReport = data.latestSituationAnalysisReport;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -808,9 +815,7 @@ export default function AdminPage({
               <CardHeader className="pb-4">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <CardTitle className="text-lg">
-                      進行ログ
-                    </CardTitle>
+                    <CardTitle className="text-lg">進行ログ</CardTitle>
                     <CardDescription>
                       ファシリテーターAIの進行状況をここから確認できます
                     </CardDescription>
@@ -864,37 +869,39 @@ export default function AdminPage({
                   </div>
                 </div>
 
-                <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                  <label
-                    htmlFor="adminMessage"
-                    className="text-xs font-medium text-slate-600"
-                  >
-                    ファシリテーターAIへのメッセージ
-                  </label>
-                  <textarea
-                    id="adminMessage"
-                    value={messageDraft}
-                    onChange={(event) => setMessageDraft(event.target.value)}
-                    rows={3}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                    placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
-                  />
-                  <div className="flex items-center justify-between">
-                    <Button
-                      type="button"
-                      onClick={handleSendMessage}
-                      disabled={
-                        sendingMessage || messageDraft.trim().length === 0
-                      }
-                      isLoading={sendingMessage}
-                      size="sm"
-                      className="gap-1.5 text-xs"
+                {canEdit && (
+                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+                    <label
+                      htmlFor="adminMessage"
+                      className="text-xs font-medium text-slate-600"
                     >
-                      <Send className="h-3.5 w-3.5" />
-                      送信
-                    </Button>
+                      ファシリテーターAIへのメッセージ
+                    </label>
+                    <textarea
+                      id="adminMessage"
+                      value={messageDraft}
+                      onChange={(event) => setMessageDraft(event.target.value)}
+                      rows={3}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
+                      placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
+                    />
+                    <div className="flex items-center justify-between">
+                      <Button
+                        type="button"
+                        onClick={handleSendMessage}
+                        disabled={
+                          sendingMessage || messageDraft.trim().length === 0
+                        }
+                        isLoading={sendingMessage}
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        送信
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -972,13 +979,24 @@ export default function AdminPage({
               </CardContent>
             </Card>
             {isShareQrFullscreen && fullscreenQrUrl && (
-              <div
-                className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm"
-                onClick={() => setIsShareQrFullscreen(false)}
-              >
+              <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm relative">
+                <button
+                  type="button"
+                  aria-label="全画面表示を閉じる"
+                  className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
+                  onClick={() => setIsShareQrFullscreen(false)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setIsShareQrFullscreen(false);
+                    }
+                  }}
+                />
                 <div
-                  className="relative flex w-full max-w-5xl flex-col items-center gap-6 text-center"
-                  onClick={(event) => event.stopPropagation()}
+                  className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 text-center"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="参加用QRコードの全画面表示"
                 >
                   <Button
                     type="button"
@@ -1013,10 +1031,12 @@ export default function AdminPage({
                   <div>
                     <CardTitle className="text-lg">セッション情報</CardTitle>
                     <CardDescription>
-                      基本情報を編集してアップデートできます
+                      {canEdit
+                        ? "基本情報を編集してアップデートできます"
+                        : "セッションの基本情報"}
                     </CardDescription>
                   </div>
-                  {!isEditingSettings && (
+                  {!isEditingSettings && canEdit && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1058,7 +1078,9 @@ export default function AdminPage({
                         className="mt-1 leading-relaxed whitespace-pre-wrap"
                         title={data.context ?? undefined}
                       >
-                        {data.context ? truncateText(data.context, 160) : "未設定"}
+                        {data.context
+                          ? truncateText(data.context, 160)
+                          : "未設定"}
                       </p>
                     </div>
                   </div>
@@ -1205,14 +1227,14 @@ export default function AdminPage({
               <CardContent className="space-y-5">
                 <button
                   type="button"
-                  onClick={handleToggleShouldProceed}
-                  disabled={togglingProceed}
+                  onClick={canEdit ? handleToggleShouldProceed : undefined}
+                  disabled={togglingProceed || !canEdit}
                   aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
                   className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
                     threadData?.thread?.shouldProceed
                       ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
                       : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                  }`}
+                  } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -1220,11 +1242,9 @@ export default function AdminPage({
                         新規Statementの自動生成
                       </p>
                       <p className="text-xs text-slate-600">
-                        {
-                          threadData?.thread?.shouldProceed
-                            ? "全員が回答を終えると、新しい質問が生成されます"
-                            : "全員が回答を終えても、新しい質問は生成されません"
-                        }
+                        {threadData?.thread?.shouldProceed
+                          ? "全員が回答を終えると、新しい質問が生成されます"
+                          : "全員が回答を終えても、新しい質問は生成されません"}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1244,7 +1264,7 @@ export default function AdminPage({
                           )}
                         </div>
                       </div>
-                      
+
                       {togglingProceed && (
                         <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                       )}
@@ -1252,25 +1272,27 @@ export default function AdminPage({
                   </div>
                 </button>
 
-                <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
-                  <p className="text-sm font-medium text-red-700">
-                    セッションを削除
-                  </p>
-                  <p className="mt-1 text-xs text-red-600">
-                    この操作は取り消せません。全てのデータが削除されます。
-                  </p>
-                  <Button
-                    onClick={handleDeleteSession}
-                    disabled={deleting}
-                    isLoading={deleting}
-                    variant="destructive"
-                    size="sm"
-                    className="mt-3 gap-1.5 text-xs"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    セッションを削除
-                  </Button>
-                </div>
+                {canEdit && (
+                  <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
+                    <p className="text-sm font-medium text-red-700">
+                      セッションを削除
+                    </p>
+                    <p className="mt-1 text-xs text-red-600">
+                      この操作は取り消せません。全てのデータが削除されます。
+                    </p>
+                    <Button
+                      onClick={handleDeleteSession}
+                      disabled={deleting}
+                      isLoading={deleting}
+                      variant="destructive"
+                      size="sm"
+                      className="mt-3 gap-1.5 text-xs"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      セッションを削除
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -1332,9 +1354,7 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
           <p className="truncate text-sm font-medium text-slate-900">
             {participant.name || "名称未設定"}
           </p>
-          <p className="text-[10px] text-slate-400">
-            最終更新: {updatedLabel}
-          </p>
+          <p className="text-[10px] text-slate-400">最終更新: {updatedLabel}</p>
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold text-slate-900">
@@ -1511,7 +1531,7 @@ function ThreadEventBubble({
     typeof event.progress === "number"
       ? event.progress
       : Number(event.progress ?? 0);
-  const progressPercent = Math.max(
+  const _progressPercent = Math.max(
     0,
     Math.min(100, Math.round(progressValue * 100)),
   );
@@ -1569,22 +1589,22 @@ function ThreadEventBubble({
         <>
           <ChevronDown className="h-3 w-3" />
           全文を見る
-      </>
-    )}
-  </button>
-) : null;
+        </>
+      )}
+    </button>
+  ) : null;
 
   const content = (() => {
     if (event.type === "survey" && visibleStatements.length > 0) {
-      return showFade ? wrapWithFade(statementsList) : plainContent(statementsList);
+      return showFade
+        ? wrapWithFade(statementsList)
+        : plainContent(statementsList);
     }
 
     if (markdown) {
       const markdownNode = (
         <div className={markdownProseClass}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {markdown}
-          </ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
         </div>
       );
 
@@ -1594,9 +1614,7 @@ function ThreadEventBubble({
 
       return wrapWithFade(
         <div className={`${markdownProseClass} max-h-48 overflow-hidden`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {markdown}
-          </ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
         </div>,
       );
     }
