@@ -1216,7 +1216,6 @@ export default function AdminPage({
               <CardContent className="space-y-5">
                 <button
                   type="button"
-                  こ
                   onClick={canEdit ? handleToggleShouldProceed : undefined}
                   disabled={togglingProceed || !canEdit}
                   aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
