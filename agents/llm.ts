@@ -11,7 +11,7 @@ function getLLMProvider() {
 
 async function callLLM(
   messages: LLMMessage[],
-  options?: { temperature?: number; reasoning_max_tokens?: number },
+  _options?: { temperature?: number; reasoning_max_tokens?: number },
 ): Promise<string> {
   const provider = getLLMProvider();
   return provider.callLLM(messages);
