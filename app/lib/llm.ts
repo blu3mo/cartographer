@@ -1,11 +1,12 @@
-import axios from "axios";
+import { createLLMProvider, type LLMMessage } from "./llm-provider";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-pro";
+let llmProvider: ReturnType<typeof createLLMProvider> | null = null;
 
-interface LLMMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
+function getLLMProvider() {
+  if (!llmProvider) {
+    llmProvider = createLLMProvider();
+  }
+  return llmProvider;
 }
 
 export function buildSessionBrief(
@@ -32,62 +33,8 @@ export function buildSessionBrief(
 }
 
 export async function callLLM(messages: LLMMessage[]): Promise<string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not set");
-  }
-
-  // Log input
-  console.log("=== LLM Input ===");
-  console.log("Model:", MODEL);
-  messages.forEach((msg, index) => {
-    console.log(`\n[Message ${index + 1}]`);
-    console.log(`Role: ${msg.role}`);
-    console.log(msg.content);
-  });
-  console.log("\n================\n");
-
-  try {
-    const response = await axios.post(
-      OPENROUTER_API_URL,
-      {
-        model: MODEL,
-        messages,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://cartographer.app",
-          "X-Title": "Cartographer",
-        },
-        timeout: 30000, // 30 second timeout
-      },
-    );
-
-    const output = response.data.choices[0].message.content;
-
-    // Log output
-    console.log("=== LLM Output ===");
-    console.log(output);
-    console.log("==================\n");
-
-    return output;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("LLM API Error:", {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      });
-
-      if (error.response?.status === 429) {
-        throw new Error("Rate limit exceeded. Please try again in a moment.");
-      }
-    }
-    console.error("LLM API Error:", error);
-    throw new Error("Failed to call LLM API");
-  }
+  const provider = getLLMProvider();
+  return provider.callLLM(messages);
 }
 
 // Fallback statements if LLM fails

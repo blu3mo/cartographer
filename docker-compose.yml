@@ -1,0 +1,159 @@
+version: '3.8'
+
+services:
+  # Supabase Studio - Web UI for database management
+  studio:
+    image: supabase/studio:20231123-64a766a
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+
+  # Kong API Gateway
+  kong:
+    image: kong:2.8.1
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+    volumes:
+      - ./supabase/kong.yml:/var/lib/kong/kong.yml:ro
+
+  # PostgreSQL Database
+  db:
+    image: supabase/postgres:15.1.0.147
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./supabase/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=10
+      - -c
+      - max_wal_senders=10
+
+  # PostgREST - REST API for PostgreSQL
+  rest:
+    image: postgrest/postgrest:v11.2.0
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      PGRST_DB_URI: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+
+  # Realtime - WebSocket server for real-time updates
+  realtime:
+    image: supabase/realtime:v2.25.35
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: postgres
+      DB_SSL: "false"
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET}
+      REPLICATION_MODE: RLS
+      REPLICATION_POLL_INTERVAL: 100
+      SECURE_CHANNELS: "true"
+      SLOT_NAME: supabase_realtime_rls
+      TEMPORARY_SLOT: "true"
+    command: >
+      bash -c "./prod/rel/realtime/bin/realtime eval 'Realtime.Release.migrate' && ./prod/rel/realtime/bin/realtime start"
+
+  # Meta - Database metadata API
+  meta:
+    image: supabase/postgres-meta:v0.68.0
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+
+  # Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - kong
+      - db
+    environment:
+      NODE_ENV: production
+      # Supabase configuration
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      # LLM configuration - OpenRouter (default)
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      # LLM configuration - Google Vertex AI (optional)
+      USE_VERTEX_AI: ${USE_VERTEX_AI:-false}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+      # Optional: Basic auth and IP restrictions
+      BASIC_AUTH_USERNAME: ${BASIC_AUTH_USERNAME}
+      BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD}
+      ALLOWED_IPS: ${ALLOWED_IPS}
+    volumes:
+      - ${GOOGLE_APPLICATION_CREDENTIALS_PATH}:${GOOGLE_APPLICATION_CREDENTIALS}:ro
+
+  # Agent System
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    restart: unless-stopped
+    depends_on:
+      - kong
+      - db
+      - realtime
+    environment:
+      NODE_ENV: production
+      # Supabase configuration
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://kong:8000}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      # LLM configuration - OpenRouter (default)
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      # LLM configuration - Google Vertex AI (optional)
+      USE_VERTEX_AI: ${USE_VERTEX_AI:-false}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+    volumes:
+      - ${GOOGLE_APPLICATION_CREDENTIALS_PATH}:${GOOGLE_APPLICATION_CREDENTIALS}:ro
+
+volumes:
+  db-data:

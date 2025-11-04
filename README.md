@@ -6,6 +6,10 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Cartographer can be run in two ways:
+
+### Option 1: Cloud Services (Supabase + OpenRouter)
+
 Cartographer needs a Supabase project and OpenRouter API access. Follow these quick steps, then read `GUIDE_ja.md` for the full setup and troubleshooting guide.
 
 ```bash
@@ -16,6 +20,17 @@ npm run agent                # optional: Ptolemy agent automation
 ```
 
 Everything after the basics—including schema import, environment tips, and operational flow—is documented in `GUIDE_ja.md`.
+
+### Option 2: Docker Compose (Self-Hosted)
+
+Run Cartographer completely locally without external dependencies using Docker Compose. This includes a local PostgreSQL database with Supabase stack and supports both OpenRouter and Google Vertex AI for LLM.
+
+```bash
+cp .env.docker.example .env.docker   # configure your settings
+docker-compose --env-file .env.docker up -d
+```
+
+Access the application at http://localhost:3000. See `DOCKER_SETUP.md` for detailed instructions.
 
 ## Learn More
 

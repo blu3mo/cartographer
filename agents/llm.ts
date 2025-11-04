@@ -1,61 +1,20 @@
-import axios from "axios";
+import { createLLMProvider, type LLMMessage } from "./llm-provider";
 
-type Role = "system" | "user" | "assistant";
+let llmProvider: ReturnType<typeof createLLMProvider> | null = null;
 
-interface LLMMessage {
-  role: Role;
-  content: string;
+function getLLMProvider() {
+  if (!llmProvider) {
+    llmProvider = createLLMProvider();
+  }
+  return llmProvider;
 }
-
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-pro";
 
 async function callLLM(
   messages: LLMMessage[],
   options?: { temperature?: number; reasoning_max_tokens?: number },
 ): Promise<string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not set");
-  }
-
-  console.log("[LLM] request", {
-    model: MODEL,
-    messageCount: messages.length,
-  });
-  messages.forEach((message, index) => {
-    console.log(`[LLM] message #${index + 1} (${message.role})`);
-    console.log(message.content);
-  });
-
-  const requestBody: {
-    model: string;
-    messages: LLMMessage[];
-    temperature: number;
-    reasoning?: { max_tokens: number };
-  } = {
-    model: MODEL,
-    messages,
-    temperature: options?.temperature ?? 0.7,
-  };
-
-  if (options?.reasoning_max_tokens !== undefined) {
-    requestBody.reasoning = { max_tokens: options.reasoning_max_tokens };
-  }
-
-  const response = await axios.post(OPENROUTER_API_URL, requestBody, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://cartographer.app",
-      "X-Title": "Cartographer-Agent",
-    },
-    timeout: 45000,
-  });
-
-  const content = response.data.choices[0].message.content;
-  console.log("[LLM] response length", content?.length ?? 0);
-  return content;
+  const provider = getLLMProvider();
+  return provider.callLLM(messages);
 }
 
 function extractJsonArray(text: string): string[] | null {
