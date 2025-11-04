@@ -58,6 +58,23 @@ create table if not exists public.responses (
 create index if not exists responses_statement_idx on public.responses (statement_id);
 create index if not exists responses_participant_idx on public.responses (participant_user_id, session_id);
 
+-- Participant Reflections ---------------------------------------------------
+create table if not exists public.participant_reflections (
+  id uuid primary key default gen_random_uuid(),
+  participant_user_id uuid not null,
+  session_id uuid not null,
+  text text not null,
+  created_at timestamptz not null default now(),
+  submitted_at timestamptz not null default now(),
+  constraint participant_reflections_participant_fk
+    foreign key (participant_user_id, session_id)
+    references public.participants(user_id, session_id)
+    on delete cascade
+);
+
+create index if not exists participant_reflections_session_idx
+  on public.participant_reflections (session_id, submitted_at desc);
+
 -- Situation Analysis Reports -------------------------------------------------
 create table if not exists public.situation_analysis_reports (
   id uuid primary key default gen_random_uuid(),
