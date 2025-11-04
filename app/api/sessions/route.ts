@@ -215,7 +215,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ session: mapSession(createdSessions) });
+    return NextResponse.json({
+      session: {
+        ...mapSession(createdSessions),
+        adminAccessToken: createdSessions.admin_access_token,
+      },
+    });
   } catch (error) {
     console.error("Session creation error:", error);
     return NextResponse.json(
