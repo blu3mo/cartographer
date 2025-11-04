@@ -581,40 +581,44 @@ export class PtolemyAgent {
       return [];
     }
 
-    return (
-      data
-        ?.map((row) => {
-          const text = typeof row.text === "string" ? row.text.trim() : "";
-          if (!text) return null;
-          const participant = row.participant as
-            | { name?: string | null }
-            | null
-            | undefined;
-          const submittedAtRaw =
-            typeof row.submitted_at === "string"
-              ? row.submitted_at
-              : row.submitted_at instanceof Date
-                ? row.submitted_at.toISOString()
-                : undefined;
-          const submittedAt =
-            submittedAtRaw && submittedAtRaw.length > 0
-              ? this.formatTimestamp(submittedAtRaw)
-              : undefined;
+    if (!data) {
+      return [];
+    }
 
-          return {
-            text,
-            name:
-              participant && typeof participant.name === "string"
-                ? participant.name
-                : undefined,
-            submittedAt,
-          };
-        })
-        .filter(
-          (reflection): reflection is ParticipantReflectionInput =>
-            reflection !== null,
-        ) ?? []
-    );
+    const reflections: ParticipantReflectionInput[] = [];
+
+    for (const row of data) {
+      const text = typeof row.text === "string" ? row.text.trim() : "";
+      if (!text) {
+        continue;
+      }
+
+      const participant = row.participant as
+        | { name?: string | null }
+        | null
+        | undefined;
+      const submittedAtRaw =
+        typeof row.submitted_at === "string"
+          ? row.submitted_at
+          : row.submitted_at instanceof Date
+            ? row.submitted_at.toISOString()
+            : undefined;
+      const submittedAt =
+        submittedAtRaw && submittedAtRaw.length > 0
+          ? this.formatTimestamp(submittedAtRaw)
+          : undefined;
+
+      reflections.push({
+        text,
+        name:
+          participant && typeof participant.name === "string"
+            ? participant.name
+            : undefined,
+        submittedAt,
+      });
+    }
+
+    return reflections;
   }
 
   private async getLatestEventMarkdown(

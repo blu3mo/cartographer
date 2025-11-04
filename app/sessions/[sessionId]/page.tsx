@@ -132,15 +132,6 @@ const RESPONSE_CHOICES: Array<{
   },
 ];
 
-const formatHistoryTimestamp = (value: string) =>
-  new Date(value).toLocaleString("ja-JP", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
 export default function SessionPage({
   params,
 }: {
@@ -1105,7 +1096,8 @@ export default function SessionPage({
             <CardHeader>
               <CardTitle>ここまでのふりかえり</CardTitle>
               <CardDescription>
-                ここまでの15問で特に関心があったことや、重要・面白いと感じた点、さらに議論したいことがあれば自由に書いてください。空欄のままでも次へ進めます。
+                ここまでの質問の中で、特に「深掘りしてほしい」と感じた質問やテーマはありましたか？<br></br>
+                また、まだ話題に上がっていない中で、あなたが議論したいことがあればぜひ教えてください。
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -1114,7 +1106,7 @@ export default function SessionPage({
                 onChange={(event) => setReflectionText(event.target.value)}
                 rows={6}
                 className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                placeholder="例）今深掘りしたい問い／YES・NOが分かれた背景／議論したいテーマなど"
+                placeholder="例）「○○についてもっと掘り下げたい」「まだ○○に関する視点が足りていないと思う」"
                 disabled={isSubmittingReflection}
               />
               {reflectionSubmissionError && (
@@ -1291,9 +1283,6 @@ export default function SessionPage({
                               <p className="text-sm font-medium text-foreground">
                                 {response.statementText}
                               </p>
-                              <span className="text-xs text-muted-foreground">
-                                {formatHistoryTimestamp(item.createdAt)}
-                              </span>
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
                               {RESPONSE_CHOICES.map((choice) => {
@@ -1338,21 +1327,20 @@ export default function SessionPage({
                       return (
                         <div
                           key={item.key}
-                          className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                          className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-medium text-foreground">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
                               ふりかえり
                             </span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatHistoryTimestamp(item.createdAt)}
-                            </span>
                           </div>
-                          <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
-                            {reflection.text.trim().length > 0
-                              ? reflection.text
-                              : "（記入なし）"}
-                          </p>
+                          <div className="mt-3 rounded-md border border-gray-300 bg-gray-50 px-3 py-3 shadow-inner">
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
+                              {reflection.text.trim().length > 0
+                                ? reflection.text
+                                : "（記入なし）"}
+                            </p>
+                          </div>
                         </div>
                       );
                     })}
