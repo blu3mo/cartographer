@@ -4,6 +4,7 @@ import {
   generatePlanMarkdown,
   generateSurveyAnalysisMarkdown,
   generateSurveyStatements,
+  type ParticipantReflectionInput,
   type StatementStat,
 } from "./llm";
 import type {
@@ -100,14 +101,19 @@ export class PtolemyAgent {
       payload: { markdown: "" },
     });
 
-    const [latestAnalysis, userMessages, eventThreadContext] =
-      await Promise.all([
-        this.getLatestEventMarkdown(context.thread.id, "survey_analysis"),
-        this.getRecentUserMessages(context.thread.id),
-        this.getEventThreadContext(context.thread.id),
-      ]);
-
-    const participantCount = await this.getParticipantCount(context.session.id);
+    const [
+      latestAnalysis,
+      userMessages,
+      eventThreadContext,
+      participantCount,
+      participantReflections,
+    ] = await Promise.all([
+      this.getLatestEventMarkdown(context.thread.id, "survey_analysis"),
+      this.getRecentUserMessages(context.thread.id),
+      this.getEventThreadContext(context.thread.id),
+      this.getParticipantCount(context.session.id),
+      this.getParticipantReflections(context.session.id),
+    ]);
 
     let markdown: string;
     try {
@@ -119,6 +125,7 @@ export class PtolemyAgent {
         recentUserMessages: userMessages,
         eventThreadContext,
         participantCount,
+        participantReflections,
       });
     } catch (error) {
       const message = this.stringifyError(error);
@@ -552,6 +559,66 @@ export class PtolemyAgent {
     }
 
     return count ?? 0;
+  }
+
+  private async getParticipantReflections(
+    sessionId: string,
+  ): Promise<ParticipantReflectionInput[]> {
+    const { data, error } = await this.supabase
+      .from("participant_reflections")
+      .select(
+        `
+          text,
+          submitted_at,
+          participant:participants(name)
+        `,
+      )
+      .eq("session_id", sessionId)
+      .order("submitted_at", { ascending: true });
+
+    if (error) {
+      console.error("[Ptolemy] Failed to load participant reflections:", error);
+      return [];
+    }
+
+    if (!data) {
+      return [];
+    }
+
+    const reflections: ParticipantReflectionInput[] = [];
+
+    for (const row of data) {
+      const text = typeof row.text === "string" ? row.text.trim() : "";
+      if (!text) {
+        continue;
+      }
+
+      const participant = row.participant as
+        | { name?: string | null }
+        | null
+        | undefined;
+      const submittedAtRaw =
+        typeof row.submitted_at === "string"
+          ? row.submitted_at
+          : row.submitted_at instanceof Date
+            ? row.submitted_at.toISOString()
+            : undefined;
+      const submittedAt =
+        submittedAtRaw && submittedAtRaw.length > 0
+          ? this.formatTimestamp(submittedAtRaw)
+          : undefined;
+
+      reflections.push({
+        text,
+        name:
+          participant && typeof participant.name === "string"
+            ? participant.name
+            : undefined,
+        submittedAt,
+      });
+    }
+
+    return reflections;
   }
 
   private async getLatestEventMarkdown(

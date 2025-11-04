@@ -7,6 +7,12 @@ interface LLMMessage {
   content: string;
 }
 
+export type ParticipantReflectionInput = {
+  text: string;
+  name?: string;
+  submittedAt?: string;
+};
+
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "google/gemini-2.5-pro";
 
@@ -53,8 +59,21 @@ async function callLLM(
     timeout: 45000,
   });
 
-  const content = response.data.choices[0].message.content;
-  console.log("[LLM] response length", content?.length ?? 0);
+  const data = response.data;
+  const choices = Array.isArray(data?.choices) ? data.choices : null;
+  if (!choices || choices.length === 0) {
+    console.error("[LLM] Unexpected response payload", data);
+    throw new Error("LLM response was missing choices");
+  }
+
+  const choice = choices[0];
+  const content = choice?.message?.content;
+  if (typeof content !== "string") {
+    console.error("[LLM] Unexpected choice message", choice);
+    throw new Error("LLM response was missing message content");
+  }
+
+  console.log("[LLM] response length", content.length);
   return content;
 }
 
@@ -86,11 +105,30 @@ export async function generatePlanMarkdown(input: {
   latestAnalysisMarkdown?: string;
   recentUserMessages?: string[];
   participantCount?: number;
+  participantReflections?: ParticipantReflectionInput[];
 }): Promise<string> {
   const participantsLabel =
     typeof input.participantCount === "number"
       ? String(input.participantCount)
       : "unknown";
+  const reflectionsSection =
+    input.participantReflections && input.participantReflections.length > 0
+      ? `<participant_reflections>
+${input.participantReflections
+  .map((reflection) => {
+    const nameAttribute =
+      reflection.name && reflection.name.length > 0
+        ? ` name="${reflection.name}"`
+        : "";
+    const timestampAttribute =
+      reflection.submittedAt && reflection.submittedAt.length > 0
+        ? ` submitted_at="${reflection.submittedAt}"`
+        : "";
+    return `<reflection${nameAttribute}${timestampAttribute}>${reflection.text}</reflection>`;
+  })
+  .join("\n")}
+</participant_reflections>`
+      : "";
 
   const prompt = `
 <role>
@@ -111,6 +149,7 @@ export async function generatePlanMarkdown(input: {
 <context>
   ${input.eventThreadContext}
   <initial_context>${input.initialContext}</initial_context>
+  ${reflectionsSection}
 </context>
 <output>MarkdownのみでPLANセクションの中身を返してください。前置きなく、本文のみを生成してください。</output>
 `;
@@ -152,8 +191,6 @@ export async function generateSurveyStatements(input: {
 - 解釈のブレが生じないよう、必要であれば5W1Hを明示してシャープに表現すること。
 - 参加者の立ち位置がYES/NOで鮮明に分かれ、背後の動機が推測できるようにする。
 - 今後も質問を繰り返すので、今回だけで調査目的を達成する必要はない。深掘りを急がずに、まず今集めるべき情報を集めてほしい。
-
-想定読者は参加者です。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
@@ -285,8 +322,6 @@ Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果�
 - 多くがまだ判断できていない点、わからない点。
 - 集団の傾向、クラスタなど（バイネームの分析）
 また、それらからわかることを論理的に考察し、仮説を立てる。
-
-想定読者は参加者です。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
