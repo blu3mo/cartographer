@@ -322,6 +322,14 @@ export default function AdminPage({
   }, [fetchEventThread, isUserIdLoading, userId]);
 
   useEffect(() => {
+    if (isUserIdLoading || !userId) return;
+    const intervalId = window.setInterval(() => {
+      void fetchAdminData();
+    }, 6000);
+    return () => window.clearInterval(intervalId);
+  }, [fetchAdminData, isUserIdLoading, userId]);
+
+  useEffect(() => {
     if (data) {
       setEditingTitle(data.title);
       setEditingContext(data.context);
@@ -1335,7 +1343,6 @@ interface ParticipantProgressRowProps {
 }
 
 function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
-  const completionLabel = formatPercentage(participant.completionRate);
   const updatedLabel = formatDateTime(participant.updatedAt);
   const progressRatio =
     participant.totalStatements > 0
@@ -1358,9 +1365,6 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold text-slate-900">
-            {completionLabel}
-          </p>
-          <p className="text-[10px] text-slate-500">
             {participant.answeredCount}/{participant.totalStatements}
           </p>
         </div>
