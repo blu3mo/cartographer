@@ -1096,7 +1096,8 @@ export default function SessionPage({
             <CardHeader>
               <CardTitle>ここまでのふりかえり</CardTitle>
               <CardDescription>
-                ここまでの質問の中で、特に「深掘りしてほしい」と感じた質問やテーマはありましたか？<br></br>
+                ここまでの質問の中で、特に「深掘りしてほしい」と感じた質問やテーマはありましたか？
+                <br></br>
                 また、まだ話題に上がっていない中で、あなたが議論したいことがあればぜひ教えてください。
               </CardDescription>
             </CardHeader>

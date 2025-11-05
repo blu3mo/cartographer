@@ -6,7 +6,28 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-Cartographer needs a Supabase project and OpenRouter API access. Follow these quick steps, then read `GUIDE_ja.md` for the full setup and troubleshooting guide.
+Cartographer can run with either cloud Supabase or local Supabase via Docker.
+
+### Option 1: Docker Compose (Recommended for Local Development)
+
+Run everything locally with a single command:
+
+```bash
+# Copy and configure environment file
+cp .env.docker .env
+# Edit .env and set your OPENROUTER_API_KEY
+
+# Start all services (Supabase + Web + Agent)
+docker compose up
+```
+
+The application will be available at:
+- Web UI: http://localhost:3000
+- Supabase Studio: http://localhost:54321 (username: supabase, password: supabase)
+
+### Option 2: Cloud Supabase
+
+Use a cloud-hosted Supabase project:
 
 ```bash
 cp .env.example .env.local   # fill in Supabase + OpenRouter keys

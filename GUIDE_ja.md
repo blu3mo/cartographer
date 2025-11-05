@@ -7,11 +7,116 @@
 ## 1. システム概要
 
 - **アプリ本体**: Next.js 15 (App Router) + React 19 で構築されたフロントエンド/バックエンド。`app/api` 配下に API ルートを実装。
-- **データストア**: Supabase（PostgreSQL/Realtime）を採用。`supabase/schema.sql` でテーブルを管理。
+- **データストア**: Supabase（PostgreSQL/Realtime）を採用。クラウド版またはローカル Docker 版を選択可能。`supabase/schema.sql` でテーブルを管理。
 - **LLM 連携**: OpenRouter 経由で Google Gemini 2.5 Pro を呼び出し、セッションゴール・ステートメント・分析レポートを生成。
 - **エージェント**: `npm run agent` で起動する Node.js プロセス。Supabase Realtime を購読し、Plan → Survey → Analysis のイベント生成を自動化（`agents/AgentManager.ts` + `agents/PtolemyAgent.ts`）。
 
-### 1.1 コンポーネントのつながり（ざっくり版）
+## 2. セットアップ方法の選択
+
+Cartographer は2つの方法で実行できます：
+
+### 方法 A: Docker Compose（推奨・ローカル開発向け）
+
+**メリット**:
+- 外部サービスに依存せず、完全にローカルで動作
+- `docker compose up` 一つでWebサーバー、Supabase DB、Agentが起動
+- 環境構築が簡単で、すぐに開発を始められる
+
+**必要なもの**:
+- Docker と Docker Compose
+- OpenRouter API キー（LLM用）
+
+**セットアップ手順**: → [セクション 3-A](#3-a-docker-compose-でのセットアップ) へ
+
+### 方法 B: クラウド Supabase
+
+**メリット**:
+- 本番環境に近い構成で開発できる
+- Supabase の管理画面が使える
+- データが永続化される
+
+**必要なもの**:
+- Supabase プロジェクト（クラウド）
+- OpenRouter API キー
+- Node.js 18.x 以上
+
+**セットアップ手順**: → [セクション 3-B](#3-b-クラウド-supabase-でのセットアップ) へ
+
+---
+
+## 3-A. Docker Compose でのセットアップ
+
+### 3-A-1. 前提ツール
+
+- Docker Desktop（[Windows](https://docs.docker.com/desktop/install/windows-install/), [macOS](https://docs.docker.com/desktop/install/mac-install/), [Linux](https://docs.docker.com/desktop/install/linux-install/)）
+- Git
+
+インストール確認:
+
+```bash
+docker --version
+docker compose version
+git --version
+```
+
+### 3-A-2. リポジトリのクローン
+
+```bash
+git clone https://github.com/blu3mo/cartographer.git
+cd cartographer
+```
+
+### 3-A-3. 環境変数の設定
+
+```bash
+# .env.docker をコピーして .env を作成
+cp .env.docker .env
+
+# .env を編集して OpenRouter API キーを設定
+# OPENROUTER_API_KEY=your_actual_api_key_here
+```
+
+**重要**: `.env` ファイルの `OPENROUTER_API_KEY` を実際の API キーに置き換えてください。その他のデフォルト値（JWT_SECRET、パスワードなど）は開発環境ではそのまま使用できますが、本番環境では必ず変更してください。
+
+### 3-A-4. サービスの起動
+
+```bash
+docker compose up
+```
+
+初回起動時は Docker イメージのダウンロードとビルドに時間がかかります（5〜10分程度）。
+
+すべてのサービスが起動したら、以下の URL にアクセスできます：
+
+- **Web UI**: http://localhost:3000
+- **Supabase Studio**: http://localhost:54321
+  - ユーザー名: `supabase`
+  - パスワード: `supabase`
+
+### 3-A-5. サービスの停止
+
+```bash
+# Ctrl+C でフォアグラウンド実行を停止、または
+docker compose down
+
+# データベースのデータも削除する場合
+docker compose down -v
+```
+
+### 3-A-6. トラブルシューティング
+
+| 症状 | 対処法 |
+| --- | --- |
+| ポート 3000 が使用中 | `.env` の `WEB_PORT` を変更（例: `WEB_PORT=3001`） |
+| ポート 54321 が使用中 | `.env` の `KONG_HTTP_PORT` を変更（例: `KONG_HTTP_PORT=54323`） |
+| データベース接続エラー | `docker compose down -v` でボリュームを削除してから再起動 |
+| Agent が動作しない | `docker compose logs agent` でログを確認 |
+
+---
+
+## 3-B. クラウド Supabase でのセットアップ
+
+### 3-B-1. コンポーネントのつながり（ざっくり版）
 
 1. **ブラウザ (Next.js アプリ)**
    - ユーザーがセッションを作成・回答するための UI を提供。
@@ -30,7 +135,7 @@
 
 ---
 
-## 2. リポジトリ構成
+## 3-B-2. リポジトリ構成
 
 | パス | 説明 |
 | --- | --- |
@@ -43,7 +148,7 @@
 
 ---
 
-## 3. 必要な外部サービス・アカウント
+## 3-B-3. 必要な外部サービス・アカウント
 
 1. **Supabase プロジェクト**
    - プロジェクト URL (`NEXT_PUBLIC_SUPABASE_URL`)
@@ -55,7 +160,7 @@
 
 ---
 
-## 4. 前提ツール
+## 3-B-4. 前提ツール
 
 - Node.js 18.x 以上（推奨: Node.js 20 LTS）
 - npm（標準で付属）または pnpm/bun（任意）
@@ -73,7 +178,7 @@ psql --version
 
 ---
 
-## 5. 環境変数の設定
+## 3-B-5. 環境変数の設定
 
 ### 5.1 `.env.local`
 
@@ -108,7 +213,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
 
 ---
 
-## 6. 依存パッケージのインストール
+## 3-B-6. 依存パッケージのインストール
 
 ```bash
 npm install
@@ -118,7 +223,7 @@ npm install
 
 ---
 
-## 7. データベース準備
+## 3-B-7. データベース準備
 
 1. Supabase のプロジェクトを作成し、Database → SQL Editor を開きます。
 2. `supabase/schema.sql` の内容をまるごと貼り付けて実行してください。
@@ -129,7 +234,7 @@ npm install
 
 ---
 
-## 8. 開発サーバーの起動
+## 3-B-8. 開発サーバーの起動
 
 フロントエンド/Next.js API を起動:
 
@@ -143,7 +248,7 @@ npm run dev
 
 ---
 
-## 9. エージェントの起動
+## 3-B-9. エージェントの起動
 
 Plan → Survey → Analysis の自動生成には、別ターミナルでエージェントを起動する必要があります。
 
@@ -157,22 +262,22 @@ npm run agent
 
 ---
 
-## 10. アプリの基本フロー
+## 4. アプリの基本フロー
 
-### 10.1 ホスト（管理者）
+### 4.1 ホスト（管理者）
 
 1. トップページ (`/`) で「新しいセッション」をクリック。
 2. セッションタイトル、関係者、得たい洞察などの入力を埋め、必要なら「ゴールを生成」を実行（`app/sessions/new/page.tsx`）。
 3. 作成完了後、`/sessions/{id}/admin` に遷移。Event Thread タイムラインが表示されます。
 4. `shouldProceed` を切り替えることでエージェントの進行を制御可能。User Message を追加するとプロンプト履歴に反映されます。
 
-### 10.2 参加者
+### 4.2 参加者
 
 1. `/sessions/{id}` にアクセス。初回アクセス時に名前を入力して参加登録（`app/api/sessions/[sessionId]/participants/route.ts`）。
 2. ステートメントカードに表示された問いへ 5 段階（-2〜2）の回答を送信。
 3. 任意で「じぶんレポート」を生成すると、自分の回答傾向に基づいた Markdown レポートが `individual_reports` に保存されます。
 
-### 10.3 自動生成フロー
+### 4.3 自動生成フロー
 
 - `ensureEventThreadForSession` がセッション作成時に `event_threads` と `agent_instances` を自動用意し、初期 `user_message` を投入します (`app/lib/server/event-threads.ts`)。
 - エージェントは状態遷移に応じて `events` テーブルへ `plan` / `survey` / `survey_analysis` を追加し、必要に応じて `statements` と `responses` を参照します。
@@ -180,7 +285,7 @@ npm run agent
 
 ---
 
-## 11. よく使う npm スクリプト
+## 5. よく使う npm スクリプト
 
 | コマンド | 説明 |
 | --- | --- |
@@ -193,7 +298,7 @@ npm run agent
 
 ---
 
-## 12. テストと検証
+## 6. テストと検証
 
 現時点で自動テストは整備されていないため、以下を手動確認してください。
 
@@ -206,7 +311,7 @@ Supabase ダッシュボードで `sessions`, `statements`, `events` などの�
 
 ---
 
-## 13. トラブルシューティング
+## 7. トラブルシューティング
 
 | 症状 | チェックポイント |
 | --- | --- |
@@ -219,7 +324,7 @@ Supabase ダッシュボードで `sessions`, `statements`, `events` などの�
 
 ---
 
-## 14. 運用上のヒント
+## 8. 運用上のヒント
 
 - **shouldProceed の活用**: 管理画面のトグルでエージェントを一時停止できます。Plan を確認してから Survey に進ませたい場合などに有効です。
 - **User Message**: セッション文脈に追加指示を与えたいときは管理画面からメッセージを投稿すると `events` に `user_message` として記録され、次回生成時のプロンプトに反映されます。

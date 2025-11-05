@@ -18,14 +18,15 @@ export class AgentManager {
   private isRefreshing = false;
 
   constructor(
-    private readonly supabaseUrl: string = process.env
-      .NEXT_PUBLIC_SUPABASE_URL ?? "",
+    private readonly supabaseUrl: string = process.env.SUPABASE_URL ??
+      process.env.NEXT_PUBLIC_SUPABASE_URL ??
+      "",
     private readonly supabaseServiceRoleKey: string = process.env
       .SUPABASE_SERVICE_ROLE_KEY ?? "",
   ) {
     if (!this.supabaseUrl || !this.supabaseServiceRoleKey) {
       throw new Error(
-        "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+        "Missing SUPABASE_URL/NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
       );
     }
 
