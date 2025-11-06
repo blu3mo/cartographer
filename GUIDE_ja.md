@@ -112,6 +112,70 @@ docker compose down -v
 | データベース接続エラー | `docker compose down -v` でボリュームを削除してから再起動 |
 | Agent が動作しない | `docker compose logs agent` でログを確認 |
 
+### 3-A-7. サーバーごとに `.env.docker` を生成する
+
+ローカルの `.env.docker` はサンプル値です。**本番や別サーバーで動かすときは、そのマシン上で秘密情報を生成してください。**
+
+まずは自動生成スクリプトを使うのが簡単です:
+
+```bash
+npm run setup:docker-env -- --output .env.docker.local
+```
+
+既存ファイルを上書きしたい場合は `--force` を付けてください。手動で行いたい場合は次の手順を参考にしてください。
+
+1. **テンプレートをコピー**
+   ```bash
+   cp .env.docker .env.docker.local
+   ```
+   以降のコマンドでは常に `--env-file .env.docker.local` を指定します。
+
+2. **`JWT_SECRET` を作業先で生成**  
+   ```bash
+   openssl rand -base64 48
+   ```
+   生成した値を `JWT_SECRET=` に貼り付けます。
+
+3. **`ANON_KEY` / `SERVICE_ROLE_KEY` を `JWT_SECRET` で署名**  
+   作業先サーバーで以下を実行し、出力された 2 つのトークンを `.env.docker.local` に書き込みます。
+   ```bash
+   JWT_SECRET=（上で決めた値） node - <<'NODE'
+   const jwt = require('jsonwebtoken');
+   const secret = process.env.JWT_SECRET;
+   if (!secret) throw new Error('JWT_SECRET is not set');
+   const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365 * 10;
+   const make = (role) =>
+     jwt.sign({ iss: 'supabase-local', role, exp }, secret, { algorithm: 'HS256' });
+   console.log('ANON_KEY=' + make('anon'));
+   console.log('SERVICE_ROLE_KEY=' + make('service_role'));
+   NODE
+   ```
+
+4. **その他のパスワードもその場で生成**  
+   `POSTGRES_PASSWORD`, `SECRET_KEY_BASE`, `PG_META_CRYPTO_KEY` なども `openssl rand -base64 32` などで作成し直します。
+
+5. **`.env.docker.local` で起動**
+   ```bash
+   docker compose --env-file .env.docker.local up -d
+   ```
+
+6. **（初回のみ）マイグレーションを適用**  
+   ```bash
+   docker compose --env-file .env.docker.local up db-migrator
+   ```
+   `supabase/schema.sql` 内の DO ブロックが `_realtime.tenants` の `jwt_secret` を `JWT_SECRET` と同期させるので、PostgREST と Realtime で JWT が一致します。
+
+7. **確認コマンド**
+   ```bash
+   docker compose --env-file .env.docker.local exec db \
+     psql -U postgres -d postgres \
+     -c "select current_setting('app.settings.jwt_secret', true);"
+   docker compose --env-file .env.docker.local exec db \
+     psql -U postgres -d postgres \
+     -c "select left(jwt_secret,20) from _realtime.tenants where name='realtime-dev';"
+   ```
+   先頭 20 文字が一致していれば設定完了です。
+
 ---
 
 ## 3-B. クラウド Supabase でのセットアップ
