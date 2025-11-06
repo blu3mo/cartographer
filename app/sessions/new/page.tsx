@@ -83,7 +83,7 @@ export default function NewSessionPage() {
 
     pollingIntervalRef.current = setInterval(() => {
       fetchSuggestions();
-    }, 10000);
+    }, 5000);
 
     return () => {
       if (pollingIntervalRef.current) {
