@@ -1094,10 +1094,9 @@ export default function SessionPage({
         {state === "REFLECTION" && (
           <Card>
             <CardHeader>
-              <CardTitle>ここまでのふりかえり</CardTitle>
+              <CardTitle>追加の論点・ご意見</CardTitle>
               <CardDescription>
-                ここまでの質問の中で、特に「深掘りしてほしい」と感じた質問やテーマはありましたか？<br></br>
-                また、まだ話題に上がっていない中で、あなたが議論したいことがあればぜひ教えてください。
+                これまでに取り上げていない話題で、『こんなことについて議論したい』『他の人の意見も聞いてみたい』というテーマや問いがあれば、ぜひ教えてください。今後の質問に反映されます。
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
