@@ -132,29 +132,12 @@ export async function POST(
       };
     });
 
-    const { data: latestReport, error: latestReportError } = await supabase
-      .from("situation_analysis_reports")
-      .select("id, session_id, content_markdown, created_at")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestReportError && latestReportError.code !== "PGRST116") {
-      console.error("Failed to fetch latest report:", latestReportError);
-      return NextResponse.json(
-        { error: "Failed to generate new statements" },
-        { status: 500 },
-      );
-    }
-
     // Generate new statements using LLM
     const sessionBrief = buildSessionBrief(session.goal, session.context);
     const newStatementTexts = await generateNewStatements(
       session.title,
       sessionBrief,
       statementsWithStats,
-      latestReport?.content_markdown,
     );
 
     // Get the maximum order index

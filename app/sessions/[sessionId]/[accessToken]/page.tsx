@@ -60,13 +60,6 @@ interface StatementWithStats {
   agreementScore: number;
 }
 
-interface SituationAnalysisReport {
-  id: string;
-  sessionId: string;
-  contentMarkdown: string;
-  createdAt: string;
-}
-
 interface ParticipantProgress {
   userId: string;
   name: string;
@@ -84,7 +77,6 @@ interface SessionAdminData {
   isPublic: boolean;
   createdAt: string;
   statements: StatementWithStats[];
-  latestSituationAnalysisReport?: SituationAnalysisReport;
   participants: ParticipantProgress[];
   totalStatements: number;
   totalParticipants: number;
@@ -694,8 +686,6 @@ export default function AdminPage({
       </div>
     );
   }
-
-  const _latestReport = data.latestSituationAnalysisReport;
 
   return (
     <div className="min-h-screen bg-slate-50">
