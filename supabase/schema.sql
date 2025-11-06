@@ -168,6 +168,24 @@ alter publication supabase_realtime add table public.agent_instances;
 alter publication supabase_realtime add table public.events;
 alter publication supabase_realtime add table public.responses;
 
+-- ensure the realtime tenant uses the same JWT secret as PostgREST
+do $$
+declare
+  realtime_secret text := current_setting('app.settings.jwt_secret', true);
+begin
+  if realtime_secret is null then
+    raise notice 'JWT secret is not configured; skipping realtime tenant update';
+  else
+    update _realtime.tenants
+      set jwt_secret = realtime_secret
+      where name = 'realtime-dev';
+  end if;
+exception
+  when undefined_table then
+    raise notice '_realtime.tenants not available; skipping realtime tenant update';
+end
+$$;
+
 -- Migration helpers --------------------------------------------------------
 alter table if exists public.sessions
   add column if not exists goal text not null default '';
