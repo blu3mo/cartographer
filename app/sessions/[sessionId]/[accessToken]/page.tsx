@@ -8,10 +8,12 @@ import {
   ChevronUp,
   Copy,
   ExternalLink,
+  FileText,
   Loader2,
   Maximize2,
   Pause,
   Play,
+  Printer,
   Send,
   Trash2,
   X,
@@ -120,6 +122,49 @@ interface EventThreadResponse {
   events: TimelineEvent[];
   agents: unknown[];
 }
+
+type SessionReportStatus = "pending" | "generating" | "completed" | "failed";
+
+interface SessionReport {
+  id: string;
+  sessionId: string;
+  version: number;
+  status: SessionReportStatus;
+  requestMarkdown: string;
+  contentMarkdown: string | null;
+  createdBy: string;
+  model: string;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+const REPORT_STATUS_META: Record<
+  SessionReportStatus,
+  { label: string; dot: string; text: string }
+> = {
+  pending: {
+    label: "待機中",
+    dot: "bg-amber-500",
+    text: "text-amber-600",
+  },
+  generating: {
+    label: "生成中",
+    dot: "bg-sky-500",
+    text: "text-sky-600",
+  },
+  completed: {
+    label: "完了",
+    dot: "bg-emerald-500",
+    text: "text-emerald-600",
+  },
+  failed: {
+    label: "失敗",
+    dot: "bg-rose-500",
+    text: "text-rose-600",
+  },
+};
 
 const EVENT_TYPE_META: Record<
   ThreadEventType,
@@ -230,6 +275,15 @@ export default function AdminPage({
   const [isShareQrFullscreen, setIsShareQrFullscreen] = useState(false);
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const lastThreadEventIdRef = useRef<string | null>(null);
+  const [reports, setReports] = useState<SessionReport[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [reportRequest, setReportRequest] = useState("");
+  const [creatingReport, setCreatingReport] = useState(false);
+  const [reportCopyStatus, setReportCopyStatus] = useState<
+    "idle" | "copied" | "error"
+  >("idle");
 
   const fetchAdminData = useCallback(async () => {
     if (!userId) return;
@@ -299,6 +353,41 @@ export default function AdminPage({
     [sessionId, accessToken, userId],
   );
 
+  const fetchReports = useCallback(
+    async (withSpinner = false) => {
+      if (!userId) return;
+      if (withSpinner) {
+        setReportsLoading(true);
+      }
+      try {
+        const response = await axios.get(
+          `/api/sessions/${sessionId}/${accessToken}/reports`,
+          {
+            headers: { Authorization: `Bearer ${userId}` },
+          },
+        );
+        const list = (response.data.data ?? []) as SessionReport[];
+        setReports(list);
+        setReportsError(null);
+        setSelectedReportId((current) => {
+          if (list.length === 0) {
+            return null;
+          }
+          if (current && list.some((report) => report.id === current)) {
+            return current;
+          }
+          return list[0].id;
+        });
+      } catch (err) {
+        console.error("Failed to fetch session reports:", err);
+        setReportsError("レポート一覧の取得に失敗しました。");
+      } finally {
+        setReportsLoading(false);
+      }
+    },
+    [sessionId, accessToken, userId],
+  );
+
   useEffect(() => {
     if (isUserIdLoading) return;
     void fetchAdminData();
@@ -312,6 +401,38 @@ export default function AdminPage({
     }, 6000);
     return () => window.clearInterval(intervalId);
   }, [fetchEventThread, isUserIdLoading, userId]);
+
+  useEffect(() => {
+    if (isUserIdLoading || !userId) return;
+    void fetchReports(true);
+  }, [fetchReports, isUserIdLoading, userId]);
+
+  const hasActiveReport = useMemo(
+    () =>
+      reports.some(
+        (report) =>
+          report.status === "pending" || report.status === "generating",
+      ),
+    [reports],
+  );
+
+  useEffect(() => {
+    if (!userId || !hasActiveReport) return;
+    const intervalId = window.setInterval(() => {
+      void fetchReports();
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [fetchReports, hasActiveReport, userId]);
+
+  const selectedReport = useMemo(
+    () => reports.find((report) => report.id === selectedReportId) ?? null,
+    [reports, selectedReportId],
+  );
+
+  const latestReport = reports[0] ?? null;
+  const isViewingLatestReport =
+    Boolean(selectedReport && latestReport) &&
+    selectedReport.id === latestReport.id;
 
   useEffect(() => {
     if (data) {
@@ -542,6 +663,54 @@ export default function AdminPage({
     }
   };
 
+  const handleCreateReport = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    if (!userId) return;
+    if (creatingReport) return;
+
+    try {
+      setCreatingReport(true);
+      const response = await axios.post(
+        `/api/sessions/${sessionId}/${accessToken}/reports`,
+        {
+          requestMarkdown: reportRequest,
+        },
+        {
+          headers: { Authorization: `Bearer ${userId}` },
+        },
+      );
+
+      const created = response.data.data as SessionReport;
+      setReports((prev) => {
+        const others = prev.filter((report) => report.id !== created.id);
+        return [created, ...others];
+      });
+      setSelectedReportId(created.id);
+      setReportRequest("");
+      setReportsError(null);
+    } catch (err) {
+      console.error("Failed to start session report generation:", err);
+      setReportsError("レポート生成の開始に失敗しました。");
+    } finally {
+      setCreatingReport(false);
+    }
+  };
+
+  const handleCopyReportMarkdown = async () => {
+    if (!selectedReport?.contentMarkdown) return;
+    try {
+      await navigator.clipboard.writeText(selectedReport.contentMarkdown);
+      setReportCopyStatus("copied");
+    } catch (err) {
+      console.error("Failed to copy report markdown:", err);
+      setReportCopyStatus("error");
+    } finally {
+      window.setTimeout(() => setReportCopyStatus("idle"), 2000);
+    }
+  };
+
   const participants = data?.participants ?? [];
   const totalParticipants =
     data?.totalParticipants ?? participants?.length ?? 0;
@@ -757,6 +926,247 @@ export default function AdminPage({
 
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-1.5">
+                    <CardTitle className="text-lg">
+                      セッションレポート
+                    </CardTitle>
+                    <CardDescription>
+                      参加者の回答やEvent Threadをもとに洞察レポートを生成します
+                    </CardDescription>
+                  </div>
+                  {selectedReport ? (
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                        最新の状態
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        v{String(selectedReport.version).padStart(2, "0")}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {canEdit ? (
+                  <form
+                    onSubmit={handleCreateReport}
+                    className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-inner"
+                  >
+                    <Button
+                      type="submit"
+                      size="lg"
+                      disabled={creatingReport}
+                      isLoading={creatingReport}
+                      className="w-full justify-center gap-2 rounded-2xl py-6 text-base shadow-lg shadow-slate-900/10"
+                    >
+                      <FileText className="h-4 w-4" />
+                      新しいレポートを生成
+                    </Button>
+                    <label
+                        htmlFor="reportRequest"
+                        className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                      >
+                        レポートに対するリクエスト（任意）
+                      </label>
+                      <textarea
+                        id="reportRequest"
+                        value={reportRequest}
+                        onChange={(event) => setReportRequest(event.target.value)}
+                        rows={3}
+                        maxLength={1200}
+                        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                        placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                      />
+                  </form>
+                ) : (
+                  <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
+                    レポート生成はセッションのホストのみ利用できます。
+                  </div>
+                )}
+
+                {reportsError && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                    {reportsError}
+                  </div>
+                )}
+
+                {reportsLoading ? (
+                  <div className="space-y-4">
+                    <div className="h-12 animate-pulse rounded-2xl bg-slate-100/80" />
+                    <div className="h-[420px] animate-pulse rounded-3xl bg-slate-100/80" />
+                  </div>
+                ) : reports.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
+                    まだレポートはありません。上のフォームから生成してみましょう。
+                  </div>
+                ) : selectedReport ? (
+                  <div className="space-y-6">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="reportVersionSelect"
+                          className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                        >
+                          表示するバージョン
+                        </label>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <select
+                            id="reportVersionSelect"
+                            value={selectedReportId ?? ""}
+                            onChange={(event) => setSelectedReportId(event.target.value)}
+                            className="max-w-xs rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                          >
+                            {reports.map((report) => {
+                              const meta = REPORT_STATUS_META[report.status];
+                              return (
+                                <option key={report.id} value={report.id}>
+                                  v{String(report.version).padStart(2, "0")}・{meta.label}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600">
+                            <span
+                              className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
+                            />
+                            {REPORT_STATUS_META[selectedReport.status].label}
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-500">
+                            {isViewingLatestReport
+                              ? "最新バージョンを表示中"
+                              : latestReport
+                                ? `最新: v${String(latestReport.version).padStart(2, "0")}`
+                                : "最新バージョン情報なし"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            selectedReport.status !== "completed" ||
+                            !selectedReport.contentMarkdown
+                          }
+                          onClick={handleCopyReportMarkdown}
+                          className="gap-1.5 text-xs"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          {reportCopyStatus === "copied"
+                            ? "コピー済み"
+                            : reportCopyStatus === "error"
+                              ? "コピー失敗"
+                              : "Markdownをコピー"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          disabled={
+                            selectedReport.status !== "completed" ||
+                            !selectedReport.contentMarkdown
+                          }
+                          onClick={() =>
+                            window.open(
+                              `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
+                              "_blank",
+                            )
+                          }
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                          印刷用ページ
+                        </Button>
+                      </div>
+                    </div>
+
+                    {selectedReport.requestMarkdown ? (
+                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm text-indigo-900">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
+                          Admin Request
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap leading-relaxed">
+                          {selectedReport.requestMarkdown}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    <div className="min-h-[360px] rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-inner">
+                      <div className="flex h-full flex-col gap-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                              Version
+                            </p>
+                            <p className="text-xl font-semibold text-slate-900">
+                              v{String(selectedReport.version).padStart(2, "0")}
+                            </p>
+                          </div>
+                          <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                            <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              {selectedReport.model}
+                            </div>
+                            <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
+                              <span
+                                className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
+                              />
+                              {REPORT_STATUS_META[selectedReport.status].label}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
+                          {selectedReport.status === "completed" &&
+                          selectedReport.contentMarkdown ? (
+                            <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {selectedReport.contentMarkdown}
+                              </ReactMarkdown>
+                            </div>
+                          ) : selectedReport.status === "failed" ? (
+                            <div className="text-sm text-rose-600">
+                              レポート生成に失敗しました。
+                              <br />
+                              {selectedReport.errorMessage ??
+                                "詳細はログを確認してください。"}
+                            </div>
+                          ) : (
+                            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-slate-500">
+                              <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                              <p>レポートを生成しています…</p>
+                              <p className="text-[11px] text-slate-400">
+                                完了まで数十秒ほどかかる場合があります。
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                          <span>
+                            作成: {formatDateTime(selectedReport.createdAt)}
+                          </span>
+                          {selectedReport.completedAt ? (
+                            <span>
+                              最終更新: {formatDateTime(selectedReport.completedAt)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
+                    レポートを選択するとここに表示されます。
+                  </div>
+                )}
+
+              </CardContent>
+            </Card>
+
+            <Card className="border-none bg-white/80 shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-lg">
                   ステートメントのハイライト
                 </CardTitle>
@@ -894,6 +1304,7 @@ export default function AdminPage({
                 )}
               </CardContent>
             </Card>
+
           </div>
 
           <div className="space-y-8">
@@ -1285,6 +1696,7 @@ export default function AdminPage({
                 )}
               </CardContent>
             </Card>
+
           </div>
         </div>
       </div>
