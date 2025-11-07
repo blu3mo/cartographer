@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/auth";
 import {
   requireSessionAdminAccess,
+  requireSessionAdminToken,
   SessionAccessError,
 } from "@/lib/server/session-access";
 import {
@@ -41,7 +42,7 @@ export async function GET(
   }
 
   try {
-    await requireSessionAdminAccess(sessionId, accessToken, userId);
+    await requireSessionAdminToken(sessionId, accessToken);
     const report = await getSessionReportById(reportId);
 
     if (!report || report.sessionId !== sessionId) {

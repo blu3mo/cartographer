@@ -47,10 +47,8 @@ export async function requireSessionHost(
   return session;
 }
 
-export async function requireSessionAdminAccess(
+async function fetchSessionAdminRow(
   sessionId: string,
-  accessToken: string,
-  userId: string,
 ): Promise<SessionAdminRow> {
   const { data: session, error } = await supabase
     .from("sessions")
@@ -68,9 +66,28 @@ export async function requireSessionAdminAccess(
     throw new SessionAccessError("Failed to load session", 500);
   }
 
+  return session;
+}
+
+export async function requireSessionAdminToken(
+  sessionId: string,
+  accessToken: string,
+): Promise<SessionAdminRow> {
+  const session = await fetchSessionAdminRow(sessionId);
+
   if (session.admin_access_token !== accessToken) {
     throw new SessionAccessError("Forbidden", 403);
   }
+
+  return session;
+}
+
+export async function requireSessionAdminAccess(
+  sessionId: string,
+  accessToken: string,
+  userId: string,
+): Promise<SessionAdminRow> {
+  const session = await requireSessionAdminToken(sessionId, accessToken);
 
   if (session.host_user_id !== userId) {
     throw new SessionAccessError("Forbidden", 403);
