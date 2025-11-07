@@ -431,7 +431,8 @@ export default function AdminPage({
 
   const latestReport = reports[0] ?? null;
   const isViewingLatestReport =
-    Boolean(selectedReport && latestReport) &&
+    selectedReport !== null &&
+    latestReport !== null &&
     selectedReport.id === latestReport.id;
 
   useEffect(() => {
