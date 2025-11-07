@@ -99,7 +99,7 @@ export default function SessionReportPrintPage({
 
   return (
     <div className="min-h-screen bg-white text-slate-900 print:bg-white">
-      <div className="mx-auto max-w-4xl px-6 py-8 space-y-8">
+      <div className="mx-auto max-w-4xl px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0 print:space-y-6">
         <div className="flex items-center justify-between gap-4 print:hidden">
           <Button
             type="button"
@@ -123,7 +123,7 @@ export default function SessionReportPrintPage({
           </Button>
         </div>
 
-        <header className="space-y-2 text-center">
+        <header className="space-y-2 text-center print:hidden">
           <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
             Session Report
           </p>
@@ -137,7 +137,7 @@ export default function SessionReportPrintPage({
         </header>
 
         {report.requestMarkdown ? (
-          <section className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-6 text-sm text-indigo-900">
+          <section className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-6 text-sm text-indigo-900 print:hidden">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
               Admin Request
             </p>
@@ -147,9 +147,9 @@ export default function SessionReportPrintPage({
           </section>
         ) : null}
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm print:border-0 print:bg-transparent print:p-0 print:shadow-none">
           {report.status === "completed" && report.contentMarkdown ? (
-            <div className="prose prose-slate max-w-none">
+            <div className="markdown-body prose prose-slate max-w-none text-base leading-relaxed print:text-[12pt]">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {report.contentMarkdown}
               </ReactMarkdown>
@@ -166,7 +166,7 @@ export default function SessionReportPrintPage({
           )}
         </section>
 
-        <footer className="text-center text-[11px] uppercase tracking-[0.2em] text-slate-400">
+        <footer className="text-center text-[11px] uppercase tracking-[0.2em] text-slate-400 print:hidden">
           <p>
             Created:{" "}
             {new Date(report.createdAt).toLocaleString("ja-JP", {

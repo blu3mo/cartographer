@@ -380,7 +380,7 @@ function buildPayloadSummary(payload: Record<string, unknown>): string | null {
   if (
     Array.isArray((cloned as { statementIds?: string[] }).statementIds) &&
     ((cloned as { statementIds?: string[] }).statementIds as string[]).length >
-      0
+    0
   ) {
     delete cloned.statementIds;
   }
@@ -610,8 +610,7 @@ Part 1: インサイトまとめ
 - 参加者単位の分析や、似た傾向を持つ人たちのクラスタも示してください。
 
 Part 2:
-- セッションのGoalを必ず引用してください。
-- ここまでのインサイトや情報を踏まえ、Goal達成に役立つ考察や提案を書いてください。
+- ここまでのインサイトや情報を踏まえ、セッションのGoal達成に役立つ考察やレポートの構成を考え、書いてください。
 
 フォーマット:
 - GFM準拠のMarkdownのみを出力してください。
