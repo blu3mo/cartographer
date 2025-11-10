@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
 import {
-  requireSessionAdminAccess,
   requireSessionAdminToken,
   SessionAccessError,
 } from "@/lib/server/session-access";
