@@ -232,25 +232,6 @@ export async function GET(
       },
     );
 
-    const { data: latestReport, error: latestReportError } = await supabase
-      .from("situation_analysis_reports")
-      .select("id, session_id, content_markdown, created_at")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestReportError && latestReportError.code !== "PGRST116") {
-      console.error(
-        "Failed to fetch latest report for admin view:",
-        latestReportError,
-      );
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
-    }
-
     return NextResponse.json({
       data: {
         id: session.id,
@@ -263,14 +244,6 @@ export async function GET(
         participants,
         totalStatements,
         totalParticipants: participants.length,
-        latestSituationAnalysisReport: latestReport
-          ? {
-              id: latestReport.id,
-              sessionId: latestReport.session_id,
-              contentMarkdown: latestReport.content_markdown,
-              createdAt: latestReport.created_at,
-            }
-          : undefined,
         canEdit: isHost,
       },
     });

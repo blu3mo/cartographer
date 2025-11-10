@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import { FileText, Loader2 } from "lucide-react";
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -35,7 +35,7 @@ type IndividualReport = {
   createdAt: string;
 };
 
-type SessionState = "NEEDS_NAME" | "ANSWERING" | "COMPLETED";
+type SessionState = "NEEDS_NAME" | "ANSWERING" | "REFLECTION" | "COMPLETED";
 
 type SessionInfo = {
   id: string;
@@ -60,6 +60,27 @@ type ParticipantResponse = {
   value: ResponseValue;
   createdAt: string;
 };
+
+type ParticipantReflection = {
+  id: string;
+  text: string;
+  createdAt: string;
+  submittedAt: string;
+};
+
+type HistoryEntry =
+  | {
+      type: "response";
+      createdAt: string;
+      response: ParticipantResponse;
+      key: string;
+    }
+  | {
+      type: "reflection";
+      createdAt: string;
+      reflection: ParticipantReflection;
+      key: string;
+    };
 
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
@@ -144,6 +165,16 @@ export default function SessionPage({
   const [updatingResponseIds, setUpdatingResponseIds] = useState<Set<string>>(
     new Set(),
   );
+  const [participantReflections, setParticipantReflections] = useState<
+    ParticipantReflection[]
+  >([]);
+  const [isLoadingReflections, setIsLoadingReflections] = useState(false);
+  const [reflectionsError, setReflectionsError] = useState<string | null>(null);
+  const [reflectionText, setReflectionText] = useState("");
+  const [isSubmittingReflection, setIsSubmittingReflection] = useState(false);
+  const [reflectionSubmissionError, setReflectionSubmissionError] = useState<
+    string | null
+  >(null);
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const sessionInfoId = sessionInfo?.id;
@@ -158,6 +189,29 @@ export default function SessionPage({
       return a.orderIndex - b.orderIndex;
     });
   }, []);
+  const historyItems = useMemo<HistoryEntry[]>(() => {
+    const responses = participantResponses.map((response) => ({
+      type: "response" as const,
+      createdAt: response.createdAt,
+      response,
+      key: `response-${response.statementId}`,
+    }));
+    const reflections = participantReflections.map((reflection) => ({
+      type: "reflection" as const,
+      createdAt: reflection.submittedAt ?? reflection.createdAt,
+      reflection,
+      key: `reflection-${reflection.id}`,
+    }));
+
+    return [...responses, ...reflections].sort((a, b) => {
+      const diff =
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (diff !== 0) {
+        return diff;
+      }
+      return a.key.localeCompare(b.key);
+    });
+  }, [participantResponses, participantReflections]);
   const fetchParticipantResponses = useCallback(async () => {
     if (!userId) return;
     setIsLoadingResponses(true);
@@ -201,6 +255,54 @@ export default function SessionPage({
       setIsLoadingResponses(false);
     }
   }, [sessionId, userId, sortResponsesByRecency]);
+  const fetchParticipantReflections = useCallback(async () => {
+    if (!userId) return;
+    setIsLoadingReflections(true);
+    setReflectionsError(null);
+
+    try {
+      const response = await axios.get(
+        `/api/sessions/${sessionId}/reflections`,
+        {
+          headers: createAuthorizationHeader(userId),
+        },
+      );
+
+      const items = (response.data.reflections ?? []) as Array<{
+        id: string;
+        text: string;
+        createdAt?: string;
+        submittedAt?: string;
+      }>;
+
+      setParticipantReflections(
+        items
+          .map((item) => ({
+            id: item.id,
+            text: item.text,
+            createdAt: item.createdAt ?? new Date().toISOString(),
+            submittedAt: item.submittedAt ?? new Date().toISOString(),
+          }))
+          .sort(
+            (a, b) =>
+              new Date(b.submittedAt).getTime() -
+              new Date(a.submittedAt).getTime(),
+          ),
+      );
+    } catch (err) {
+      console.error("Failed to fetch participant reflections:", err);
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        setParticipantReflections([]);
+        setReflectionsError(null);
+      } else {
+        setReflectionsError(
+          "これまでのふりかえりを取得できませんでした。更新して再度お試しください。",
+        );
+      }
+    } finally {
+      setIsLoadingReflections(false);
+    }
+  }, [sessionId, userId]);
 
   const upsertParticipantResponse = useCallback(
     (statement: Statement, value: ResponseValue) => {
@@ -317,6 +419,21 @@ export default function SessionPage({
     },
     [currentStatement],
   );
+
+  const enterReflectionMode = useCallback(() => {
+    setReflectionSubmissionError(null);
+    setReflectionText("");
+    setCurrentStatement(null);
+    setPrefetchedStatement(undefined);
+    setState("REFLECTION");
+  }, []);
+
+  const enterCompletedState = useCallback(() => {
+    hasJustCompletedRef.current = true;
+    setState("COMPLETED");
+    setCurrentStatement(null);
+    setPrefetchedStatement(undefined);
+  }, []);
 
   useEffect(() => {
     if (!userId || userLoading) return;
@@ -488,7 +605,14 @@ export default function SessionPage({
     if (state === "NEEDS_NAME") return;
 
     fetchParticipantResponses();
-  }, [userId, userLoading, state, fetchParticipantResponses]);
+    fetchParticipantReflections();
+  }, [
+    userId,
+    userLoading,
+    state,
+    fetchParticipantResponses,
+    fetchParticipantReflections,
+  ]);
 
   // Auto-generate report when all questions are answered
   useEffect(() => {
@@ -591,6 +715,7 @@ export default function SessionPage({
     const previousResponseSnapshot = previousResponse
       ? { ...previousResponse }
       : null;
+
     setError(null);
     upsertParticipantResponse(previousStatement, value);
     pendingAnswerStatementIdsRef.current.add(previousStatement.id);
@@ -601,43 +726,40 @@ export default function SessionPage({
       revertParticipantResponse(previousStatement.id, previousResponseSnapshot);
     };
 
-    try {
-      // undefined: prefetch is still loading or failed
-      // null: this is the last question (no more questions available)
-      // Statement object: next question is ready
+    const headers = createAuthorizationHeader(userId);
 
+    try {
       if (cachedNextStatement === null) {
-        // This is the last question - submit answer and show completion
         setIsLoading(true);
 
         const postResult = await axios.post(
           `/api/sessions/${sessionId}/responses`,
           { statementId: previousStatement.id, value },
-          { headers: createAuthorizationHeader(userId) },
+          { headers },
         );
+
         const serverResponse = postResult.data?.response;
         if (serverResponse) {
           syncParticipantResponseFromServer(serverResponse);
         }
+
         clearPendingStatement();
 
-        // Set flag to trigger auto-generation
-        hasJustCompletedRef.current = true;
-        setState("COMPLETED");
-        setCurrentStatement(null);
-        setPrefetchedStatement(undefined);
+        enterReflectionMode();
+
         setIsLoading(false);
-      } else if (cachedNextStatement) {
-        // We have a prefetched statement - use it immediately for instant transition
+        return;
+      }
+
+      if (cachedNextStatement) {
         setCurrentStatement(cachedNextStatement);
         setPrefetchedStatement(undefined);
 
-        // Submit answer in background (no need to wait)
         axios
           .post(
             `/api/sessions/${sessionId}/responses`,
             { statementId: previousStatement.id, value },
-            { headers: createAuthorizationHeader(userId) },
+            { headers },
           )
           .then((res) => {
             const serverResponse = res.data?.response;
@@ -647,55 +769,61 @@ export default function SessionPage({
           })
           .catch((err) => {
             console.error("Failed to submit answer:", err);
+            revertOnFailure();
             if (axios.isAxiosError(err) && err.response?.data?.error) {
               setError(`エラー: ${err.response.data.error}`);
             } else {
               setError("回答の送信に失敗しました。");
             }
-            revertOnFailure();
           })
           .finally(() => {
             clearPendingStatement();
           });
-      } else {
-        // cachedNextStatement === undefined
-        // Prefetch hasn't completed yet (rapid clicking) - fall back to original behavior
-        setIsLoading(true);
-
-        const [postResponse, nextResponse] = await Promise.all([
-          axios.post(
-            `/api/sessions/${sessionId}/responses`,
-            { statementId: previousStatement.id, value },
-            { headers: createAuthorizationHeader(userId) },
-          ),
-          axios.get(
-            `/api/sessions/${sessionId}/statements/next${buildExcludeQuery([previousStatement.id])}`,
-            { headers: createAuthorizationHeader(userId) },
-          ),
-        ]);
-        clearPendingStatement();
-        const serverResponse = postResponse.data?.response;
-        if (serverResponse) {
-          syncParticipantResponseFromServer(serverResponse);
-        }
-
-        // Update to next question
-        if (nextResponse.data.statement) {
-          setCurrentStatement(nextResponse.data.statement);
-        } else {
-          // Set flag to trigger auto-generation
-          hasJustCompletedRef.current = true;
-          setState("COMPLETED");
-          setCurrentStatement(null);
-        }
-
-        setIsLoading(false);
+        return;
       }
+
+      setIsLoading(true);
+
+      const [postResponse, nextResponse] = await Promise.all([
+        axios.post(
+          `/api/sessions/${sessionId}/responses`,
+          { statementId: previousStatement.id, value },
+          { headers },
+        ),
+        axios.get(
+          `/api/sessions/${sessionId}/statements/next${buildExcludeQuery([previousStatement.id])}`,
+          { headers },
+        ),
+      ]);
+
+      clearPendingStatement();
+
+      const serverResponse = postResponse.data?.response;
+      if (serverResponse) {
+        syncParticipantResponseFromServer(serverResponse);
+      }
+
+      const nextStatement = nextResponse.data?.statement ?? null;
+
+      if (nextStatement) {
+        setCurrentStatement(nextStatement);
+      } else {
+        enterReflectionMode();
+      }
+
+      setIsLoading(false);
     } catch (err) {
       clearPendingStatement();
       console.error("Failed to submit answer:", err);
       revertOnFailure();
-      if (axios.isAxiosError(err) && err.response?.data?.error) {
+      if (
+        axios.isAxiosError(err) &&
+        err.config?.url?.includes("/statements/next")
+      ) {
+        setError(
+          "次の質問を取得できませんでした。ページを更新して再度お試しください。",
+        );
+      } else if (axios.isAxiosError(err) && err.response?.data?.error) {
         setError(`エラー: ${err.response.data.error}`);
       } else {
         setError("回答の送信に失敗しました。");
@@ -754,6 +882,89 @@ export default function SessionPage({
       }
     } finally {
       removeUpdatingResponseId(statementId);
+    }
+  };
+
+  const handleSubmitReflection = async (overrideText?: string) => {
+    if (!userId || isSubmittingReflection) return;
+
+    setIsSubmittingReflection(true);
+    setReflectionSubmissionError(null);
+
+    const submissionText = overrideText ?? reflectionText;
+
+    try {
+      const response = await axios.post(
+        `/api/sessions/${sessionId}/reflections`,
+        { text: submissionText },
+        { headers: createAuthorizationHeader(userId) },
+      );
+
+      const reflection = response.data?.reflection as
+        | {
+            id: string;
+            text: string;
+            createdAt?: string;
+            submittedAt?: string;
+          }
+        | undefined;
+
+      if (reflection) {
+        setParticipantReflections((prev) =>
+          [
+            {
+              id: reflection.id,
+              text: reflection.text,
+              createdAt: reflection.createdAt ?? new Date().toISOString(),
+              submittedAt: reflection.submittedAt ?? new Date().toISOString(),
+            },
+            ...prev,
+          ].sort(
+            (a, b) =>
+              new Date(b.submittedAt).getTime() -
+              new Date(a.submittedAt).getTime(),
+          ),
+        );
+      }
+
+      setReflectionText("");
+      setIsLoading(true);
+
+      try {
+        const nextStatementResponse = await axios.get(
+          `/api/sessions/${sessionId}/statements/next`,
+          { headers: createAuthorizationHeader(userId) },
+        );
+        const statement = nextStatementResponse.data?.statement ?? null;
+
+        if (statement) {
+          setCurrentStatement(statement);
+          setPrefetchedStatement(undefined);
+          setState("ANSWERING");
+        } else {
+          enterCompletedState();
+        }
+      } catch (err) {
+        console.error("Failed to fetch next statement after reflection:", err);
+        setError(
+          "次の質問を取得できませんでした。ページを更新して再度お試しください。",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error("Failed to submit reflection:", err);
+      if (axios.isAxiosError(err) && err.response?.data?.error) {
+        setReflectionSubmissionError(
+          `ふりかえりの送信に失敗しました: ${err.response.data.error}`,
+        );
+      } else {
+        setReflectionSubmissionError(
+          "ふりかえりの送信に失敗しました。時間をおいて再度お試しください。",
+        );
+      }
+    } finally {
+      setIsSubmittingReflection(false);
     }
   };
 
@@ -880,6 +1091,54 @@ export default function SessionPage({
           </Card>
         )}
 
+        {state === "REFLECTION" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>追加の論点・ご意見</CardTitle>
+              <CardDescription>
+                これまでに取り上げていない話題で、『こんなことについて議論したい』『他の人の意見も聞いてみたい』というテーマや問いがあれば、ぜひ教えてください。今後の質問に反映されます。
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <textarea
+                value={reflectionText}
+                onChange={(event) => setReflectionText(event.target.value)}
+                rows={6}
+                className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="例）「○○についてもっと掘り下げたい」「まだ○○に関する視点が足りていないと思う」"
+                disabled={isSubmittingReflection}
+              />
+              {reflectionSubmissionError && (
+                <p className="text-sm text-destructive">
+                  {reflectionSubmissionError}
+                </p>
+              )}
+              <div className="flex justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmittingReflection}
+                  onClick={() => {
+                    void handleSubmitReflection("");
+                  }}
+                >
+                  特にない／次へ進む
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    void handleSubmitReflection();
+                  }}
+                  disabled={isSubmittingReflection}
+                  isLoading={isSubmittingReflection}
+                >
+                  提出して次へ
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {state === "ANSWERING" && currentStatement && (
           <Card className={isLoading ? "opacity-50 pointer-events-none" : ""}>
             <CardContent className="pt-6">
@@ -959,19 +1218,33 @@ export default function SessionPage({
         )}
 
         {/* Previous Responses & Individual Report - Show after joining */}
-        {(state === "ANSWERING" || state === "COMPLETED") && (
+        {(state === "ANSWERING" ||
+          state === "REFLECTION" ||
+          state === "COMPLETED") && (
           <>
             <Card className="mt-8">
               <CardHeader>
-                <CardTitle>これまでの回答</CardTitle>
+                <CardTitle>これまでの記録</CardTitle>
+                <CardDescription>
+                  あなたの回答とふりかえりを時系列で確認できます
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {responsesError && (
-                  <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
-                    <p className="text-sm text-destructive">{responsesError}</p>
+                {(responsesError || reflectionsError) && (
+                  <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                    {responsesError && (
+                      <p className="text-sm text-destructive">
+                        {responsesError}
+                      </p>
+                    )}
+                    {reflectionsError && (
+                      <p className="text-sm text-destructive">
+                        {reflectionsError}
+                      </p>
+                    )}
                   </div>
                 )}
-                {isLoadingResponses ? (
+                {isLoadingResponses || isLoadingReflections ? (
                   <div className="space-y-3">
                     {[0, 1, 2].map((index) => (
                       <div
@@ -987,57 +1260,85 @@ export default function SessionPage({
                       </div>
                     ))}
                   </div>
-                ) : participantResponses.length > 0 ? (
+                ) : historyItems.length > 0 ? (
                   <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-                    {participantResponses.map((response) => {
-                      const isPending =
-                        pendingAnswerStatementIdsRef.current.has(
+                    {historyItems.map((item) => {
+                      if (item.type === "response") {
+                        const response = item.response;
+                        const isPending =
+                          pendingAnswerStatementIdsRef.current.has(
+                            response.statementId,
+                          );
+                        const isUpdating = updatingResponseIds.has(
                           response.statementId,
                         );
-                      const isUpdating = updatingResponseIds.has(
-                        response.statementId,
-                      );
+
+                        return (
+                          <div
+                            key={item.key}
+                            className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-medium text-foreground">
+                                {response.statementText}
+                              </p>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {RESPONSE_CHOICES.map((choice) => {
+                                const isActive =
+                                  response.value === choice.value;
+                                const isDisabled =
+                                  isPending ||
+                                  isUpdating ||
+                                  isLoading ||
+                                  isActive;
+
+                                return (
+                                  <button
+                                    key={choice.value}
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateResponse(
+                                        response.statementId,
+                                        choice.value,
+                                      )
+                                    }
+                                    disabled={isDisabled}
+                                    className={cn(
+                                      "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                      isActive
+                                        ? choice.activeClass
+                                        : choice.idleClass,
+                                      (isPending || isUpdating) && "opacity-70",
+                                    )}
+                                  >
+                                    <span>{choice.emoji}</span>
+                                    <span>{choice.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const { reflection } = item;
                       return (
                         <div
-                          key={response.statementId}
-                          className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                          key={item.key}
+                          className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
                         >
-                          <p className="text-sm font-medium text-foreground">
-                            {response.statementText}
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {RESPONSE_CHOICES.map((choice) => {
-                              const isActive = response.value === choice.value;
-                              const isDisabled =
-                                isPending ||
-                                isUpdating ||
-                                isLoading ||
-                                isActive;
-
-                              return (
-                                <button
-                                  key={choice.value}
-                                  type="button"
-                                  onClick={() =>
-                                    handleUpdateResponse(
-                                      response.statementId,
-                                      choice.value,
-                                    )
-                                  }
-                                  disabled={isDisabled}
-                                  className={cn(
-                                    "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                    isActive
-                                      ? choice.activeClass
-                                      : choice.idleClass,
-                                    (isPending || isUpdating) && "opacity-70",
-                                  )}
-                                >
-                                  <span>{choice.emoji}</span>
-                                  <span>{choice.label}</span>
-                                </button>
-                              );
-                            })}
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
+                              ふりかえり
+                            </span>
+                          </div>
+                          <div className="mt-3 rounded-md border border-gray-300 bg-gray-50 px-3 py-3 shadow-inner">
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
+                              {reflection.text.trim().length > 0
+                                ? reflection.text
+                                : "（記入なし）"}
+                            </p>
                           </div>
                         </div>
                       );
@@ -1046,7 +1347,7 @@ export default function SessionPage({
                 ) : (
                   <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 py-8 text-center">
                     <p className="text-sm text-muted-foreground">
-                      回答をするとここに一覧が表示され、いつでも更新できます
+                      回答やふりかえりを進めると、ここに履歴が表示されます
                     </p>
                   </div>
                 )}

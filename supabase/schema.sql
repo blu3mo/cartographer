@@ -58,16 +58,22 @@ create table if not exists public.responses (
 create index if not exists responses_statement_idx on public.responses (statement_id);
 create index if not exists responses_participant_idx on public.responses (participant_user_id, session_id);
 
--- Situation Analysis Reports -------------------------------------------------
-create table if not exists public.situation_analysis_reports (
+-- Participant Reflections ---------------------------------------------------
+create table if not exists public.participant_reflections (
   id uuid primary key default gen_random_uuid(),
-  session_id uuid not null references public.sessions(id) on delete cascade,
-  content_markdown text not null,
-  created_at timestamptz not null default now()
+  participant_user_id uuid not null,
+  session_id uuid not null,
+  text text not null,
+  created_at timestamptz not null default now(),
+  submitted_at timestamptz not null default now(),
+  constraint participant_reflections_participant_fk
+    foreign key (participant_user_id, session_id)
+    references public.participants(user_id, session_id)
+    on delete cascade
 );
 
-create index if not exists situation_reports_session_idx
-  on public.situation_analysis_reports (session_id, created_at desc);
+create index if not exists participant_reflections_session_idx
+  on public.participant_reflections (session_id, submitted_at desc);
 
 -- Individual Reports ---------------------------------------------------------
 create table if not exists public.individual_reports (
@@ -84,6 +90,31 @@ create table if not exists public.individual_reports (
 
 create index if not exists individual_reports_participant_idx
   on public.individual_reports (participant_user_id, session_id, created_at desc);
+
+-- Session Reports ------------------------------------------------------------
+create table if not exists public.session_reports (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.sessions(id) on delete cascade,
+  version integer not null default 1,
+  status text not null default 'pending'
+    check (status in ('pending', 'generating', 'completed', 'failed')),
+  request_markdown text not null default '',
+  content_markdown text null,
+  prompt_snapshot jsonb not null default '{}'::jsonb,
+  model text not null default 'google/gemini-2.5-pro',
+  token_usage jsonb null,
+  error_message text null,
+  created_by uuid not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  completed_at timestamptz null
+);
+
+create index if not exists session_reports_session_idx
+  on public.session_reports (session_id, created_at desc);
+
+create index if not exists session_reports_status_idx
+  on public.session_reports (status);
 
 -- Back-reference from participants to latest report -------------------------
 alter table public.participants

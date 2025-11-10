@@ -7,6 +7,12 @@ interface LLMMessage {
   content: string;
 }
 
+export type ParticipantReflectionInput = {
+  text: string;
+  name?: string;
+  submittedAt?: string;
+};
+
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "google/gemini-2.5-pro";
 
@@ -53,8 +59,21 @@ async function callLLM(
     timeout: 45000,
   });
 
-  const content = response.data.choices[0].message.content;
-  console.log("[LLM] response length", content?.length ?? 0);
+  const data = response.data;
+  const choices = Array.isArray(data?.choices) ? data.choices : null;
+  if (!choices || choices.length === 0) {
+    console.error("[LLM] Unexpected response payload", data);
+    throw new Error("LLM response was missing choices");
+  }
+
+  const choice = choices[0];
+  const content = choice?.message?.content;
+  if (typeof content !== "string") {
+    console.error("[LLM] Unexpected choice message", choice);
+    throw new Error("LLM response was missing message content");
+  }
+
+  console.log("[LLM] response length", content.length);
   return content;
 }
 
@@ -86,11 +105,30 @@ export async function generatePlanMarkdown(input: {
   latestAnalysisMarkdown?: string;
   recentUserMessages?: string[];
   participantCount?: number;
+  participantReflections?: ParticipantReflectionInput[];
 }): Promise<string> {
   const participantsLabel =
     typeof input.participantCount === "number"
       ? String(input.participantCount)
       : "unknown";
+  const reflectionsSection =
+    input.participantReflections && input.participantReflections.length > 0
+      ? `<participant_reflections>
+${input.participantReflections
+        .map((reflection) => {
+          const nameAttribute =
+            reflection.name && reflection.name.length > 0
+              ? ` name="${reflection.name}"`
+              : "";
+          const timestampAttribute =
+            reflection.submittedAt && reflection.submittedAt.length > 0
+              ? ` submitted_at="${reflection.submittedAt}"`
+              : "";
+          return `<reflection${nameAttribute}${timestampAttribute}>${reflection.text}</reflection>`;
+        })
+        .join("\n")}
+</participant_reflections>`
+      : "";
 
   const prompt = `
 <role>
@@ -100,8 +138,10 @@ export async function generatePlanMarkdown(input: {
 今までのEventThreadの内容を踏まえて、改めて、調査目的を満たすための道筋を大まかに描いた上で、まず今どんな認識を参加者全員から収集したいか具体的に記述してください。
 - 参加者に対してこの後yes/noで答えられる質問を投げかけるので、それらの質問を通じてどんな情報を集めるべきか考察して方針を立ててください。（具体的な質問は作らなくてよいです）
 - もし調査を進める上でそもそも前提情報が足りない場合は深掘りを急がずに、欠落している背景や前提の情報を探索的に収集することから始めてください。
+- 最大40%ほど、議論の前提を確認するような質問や、各論点の重要さや関心の高さを問うようなメタな質問もすることで、探索や深掘りの指針となる情報を集めてください。
 - 個人の利害と、共同体としてのべき論を混同しないように注意してください。
 - 具体レベルと、抽象レベルの両方の認識を必要に応じて収集してください。
+- 表層の主張だけではなく、その背後の価値観・利害・時間軸・認知などを収集するとよいです。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
@@ -111,6 +151,7 @@ export async function generatePlanMarkdown(input: {
 <context>
   ${input.eventThreadContext}
   <initial_context>${input.initialContext}</initial_context>
+  ${reflectionsSection}
 </context>
 <output>MarkdownのみでPLANセクションの中身を返してください。前置きなく、本文のみを生成してください。</output>
 `;
@@ -148,12 +189,9 @@ export async function generateSurveyStatements(input: {
 各ステートメントは以下を満たすこと。
 - YES/NOの二択で答えられる断定文であること。
 - 1文のみ、単体で意味が通じること。
-- 表層の主張ではなく、その背後の価値観・利害・時間軸・成功条件を明らかにできること。
-- 解釈のブレが生じないよう、必要であれば5W1Hを明示してシャープに表現すること。
+- 解釈のブレが生じないよう、必要であれば5W1Hや具体例を明示してシャープに表現すること。
 - 参加者の立ち位置がYES/NOで鮮明に分かれ、背後の動機が推測できるようにする。
 - 今後も質問を繰り返すので、今回だけで調査目的を達成する必要はない。深掘りを急がずに、まず今集めるべき情報を集めてほしい。
-
-想定読者は参加者です。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
@@ -264,12 +302,12 @@ export async function generateSurveyAnalysisMarkdown(input: {
   const participantDetailsText =
     participantMap.size > 0
       ? Array.from(participantMap.values())
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map((entry) => {
-            const lines = entry.responses.map((response) => `  ${response}`);
-            return `${entry.name}:\n${lines.join("\n")}`;
-          })
-          .join("\n\n")
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((entry) => {
+          const lines = entry.responses.map((response) => `  ${response}`);
+          return `${entry.name}:\n${lines.join("\n")}`;
+        })
+        .join("\n\n")
       : "  (回答なし)";
 
   const surveyResultsText = `${statementsText}\n\n参加者別回答:\n${participantDetailsText}`;
@@ -285,8 +323,6 @@ Event Threadの履歴を踏まえつつ、提供された直近のSurvey結果�
 - 多くがまだ判断できていない点、わからない点。
 - 集団の傾向、クラスタなど（バイネームの分析）
 また、それらからわかることを論理的に考察し、仮説を立てる。
-
-想定読者は参加者です。
 </task>
 <session>
   <title>${input.sessionTitle}</title>
