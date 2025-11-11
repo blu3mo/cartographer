@@ -6,23 +6,34 @@ import { cn } from "@/lib/utils";
 
 interface AppHeaderProps {
   className?: string;
+  rightSlot?: React.ReactNode;
+  children?: React.ReactNode;
 }
 
-export function AppHeader({ className }: AppHeaderProps) {
+export function AppHeader({ className, rightSlot, children }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white">
       <div
         className={cn(
-          "mx-auto flex items-center px-4 py-4 sm:px-6 lg:px-8",
+          "mx-auto flex items-center gap-4 px-4 py-3 sm:px-6 lg:px-8",
           className,
         )}
       >
         <Link
           href="/"
-          className="text-3xl font-bold tracking-tight text-slate-900 transition-colors hover:text-slate-700 sm:text-4xl"
+          className="flex items-end gap-3 text-2xl font-bold tracking-tight text-slate-900 transition-colors hover:text-slate-700 sm:text-3xl"
         >
-          Cartographer
+          <span className="leading-none">Cartographer</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-600 leading-none pb-0.5 sm:text-xs">
+            ベータ版
+          </span>
         </Link>
+        {(children || rightSlot) && (
+          <div className="flex flex-1 items-center gap-4">
+            {children && <div className="flex flex-1 items-center gap-2">{children}</div>}
+            {rightSlot && <div className="ml-auto flex items-center gap-3">{rightSlot}</div>}
+          </div>
+        )}
       </div>
     </header>
   );

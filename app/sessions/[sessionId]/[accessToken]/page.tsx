@@ -34,6 +34,14 @@ import remarkGfm from "remark-gfm";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/Button";
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -232,6 +240,22 @@ const formatPercentage = (value: number) => {
   return `${rounded.toFixed(1)}%`;
 };
 
+function AdminBreadcrumb({ sessionTitle }: { sessionTitle: string }) {
+  return (
+    <Breadcrumb className="mb-6">
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink href="/">ホーム</BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbPage>管理画面「{sessionTitle}」</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}
+
 export default function AdminPage({
   params,
 }: {
@@ -289,6 +313,7 @@ export default function AdminPage({
   const [reportCopyStatus, setReportCopyStatus] = useState<
     "idle" | "copied" | "error"
   >("idle");
+  const breadcrumbTitle = data?.title ?? "セッション";
 
   const fetchAdminData = useCallback(async () => {
     if (!userId) return;
@@ -847,8 +872,14 @@ export default function AdminPage({
 
   if (isUserIdLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      <div className="min-h-screen bg-slate-50">
+        <AppHeader />
+        <div className="max-w-6xl mx-auto px-6 py-10">
+          <AdminBreadcrumb sessionTitle={breadcrumbTitle} />
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -856,7 +887,9 @@ export default function AdminPage({
   if (error) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <div className="max-w-6xl mx-auto px-6 py-16">
+        <AppHeader />
+        <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
+          <AdminBreadcrumb sessionTitle={breadcrumbTitle} />
           <Card className="border-red-200/70 bg-red-50/80">
             <CardContent className="pt-6">
               <p className="text-red-700">{error}</p>
@@ -869,8 +902,16 @@ export default function AdminPage({
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-muted-foreground">セッションが見つかりません。</p>
+      <div className="min-h-screen bg-slate-50">
+        <AppHeader />
+        <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
+          <AdminBreadcrumb sessionTitle={breadcrumbTitle} />
+          <Card className="border border-slate-200 bg-white/70">
+            <CardContent className="pt-6 text-muted-foreground">
+              セッションが見つかりません。
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -879,12 +920,13 @@ export default function AdminPage({
     <div className="min-h-screen bg-slate-50">
       <AppHeader />
       <div className="max-w-[90rem] mx-auto px-6 py-10 space-y-10">
+        <AdminBreadcrumb sessionTitle={data.title} />
         <header className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+              {/* <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
                 セッション管理画面
-              </div>
+              </div> */}
               <h1 className="text-3xl font-semibold text-slate-900">
                 {data.title}
               </h1>

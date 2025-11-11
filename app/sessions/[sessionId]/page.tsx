@@ -1,13 +1,19 @@
 "use client";
 
 import axios from "axios";
-import { ChevronDown, FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { AboutCartographerButton } from "@/components/AboutCartographerButton";
 import { AppHeader } from "@/components/AppHeader";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -94,12 +100,14 @@ function extractGoalSections(goal?: string | null): GoalSection[] {
   if (!goal) return [];
   const sections: GoalSection[] = [];
   const pattern = /【([^】]+)】([\s\S]*?)(?=【[^】]+】|$)/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(goal)) !== null) {
-    const heading = match[1]?.trim();
-    const content = match[2]?.trim();
-    if (!heading || !content) continue;
-    sections.push({ heading, content });
+  let currentMatch = pattern.exec(goal);
+  while (currentMatch !== null) {
+    const heading = currentMatch[1]?.trim();
+    const content = currentMatch[2]?.trim();
+    if (heading && content) {
+      sections.push({ heading, content });
+    }
+    currentMatch = pattern.exec(goal);
   }
   return sections;
 }
@@ -197,7 +205,9 @@ export default function SessionPage({
   const [reflectionSubmissionError, setReflectionSubmissionError] = useState<
     string | null
   >(null);
-  const [isGoalCollapsed, setIsGoalCollapsed] = useState(true);
+  const [goalAccordionValue, setGoalAccordionValue] = useState<
+    string | undefined
+  >("goal");
   const [hasAutoCollapsedAfterJoin, setHasAutoCollapsedAfterJoin] =
     useState(false);
   const hasJustCompletedRef = useRef(false);
@@ -415,16 +425,15 @@ export default function SessionPage({
     () => extractGoalSections(sessionInfo?.goal),
     [sessionInfo?.goal],
   );
-
   useEffect(() => {
     if (state === "NEEDS_NAME") {
-      setIsGoalCollapsed(false);
+      setGoalAccordionValue("goal");
       setHasAutoCollapsedAfterJoin(false);
       return;
     }
 
     if (!hasAutoCollapsedAfterJoin) {
-      setIsGoalCollapsed(true);
+      setGoalAccordionValue(undefined);
       setHasAutoCollapsedAfterJoin(true);
     }
   }, [state, hasAutoCollapsedAfterJoin]);
@@ -1129,39 +1138,42 @@ export default function SessionPage({
             </h1>
           </div>
           {goalSections.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setIsGoalCollapsed((prev) => !prev)}
-                className="flex w-full items-center justify-between text-left"
-              >
-                <div>
-                  <p className="text-base font-semibold text-slate-900">
-                    このセッションの概要
-                  </p>
-                </div>
-                <ChevronDown
-                  className={cn(
-                    "h-5 w-5 text-slate-500 transition-transform",
-                    isGoalCollapsed ? "-rotate-90" : "rotate-0",
-                  )}
-                />
-              </button>
-              {!isGoalCollapsed && (
-                <div className="mt-4 space-y-4">
-                  {goalSections.map((section) => (
-                    <div key={section.heading} className="space-y-1.5">
-                      <p className="text-xs font-semibold text-slate-500">
-                        【{section.heading}】
-                      </p>
-                      <p className="text-sm text-slate-900 whitespace-pre-line">
-                        {section.content}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Accordion
+              type="single"
+              collapsible
+              value={goalAccordionValue}
+              onValueChange={(value) =>
+                setGoalAccordionValue(value === "" ? undefined : value)
+              }
+              className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm"
+            >
+              <AccordionItem value="goal" className="border-none">
+                <AccordionTrigger className="items-start gap-2 rounded-2xl px-4 text-left">
+                  <div className="flex flex-col text-left">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      SESSION OUTLINE
+                    </p>
+                    <p className="text-base font-semibold text-slate-900">
+                      このセッションの概要
+                    </p>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-5">
+                  <div className="space-y-4 pt-1.5">
+                    {goalSections.map((section) => (
+                      <div key={section.heading} className="space-y-1.5">
+                        <p className="text-xs font-semibold text-slate-500">
+                          【{section.heading}】
+                        </p>
+                        <p className="text-sm text-slate-900 whitespace-pre-line">
+                          {section.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           )}
         </div>
 
