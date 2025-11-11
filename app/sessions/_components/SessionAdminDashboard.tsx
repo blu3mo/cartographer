@@ -552,13 +552,13 @@ export function SessionAdminDashboard({
 
   const shareQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
   const fullscreenQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${FULLSCREEN_QR_SIZE}x${FULLSCREEN_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
 
   const handleSaveSettings = async (event: React.FormEvent) => {
@@ -593,12 +593,12 @@ export function SessionAdminDashboard({
       setData((prev) =>
         prev
           ? {
-              ...prev,
-              title: updated.title,
-              context: updated.context,
-              goal: updated.goal,
-              isPublic: updated.isPublic,
-            }
+            ...prev,
+            title: updated.title,
+            context: updated.context,
+            goal: updated.goal,
+            isPublic: updated.isPublic,
+          }
           : prev,
       );
       setSettingsMessage("セッション情報を更新しました。");
@@ -652,9 +652,9 @@ export function SessionAdminDashboard({
       setThreadData((prev) =>
         prev
           ? {
-              ...prev,
-              thread: updatedThread,
-            }
+            ...prev,
+            thread: updatedThread,
+          }
           : prev,
       );
     } catch (err) {
@@ -836,8 +836,8 @@ export function SessionAdminDashboard({
       const responseRate =
         totalParticipants > 0
           ? Math.round(
-              (statement.responses.totalCount / totalParticipants) * 100 * 10,
-            ) / 10
+            (statement.responses.totalCount / totalParticipants) * 100 * 10,
+          ) / 10
           : 0;
       return {
         statement,
@@ -955,21 +955,6 @@ export function SessionAdminDashboard({
             <AdminBreadcrumb sessionTitle={breadcrumbTitle} />
           </div>
         )}
-        <header className="border-b border-slate-200 pb-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                セッション管理画面
-              </p>
-              <h1 className="text-2xl font-bold text-slate-900">
-                {data.title || "名称未設定のセッション"}
-              </h1>
-            </div>
-            <div className="text-xs text-slate-500">
-              {data.createdAt ? `作成: ${formatDateTime(data.createdAt)}` : ""}
-            </div>
-          </div>
-        </header>
 
         <div className="flex flex-1 min-h-0 flex-col gap-6 pt-6 lg:flex-row lg:gap-8">
           <section
@@ -1145,7 +1130,7 @@ export function SessionAdminDashboard({
 
                           <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
                             {selectedReport.status === "completed" &&
-                            selectedReport.contentMarkdown ? (
+                              selectedReport.contentMarkdown ? (
                               <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                   {selectedReport.contentMarkdown}
@@ -1190,6 +1175,127 @@ export function SessionAdminDashboard({
                   )}
                 </CardContent>
               </Card>
+
+
+            </div>
+          </section>
+
+          <aside
+            className="w-full min-h-0 overflow-visible border-t border-slate-200 pt-6 lg:max-w-md lg:min-w-[360px] lg:border-t-0 lg:border-l lg:border-slate-200 lg:pl-6 lg:pt-0 lg:overflow-y-auto"
+            aria-label="サイドパネル"
+          >
+            <div className="space-y-6 pb-10">
+              <Card className="border-none bg-white/80 shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg">参加用リンク</CardTitle>
+                  <CardDescription>
+                    URLの共有・QRコードを読み取って参加してもらいましょう
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="shareLink"
+                        readOnly
+                        value={shareUrl}
+                        className="text-sm"
+                        onFocus={(event) => event.currentTarget.select()}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCopyLink}
+                        className="gap-1.5 text-xs"
+                      >
+                        {copyStatus === "copied" ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                        {copyStatus === "copied"
+                          ? "コピー済み"
+                          : copyStatus === "error"
+                            ? "コピー失敗"
+                            : "クリックしてURLをコピー"}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="relative rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
+                    {shareQrUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsShareQrFullscreen(true)}
+                        className="absolute right-4 top-4 gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 text-xs text-slate-700 shadow-sm hover:bg-white"
+                      >
+                        <Maximize2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {shareQrUrl ? (
+                      <Image
+                        src={shareQrUrl}
+                        alt="参加用QRコード"
+                        width={SHARE_QR_SIZE}
+                        height={SHARE_QR_SIZE}
+                        className="mx-auto h-[176px] w-[176px] rounded-xl border border-slate-200 bg-white object-contain p-2 shadow-sm"
+                      />
+                    ) : (
+                      <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-xs text-slate-400">
+                        QRコードを生成できませんでした
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              {isShareQrFullscreen && fullscreenQrUrl && (
+                <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm relative">
+                  <button
+                    type="button"
+                    aria-label="全画面表示を閉じる"
+                    className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
+                    onClick={() => setIsShareQrFullscreen(false)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        setIsShareQrFullscreen(false);
+                      }
+                    }}
+                  />
+                  <div
+                    className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 text-center"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="参加用QRコードの全画面表示"
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsShareQrFullscreen(false)}
+                      className="absolute right-0 top-0 text-white hover:bg-white/10 focus-visible:ring-white"
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
+                      <Image
+                        src={fullscreenQrUrl}
+                        alt="参加用QRコード"
+                        width={FULLSCREEN_QR_SIZE}
+                        height={FULLSCREEN_QR_SIZE}
+                        className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <h2 className="text-3xl font-semibold text-white">
+                        QRコードを携帯でスキャン
+                      </h2>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <Card className="border-none bg-white/80 shadow-sm">
                 <CardHeader className="pb-4">
@@ -1389,125 +1495,6 @@ export function SessionAdminDashboard({
                   </CardContent>
                 )}
               </Card>
-            </div>
-          </section>
-
-          <aside
-            className="w-full min-h-0 overflow-visible border-t border-slate-200 pt-6 lg:max-w-md lg:min-w-[360px] lg:border-t-0 lg:border-l lg:border-slate-200 lg:pl-6 lg:pt-0 lg:overflow-y-auto"
-            aria-label="サイドパネル"
-          >
-            <div className="space-y-6 pb-10">
-              <Card className="border-none bg-white/80 shadow-sm">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg">参加用リンク</CardTitle>
-                  <CardDescription>
-                    URLの共有・QRコードを読み取って参加してもらいましょう
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="shareLink"
-                        readOnly
-                        value={shareUrl}
-                        className="text-sm"
-                        onFocus={(event) => event.currentTarget.select()}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCopyLink}
-                        className="gap-1.5 text-xs"
-                      >
-                        {copyStatus === "copied" ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                        {copyStatus === "copied"
-                          ? "コピー済み"
-                          : copyStatus === "error"
-                            ? "コピー失敗"
-                            : "クリックしてURLをコピー"}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="relative rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
-                    {shareQrUrl && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsShareQrFullscreen(true)}
-                        className="absolute right-4 top-4 gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 text-xs text-slate-700 shadow-sm hover:bg-white"
-                      >
-                        <Maximize2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    {shareQrUrl ? (
-                      <Image
-                        src={shareQrUrl}
-                        alt="参加用QRコード"
-                        width={SHARE_QR_SIZE}
-                        height={SHARE_QR_SIZE}
-                        className="mx-auto h-[176px] w-[176px] rounded-xl border border-slate-200 bg-white object-contain p-2 shadow-sm"
-                      />
-                    ) : (
-                      <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-xs text-slate-400">
-                        QRコードを生成できませんでした
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-              {isShareQrFullscreen && fullscreenQrUrl && (
-                <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm relative">
-                  <button
-                    type="button"
-                    aria-label="全画面表示を閉じる"
-                    className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
-                    onClick={() => setIsShareQrFullscreen(false)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Escape") {
-                        event.preventDefault();
-                        setIsShareQrFullscreen(false);
-                      }
-                    }}
-                  />
-                  <div
-                    className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 text-center"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="参加用QRコードの全画面表示"
-                  >
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsShareQrFullscreen(false)}
-                      className="absolute right-0 top-0 text-white hover:bg-white/10 focus-visible:ring-white"
-                    >
-                      <X className="h-5 w-5" />
-                    </Button>
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
-                      <Image
-                        src={fullscreenQrUrl}
-                        alt="参加用QRコード"
-                        width={FULLSCREEN_QR_SIZE}
-                        height={FULLSCREEN_QR_SIZE}
-                        className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <h2 className="text-3xl font-semibold text-white">
-                        QRコードを携帯でスキャン
-                      </h2>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <Card className="border-none bg-white/80 shadow-sm">
                 <CardHeader className="pb-4">
@@ -1764,11 +1751,10 @@ export function SessionAdminDashboard({
 
                       {(settingsMessage || settingsError) && (
                         <div
-                          className={`rounded-xl px-3 py-2 text-xs ${
-                            settingsError
-                              ? "bg-red-50 text-red-600"
-                              : "bg-emerald-50 text-emerald-700"
-                          }`}
+                          className={`rounded-xl px-3 py-2 text-xs ${settingsError
+                            ? "bg-red-50 text-red-600"
+                            : "bg-emerald-50 text-emerald-700"
+                            }`}
                         >
                           {settingsError ?? settingsMessage}
                         </div>
@@ -1849,11 +1835,10 @@ export function SessionAdminDashboard({
                       onClick={canEdit ? handleToggleShouldProceed : undefined}
                       disabled={togglingProceed || !canEdit}
                       aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
-                      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                        threadData?.thread?.shouldProceed
-                          ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
-                          : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                      } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
+                      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${threadData?.thread?.shouldProceed
+                        ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
+                        : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
+                        } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                       <div className="flex items-center justify-between gap-4">
                         <div>
@@ -1869,11 +1854,10 @@ export function SessionAdminDashboard({
                         <div className="flex items-center gap-3">
                           <div
                             aria-hidden="true"
-                            className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${
-                              threadData?.thread?.shouldProceed
-                                ? "border-emerald-300 bg-emerald-500/90 justify-end"
-                                : "border-amber-300 bg-amber-200/90 justify-start"
-                            }`}
+                            className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${threadData?.thread?.shouldProceed
+                              ? "border-emerald-300 bg-emerald-500/90 justify-end"
+                              : "border-amber-300 bg-amber-200/90 justify-start"
+                              }`}
                           >
                             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
                               {threadData?.thread?.shouldProceed ? (
@@ -2004,11 +1988,10 @@ function StatementHighlightColumn({
 function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-        shouldProceed
-          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-          : "bg-amber-50 text-amber-600 border border-amber-200"
-      }`}
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${shouldProceed
+        ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+        : "bg-amber-50 text-amber-600 border border-amber-200"
+        }`}
     >
       {shouldProceed ? (
         <>
@@ -2174,9 +2157,8 @@ function ThreadEventBubble({
 
   return (
     <div
-      className={`flex gap-3 ${
-        isHostMessage ? "justify-end" : "justify-start"
-      }`}
+      className={`flex gap-3 ${isHostMessage ? "justify-end" : "justify-start"
+        }`}
     >
       {!isHostMessage && (
         <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
@@ -2184,9 +2166,8 @@ function ThreadEventBubble({
         </div>
       )}
       <div
-        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${
-          isHostMessage ? "items-end" : "items-start"
-        }`}
+        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${isHostMessage ? "items-end" : "items-start"
+          }`}
       >
         <div
           className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
@@ -2198,19 +2179,17 @@ function ThreadEventBubble({
           </span>
         </div>
         <div
-          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${
-            isHostMessage
-              ? "border-indigo-100 bg-indigo-50/80"
-              : "border-slate-200 bg-white/90"
-          }`}
+          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${isHostMessage
+            ? "border-indigo-100 bg-indigo-50/80"
+            : "border-slate-200 bg-white/90"
+            }`}
         >
           <div className="flex flex-col gap-0">
             {content.content}
             {toggleButton && (
               <div
-                className={`flex ${
-                  isHostMessage ? "justify-end" : "justify-start"
-                } ${content.hasFade ? "-mt-1" : "mt-2"}`}
+                className={`flex ${isHostMessage ? "justify-end" : "justify-start"
+                  } ${content.hasFade ? "-mt-1" : "mt-2"}`}
               >
                 {toggleButton}
               </div>
