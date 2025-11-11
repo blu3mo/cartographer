@@ -83,15 +83,17 @@ export function AboutCartographerButton({
         Cartographerについて
       </button>
       {isAboutOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-8"
-          onClick={closeAboutModal}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+          <button
+            type="button"
+            aria-label="モーダルを閉じる"
+            className="absolute inset-0 h-full w-full bg-slate-950/50"
+            onClick={closeAboutModal}
+          />
           <div
-            className="max-w-2xl w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+            className="relative max-w-2xl w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
             role="dialog"
             aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-4">
               <div>
