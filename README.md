@@ -17,6 +17,23 @@ npm run agent                # optional: Ptolemy agent automation
 
 Everything after the basics—including schema import, environment tips, and operational flow—is documented in `GUIDE_ja.md`.
 
+## Stagewise CLI Overlay
+
+Cartographer ships with a `stagewise.json` configuration so you can run the [Stagewise CLI](https://github.com/stagewise-io/stagewise) as a browser toolbar on top of the app.
+
+1. Start the regular dev server (`npm run dev`, default port `3000`).
+2. In another terminal (root of this repo), run Stagewise:
+
+   ```bash
+   npx stagewise@latest
+   # or wrap both in one command
+   npx stagewise@latest -- npm run dev
+   ```
+
+3. Open `http://localhost:3100` to see the app proxied through Stagewise with the toolbar enabled.
+
+The bundled `stagewise.json` keeps Stagewise on port `3100`, points it to the Next.js dev server (`appPort: 3000`), and leaves plugin auto-detection enabled. Adjust those values if you run the app on different ports or want to pin specific plugins.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

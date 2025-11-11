@@ -248,4 +248,44 @@ Supabase ダッシュボードで `sessions`, `statements`, `events` などの�
 
 ---
 
+## 17. Stagewise CLI 連携
+
+Stagewise CLI を使うと、ローカル開発中の Cartographer にブラウザツールバーを重ねて操作できます。本リポジトリには既定の設定ファイル `stagewise.json` を同梱しています。
+
+### 17.1 設定ファイル
+
+`stagewise.json` には次の値が入っています。別ポートで動かしたい場合は書き換えてください。
+
+| キー | 内容 |
+| --- | --- |
+| `port` | Stagewise がホストするポート（標準 3100） |
+| `appPort` | Next.js 開発サーバーのポート（標準 3000） |
+| `autoPlugins` | フレームワークに応じた公式プラグインの自動読み込みを許可 |
+| `plugins` | 手動で読み込みたいプラグイン。空配列のままでも問題なし |
+
+### 17.2 起動手順
+
+1. `npm run dev` で Next.js (Turbopack) を通常通り起動する。
+2. 別のターミナルでリポジトリ直下に移動し、Stagewise CLI を起動する。
+
+   ```bash
+   npx stagewise@latest
+   ```
+
+   もしくは Stagewise 経由で dev サーバーも同時に起動したい場合:
+
+   ```bash
+   npx stagewise@latest -- npm run dev
+   ```
+
+3. ブラウザで `http://localhost:3100` を開くと、Stagewise がアプリをプロキシしつつツールバーを描画します。
+
+### 17.3 補足情報
+
+- 初回は Stagewise アカウントへのログインが必要です。CLI の案内に従ってブラウザ認証を完了してください。
+- `appPort` を正しく設定すると、Stagewise 側で毎回ポートを聞かれずに済みます。
+- Cursor や Copilot など別の IDE エージェントと連携したい場合は `npx stagewise@latest -b`（bridge mode）を利用すると、Stagewise 内蔵エージェントを無効化したままツールバーだけを活用できます。
+
+---
+
 Happy mapping!
