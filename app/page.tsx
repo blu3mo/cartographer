@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { AppHeader } from "@/components/AppHeader";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import {
   Card,
@@ -79,6 +80,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      <AppHeader />
       <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {/* Hero Section */}
         <div className="mb-12">

@@ -6,15 +6,15 @@ type ResponseValue = -2 | -1 | 0 | 1 | 2;
 function getResponseLabel(value: ResponseValue): string {
   switch (value) {
     case 2:
-      return "Strong Yes";
+      return "強く同意";
     case 1:
-      return "Yes";
+      return "同意";
     case 0:
-      return "わからない";
+      return "わからない・どちらとも言えない";
     case -1:
-      return "No";
+      return "反対";
     case -2:
-      return "Strong No";
+      return "強く反対";
     default:
       return "Unknown";
   }
@@ -516,11 +516,11 @@ function formatStatementStats(stats: StatementStat[]): string {
         return `${header}\n- まだ回答がありません。`;
       }
       return `${header}
-- Strong Yes: ${stat.percentages.strongYes}%
-- Yes: ${stat.percentages.yes}%
-- わからない: ${stat.percentages.dontKnow}%
-- No: ${stat.percentages.no}%
-- Strong No: ${stat.percentages.strongNo}%`;
+- 強く同意: ${stat.percentages.strongYes}%
+- 同意: ${stat.percentages.yes}%
+- わからない・どちらとも言えない: ${stat.percentages.dontKnow}%
+- 反対: ${stat.percentages.no}%
+- 強く反対: ${stat.percentages.strongNo}%`;
     })
     .join("\n\n");
 }

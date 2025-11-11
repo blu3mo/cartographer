@@ -5,6 +5,7 @@ import { Bot, Globe, Loader2, Lock, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -195,6 +196,7 @@ export default function NewSessionPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <AppHeader />
       <div className="max-w-2xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">

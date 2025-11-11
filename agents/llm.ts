@@ -248,15 +248,15 @@ export async function generateSurveyAnalysisMarkdown(input: {
   const formatValue = (value: number) => {
     switch (value) {
       case 2:
-        return "Strong Yes";
+        return "強く同意";
       case 1:
-        return "Yes";
+        return "同意";
       case 0:
-        return "わからない";
+        return "わからない・どちらとも言えない";
       case -1:
-        return "No";
+        return "反対";
       case -2:
-        return "Strong No";
+        return "強く反対";
       default:
         return `Unknown (${value})`;
     }
@@ -266,11 +266,11 @@ export async function generateSurveyAnalysisMarkdown(input: {
     .map((statement, index) => {
       const dist = statement.distribution;
       return `${index + 1}. "${statement.text}" (回答人数: ${statement.totalCount}人)
-- Strong Yes: ${dist.strongYes}%
-- Yes: ${dist.yes}%
-- わからない: ${dist.dontKnow}%
-- No: ${dist.no}%
-- Strong No: ${dist.strongNo}%`;
+- 強く同意: ${dist.strongYes}%
+- 同意: ${dist.yes}%
+- わからない・どちらとも言えない: ${dist.dontKnow}%
+- 反対: ${dist.no}%
+- 強く反対: ${dist.strongNo}%`;
     })
     .join("\n\n");
 

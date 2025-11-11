@@ -48,6 +48,7 @@ type SessionInfo = {
   updatedAt: string;
   isHost: boolean;
   isParticipant: boolean;
+  totalStatements: number;
 };
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
@@ -91,7 +92,7 @@ const RESPONSE_CHOICES: Array<{
 }> = [
   {
     value: 2,
-    label: "Strong Yes",
+    label: "強く同意",
     emoji: "💯",
     idleClass:
       "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
@@ -100,7 +101,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: 1,
-    label: "Yes",
+    label: "同意",
     emoji: "✓",
     idleClass: "bg-green-50 text-green-700 border-green-200 hover:bg-green-100",
     activeClass:
@@ -108,7 +109,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: 0,
-    label: "わからない",
+    label: "わからない・どちらとも言えない",
     emoji: "🤔",
     idleClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
     activeClass:
@@ -116,7 +117,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: -1,
-    label: "No",
+    label: "反対",
     emoji: "✗",
     idleClass: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
     activeClass:
@@ -124,7 +125,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: -2,
-    label: "Strong No",
+    label: "強く反対",
     emoji: "👎",
     idleClass: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100",
     activeClass:
@@ -212,6 +213,31 @@ export default function SessionPage({
       return a.key.localeCompare(b.key);
     });
   }, [participantResponses, participantReflections]);
+
+  const answeredStatementsCount = useMemo(() => {
+    const ids = new Set(
+      participantResponses.map((response) => response.statementId),
+    );
+    return ids.size;
+  }, [participantResponses]);
+
+  const totalStatementsCount = sessionInfo?.totalStatements ?? 0;
+
+  const questionProgress = useMemo(() => {
+    if (!currentStatement || totalStatementsCount === 0) {
+      return null;
+    }
+    const currentIndex = Math.min(
+      totalStatementsCount,
+      answeredStatementsCount + 1,
+    );
+    const remaining = Math.max(totalStatementsCount - currentIndex, 0);
+    return {
+      currentIndex,
+      remaining,
+      total: totalStatementsCount,
+    };
+  }, [currentStatement, totalStatementsCount, answeredStatementsCount]);
   const fetchParticipantResponses = useCallback(async () => {
     if (!userId) return;
     setIsLoadingResponses(true);
@@ -1142,6 +1168,11 @@ export default function SessionPage({
         {state === "ANSWERING" && currentStatement && (
           <Card className={isLoading ? "opacity-50 pointer-events-none" : ""}>
             <CardContent className="pt-6">
+              {questionProgress && (
+                <div className="mb-6 text-sm font-semibold text-slate-700">
+                  {`あと${questionProgress.remaining}個の質問があります`}
+                </div>
+              )}
               <div className="mb-8">
                 <p className="text-xl font-medium leading-relaxed">
                   {currentStatement.text}
@@ -1156,7 +1187,7 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">👍</div>
-                  <span className="text-xs font-semibold">Strong Yes</span>
+                  <span className="text-xs font-semibold">強く同意</span>
                 </button>
                 <button
                   type="button"
@@ -1165,7 +1196,7 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">✓</div>
-                  <span className="text-xs font-semibold">Yes</span>
+                  <span className="text-xs font-semibold">同意</span>
                 </button>
                 <button
                   type="button"
@@ -1174,7 +1205,9 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">🤔</div>
-                  <span className="text-xs font-semibold">わからない</span>
+                  <span className="text-xs font-semibold">
+                    {"わからない・どちらとも言えない"}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -1183,7 +1216,7 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">✗</div>
-                  <span className="text-xs font-semibold">No</span>
+                  <span className="text-xs font-semibold">反対</span>
                 </button>
                 <button
                   type="button"
@@ -1192,7 +1225,7 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">👎</div>
-                  <span className="text-xs font-semibold">Strong No</span>
+                  <span className="text-xs font-semibold">強く反対</span>
                 </button>
               </div>
 
@@ -1224,9 +1257,9 @@ export default function SessionPage({
           <>
             <Card className="mt-8">
               <CardHeader>
-                <CardTitle>これまでの記録</CardTitle>
+                <CardTitle>回答履歴</CardTitle>
                 <CardDescription>
-                  あなたの回答とふりかえりを時系列で確認できます
+                  それぞれの質問に対するあなたの回答を確認することができます。後から選択し直すことも可能です。
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1369,7 +1402,7 @@ export default function SessionPage({
                   </Button>
                 </div>
                 <CardDescription>
-                  あなたの回答から生成された個別分析レポート
+                  あなたの回答傾向を元に、どう考えているのかを分析しました
                 </CardDescription>
               </CardHeader>
               <CardContent>
