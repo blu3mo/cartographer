@@ -17,6 +17,25 @@ import { Input } from "@/components/ui/input";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 
+type SuggestionField =
+  | "backgroundInfo"
+  | "recognitionFocus"
+  | "recognitionPurpose";
+
+interface Suggestion {
+  field: SuggestionField;
+  message: string;
+}
+
+const FIELD_META: Record<
+  SuggestionField,
+  { label: string; elementId: string }
+> = {
+  backgroundInfo: { label: "背景情報", elementId: "backgroundInfo" },
+  recognitionFocus: { label: "洗い出したい認識", elementId: "recognitionFocus" },
+  recognitionPurpose: { label: "洗い出す目的", elementId: "recognitionPurpose" },
+};
+
 const buildGoalFromInputs = (focus: string, purpose: string) =>
   `【何の認識を洗い出しますか？】${focus}\n【何のために洗い出しますか？】${purpose}`;
 
@@ -30,9 +49,12 @@ export default function NewSessionPage() {
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [highlightedField, setHighlightedField] =
+    useState<SuggestionField | null>(null);
   const lastFormStateRef = useRef<string>("");
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     document.title = "新しいセッションを作成 - Cartographer";
@@ -64,11 +86,14 @@ export default function NewSessionPage() {
     }
 
     try {
-      const response = await axios.post("/api/sessions/form-suggestions", {
-        backgroundInfo,
-        recognitionFocus,
-        recognitionPurpose,
-      });
+      const response = await axios.post<{ suggestions: Suggestion[] }>(
+        "/api/sessions/form-suggestions",
+        {
+          backgroundInfo,
+          recognitionFocus,
+          recognitionPurpose,
+        },
+      );
 
       setSuggestions(response.data.suggestions || []);
     } catch (err) {
@@ -91,6 +116,37 @@ export default function NewSessionPage() {
       }
     };
   }, [fetchSuggestions]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleSuggestionClick = (field: SuggestionField) => {
+    const target = document.getElementById(FIELD_META[field].elementId);
+    if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+      target.focus();
+    }
+
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    setHighlightedField(field);
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedField(null);
+    }, 2500);
+  };
+
+  const textareaClasses = (field: SuggestionField) =>
+    [
+      "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y",
+      highlightedField === field ? "ring-2 ring-blue-400 border-blue-400" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,7 +290,7 @@ export default function NewSessionPage() {
                   value={backgroundInfo}
                   onChange={(e) => setBackgroundInfo(e.target.value)}
                   rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                  className={textareaClasses("backgroundInfo")}
                   placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
                 />
                 <p className="text-xs text-muted-foreground space-y-1">
@@ -259,7 +315,7 @@ export default function NewSessionPage() {
                   onChange={(e) => setRecognitionFocus(e.target.value)}
                   required
                   rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                  className={textareaClasses("recognitionFocus")}
                   placeholder="例: チャットツール入れ替えに向けた現状の使い方、課題、懸念点、導入後の期待"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -280,7 +336,7 @@ export default function NewSessionPage() {
                   onChange={(e) => setRecognitionPurpose(e.target.value)}
                   required
                   rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                  className={textareaClasses("recognitionPurpose")}
                   placeholder="例: 導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にするため"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -299,11 +355,22 @@ export default function NewSessionPage() {
                         </p>
                         <ul className="space-y-2">
                           {suggestions.map((suggestion) => (
-                            <li
-                              key={suggestion}
-                              className="text-sm text-blue-800 leading-relaxed"
-                            >
-                              {suggestion}
+                            <li key={`${suggestion.field}-${suggestion.message}`}>
+                              <button
+                                type="button"
+                                onClick={() => handleSuggestionClick(suggestion.field)}
+                                className="w-full rounded-lg bg-blue-100/60 px-3 py-2 text-left transition hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                              >
+                                <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                  {FIELD_META[suggestion.field].label}
+                                </span>
+                                <span className="mt-1 block text-sm text-blue-900 leading-relaxed">
+                                  {suggestion.message}
+                                </span>
+                                <span className="mt-1 inline-flex items-center text-xs font-medium text-blue-700">
+                                  クリックして入力欄にジャンプ
+                                </span>
+                              </button>
                             </li>
                           ))}
                         </ul>
