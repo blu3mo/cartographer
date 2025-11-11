@@ -6,7 +6,7 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const metadataBase = new URL(appUrl);
 const homeTitle = "Cartographerについて | Cartographer";
 const homeDescription =
-  "Cartographerは、チームの認識ギャップを可視化し、合意形成を後押しするためのワークショップ支援ツールです。";
+  "Cartographerとは、「それぞれの認識を洗い出し、合意点、相違点、不明点を可視化するツール」です。";
 
 export const metadata: Metadata = {
   metadataBase,
