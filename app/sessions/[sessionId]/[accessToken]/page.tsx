@@ -258,8 +258,10 @@ function AdminBreadcrumb({ sessionTitle }: { sessionTitle: string }) {
 
 export default function AdminPage({
   params,
+  embedded,
 }: {
   params: Promise<{ sessionId: string; accessToken: string }>;
+  embedded?: boolean;
 }) {
   const { sessionId, accessToken } = use(params);
   const { userId, isLoading: isUserIdLoading } = useUserId();
@@ -872,10 +874,10 @@ export default function AdminPage({
 
   if (isUserIdLoading || loading) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <AppHeader />
-        <div className="max-w-6xl mx-auto px-6 py-10">
-          <AdminBreadcrumb sessionTitle={breadcrumbTitle} />
+      <div className={embedded ? "bg-transparent" : "min-h-screen bg-slate-50"}>
+        {!embedded && <AppHeader />}
+        <div className={embedded ? "px-6 py-6" : "max-w-6xl mx-auto px-6 py-10"}>
+          {!embedded && <AdminBreadcrumb sessionTitle={breadcrumbTitle} />}
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
           </div>
@@ -886,10 +888,10 @@ export default function AdminPage({
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <AppHeader />
-        <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
-          <AdminBreadcrumb sessionTitle={breadcrumbTitle} />
+      <div className={embedded ? "bg-transparent" : "min-h-screen bg-slate-50"}>
+        {!embedded && <AppHeader />}
+        <div className={(embedded ? "" : "max-w-6xl mx-auto ") + "px-6 py-10 space-y-8"}>
+          {!embedded && <AdminBreadcrumb sessionTitle={breadcrumbTitle} />}
           <Card className="border-red-200/70 bg-red-50/80">
             <CardContent className="pt-6">
               <p className="text-red-700">{error}</p>
@@ -902,10 +904,10 @@ export default function AdminPage({
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <AppHeader />
-        <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
-          <AdminBreadcrumb sessionTitle={breadcrumbTitle} />
+      <div className={embedded ? "bg-transparent" : "min-h-screen bg-slate-50"}>
+        {!embedded && <AppHeader />}
+        <div className={(embedded ? "" : "max-w-6xl mx-auto ") + "px-6 py-10 space-y-8"}>
+          {!embedded && <AdminBreadcrumb sessionTitle={breadcrumbTitle} />}
           <Card className="border border-slate-200 bg-white/70">
             <CardContent className="pt-6 text-muted-foreground">
               セッションが見つかりません。
@@ -917,10 +919,10 @@ export default function AdminPage({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <AppHeader />
-      <div className="max-w-[90rem] mx-auto px-6 py-10 space-y-10">
-        <AdminBreadcrumb sessionTitle={data.title} />
+    <div className={embedded ? "bg-transparent" : "min-h-screen bg-slate-50"}>
+      {!embedded && <AppHeader />}
+      <div className={(embedded ? "" : "max-w-[90rem] mx-auto ") + "px-6 py-10 space-y-10"}>
+        {!embedded && <AdminBreadcrumb sessionTitle={data.title} />}
         <header className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">

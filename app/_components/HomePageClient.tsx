@@ -15,8 +15,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AboutCartographerButton } from "@/components/AboutCartographerButton";
+import SessionAdminInline from "@/components/SessionAdminInline";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Button, buttonVariants } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import {
   Card,
   CardContent,
@@ -243,9 +244,9 @@ export default function HomePageClient() {
         )}
 
         {selectedAdminSession ? (
-          selectedAdminUrl ? (
+          selectedAdminSession.adminAccessToken ? (
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     選択中のセッション
@@ -259,23 +260,11 @@ export default function HomePageClient() {
                       "詳細情報は未設定です。"}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <Link
-                    href={selectedAdminUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={buttonVariants({ variant: "outline" })}
-                  >
-                    新しいタブで開く
-                  </Link>
-                </div>
               </div>
-              <div className="h-[70vh] min-h-[480px] overflow-hidden rounded-3xl border border-slate-200 shadow">
-                <iframe
-                  key={selectedAdminUrl}
-                  src={selectedAdminUrl}
-                  title="セッション管理ビュー"
-                  className="h-full w-full border-0"
+              <div className="rounded-3xl border border-slate-200 shadow-sm">
+                <SessionAdminInline
+                  sessionId={selectedAdminSession.id}
+                  accessToken={selectedAdminSession.adminAccessToken}
                 />
               </div>
             </div>
@@ -351,8 +340,8 @@ function SidebarSessionsSection({
   };
 
   const handleManage = (session: Session) => {
-    if (!session.adminAccessToken) return;
-    router.push(`/sessions/${session.id}/${session.adminAccessToken}`);
+    // 遷移せず、右側のパネルに直接描画するため選択だけ行う
+    onSelectSession?.(session.id);
   };
 
   return (
@@ -431,7 +420,7 @@ function SidebarSessionsSection({
                     />
                   </div>
                   <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                    {session.isHost && session.adminAccessToken && (
+                    {session.isHost && session.adminAccessToken && mode === "select" && (
                       <Button
                         size="sm"
                         onClick={() => handleManage(session)}
