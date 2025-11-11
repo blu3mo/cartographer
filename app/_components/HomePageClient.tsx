@@ -1,7 +1,9 @@
 "use client";
 
 import axios from "axios";
+import type { LucideIcon } from "lucide-react";
 import {
+  CalendarDays,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -9,6 +11,7 @@ import {
   Loader2,
   Plus,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -19,6 +22,7 @@ import {
   type CreatedSession,
   CreateSessionForm,
 } from "@/components/sessions/CreateSessionForm";
+import { SessionSurveyPreview } from "@/components/sessions/SessionSurveyPreview";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -66,6 +70,9 @@ export default function HomePageClient() {
     () => searchParams.get("sessionId"),
   );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [previewSession, setPreviewSession] = useState<CreatedSession | null>(
+    null,
+  );
   const [shareBaseUrl, setShareBaseUrl] = useState<string>("");
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
     null,
@@ -196,8 +203,14 @@ export default function HomePageClient() {
   const selectedAdminAccessToken =
     selectedAdminSession?.adminAccessToken ?? null;
 
-  const openCreateModal = () => setIsCreateModalOpen(true);
-  const closeCreateModal = () => setIsCreateModalOpen(false);
+  const openCreateModal = () => {
+    setPreviewSession(null);
+    setIsCreateModalOpen(true);
+  };
+  const closeCreateModal = () => {
+    setPreviewSession(null);
+    setIsCreateModalOpen(false);
+  };
 
   const handleSessionCreated = useCallback(
     (createdSession: CreatedSession) => {
@@ -226,7 +239,7 @@ export default function HomePageClient() {
       });
       setSelectedSessionId(createdSession.id);
       syncSelectedSessionQuery(createdSession.id);
-      setIsCreateModalOpen(false);
+      setPreviewSession(createdSession);
     },
     [syncSelectedSessionQuery],
   );
@@ -280,15 +293,7 @@ export default function HomePageClient() {
   const sidebar = (
     <Sidebar>
       <SidebarHeader className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--sidebar-foreground)]/70">
-              現在のセッション
-            </p>
-            <p className="text-lg font-semibold text-[var(--sidebar-foreground)]">
-              {sessions.length} 件
-            </p>
-          </div>
+        <div className="flex items-center justify-end">
           <SidebarTrigger />
         </div>
         <div className="flex items-center gap-2">
@@ -359,7 +364,7 @@ export default function HomePageClient() {
           {selectedAdminSession ? (
             selectedAdminAccessToken ? (
               <div className="space-y-6">
-                <div className="rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+                <div className="sticky top-0 z-10 rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -530,11 +535,19 @@ export default function HomePageClient() {
                 </button>
               </div>
               <div className="max-h-[75vh] overflow-y-auto px-6 py-6">
-                <CreateSessionForm
-                  userId={userId}
-                  onSuccess={handleSessionCreated}
-                  submitButtonLabel="セッションを作成"
-                />
+                {previewSession ? (
+                  <SessionSurveyPreview
+                    session={previewSession}
+                    userId={userId}
+                    onReset={() => setPreviewSession(null)}
+                  />
+                ) : (
+                  <CreateSessionForm
+                    userId={userId}
+                    onSuccess={handleSessionCreated}
+                    submitButtonLabel="セッションを作成"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -657,13 +670,13 @@ function SidebarSessionsSection({
                         </div>
                         <p className="mt-2 text-[11px] text-slate-600">
                           <span className="font-semibold text-slate-700">
-                            【何の認識を洗い出しますか？】
+                            {/* 【何の認識を洗い出しますか？】 */}
                           </span>{" "}
                           {context}
                         </p>
                         <p className="mt-1 text-[11px] text-slate-600">
                           <span className="font-semibold text-slate-700">
-                            【何のために洗い出しますか？】
+                            {/* 【何のために洗い出しますか？】 */}
                           </span>{" "}
                           {goal}
                         </p>
@@ -679,16 +692,19 @@ function SidebarSessionsSection({
                         <span className="sr-only">セッションをプレビュー</span>
                       </a>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-600">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-900">
                       <SidebarStat
+                        icon={Users}
                         label="参加者"
                         value={session._count.participants}
                       />
                       <SidebarStat
+                        icon={FileText}
                         label="生成された質問数"
                         value={session._count.statements}
                       />
                       <SidebarStat
+                        icon={CalendarDays}
                         label="セッション作成日"
                         value={new Date(session.createdAt).toLocaleDateString(
                           "ja-JP",
@@ -707,19 +723,20 @@ function SidebarSessionsSection({
 }
 
 function SidebarStat({
+  icon: Icon,
   label,
   value,
 }: {
+  icon: LucideIcon;
   label: string;
   value: string | number;
 }) {
   return (
-    <div className="rounded-xl bg-slate-100/70 px-3 py-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className="text-sm font-bold text-slate-900">{value}</p>
-    </div>
+    <span className="inline-flex items-center gap-1.5 text-slate-900">
+      <Icon className="h-4 w-4 text-slate-600" aria-hidden />
+      <span className="font-semibold">{value}</span>
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }
 
