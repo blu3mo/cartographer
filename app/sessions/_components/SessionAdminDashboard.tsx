@@ -759,42 +759,6 @@ export function SessionAdminDashboard({
   const statements = data?.statements ?? [];
   const hasReports = reports.length > 0;
 
-  const participantSummary = useMemo(() => {
-    if (participants.length === 0) {
-      return {
-        averageCompletion: 0,
-        inProgressCount: 0,
-        completedCount: 0,
-        notStartedCount: 0,
-      };
-    }
-
-    const averageCompletion =
-      participants.reduce((sum, item) => sum + item.completionRate, 0) /
-      participants.length;
-    const completedCount = participants.filter(
-      (participant) => participant.completionRate >= 99.9,
-    ).length;
-    const notStartedCount = participants.filter(
-      (participant) => participant.answeredCount === 0,
-    ).length;
-    const inProgressCount =
-      participants.length - completedCount - notStartedCount;
-
-    return {
-      averageCompletion,
-      inProgressCount,
-      completedCount,
-      notStartedCount,
-    };
-  }, [participants]);
-
-  const rankedParticipants = useMemo(() => {
-    return [...participants].sort(
-      (a, b) => b.completionRate - a.completionRate,
-    );
-  }, [participants]);
-
   const statementHighlights = useMemo(() => {
     if (!statements.length) {
       return {
@@ -941,56 +905,6 @@ export function SessionAdminDashboard({
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
           <div className="space-y-8">
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">各参加者の回答状況</CardTitle>
-                <CardDescription>
-                  このセッションに参加しているメンバーの回答状況を確認できます。ページを再度読み込みして最新の状態を確認できます。
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <MonitoringMetric
-                    label="参加者"
-                    value={`${totalParticipants}人`}
-                  />
-                  <MonitoringMetric
-                    label="平均回答率"
-                    value={formatPercentage(
-                      participantSummary.averageCompletion,
-                    )}
-                    tone="emerald"
-                  />
-                  <MonitoringMetric
-                    label="回答済み"
-                    value={`${participantSummary.completedCount}人`}
-                  />
-                  <MonitoringMetric
-                    label="回答進行中"
-                    value={`${
-                      participantSummary.inProgressCount +
-                      participantSummary.notStartedCount
-                    }人`}
-                  />
-                </div>
-
-                {participants.length === 0 ? (
-                  <p className="text-sm text-slate-500">
-                    まだ参加者はいません。「参加用リンク」を共有して参加を促しましょう。
-                  </p>
-                ) : (
-                  <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-                    {rankedParticipants.map((participant) => (
-                      <ParticipantProgressRow
-                        key={participant.userId}
-                        participant={participant}
-                      />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1808,79 +1722,6 @@ export function SessionAdminDashboard({
             </Card>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-interface MonitoringMetricProps {
-  label: string;
-  value: string;
-  subLabel?: string;
-  tone?: "default" | "emerald";
-}
-
-function MonitoringMetric({
-  label,
-  value,
-  subLabel,
-  tone = "default",
-}: MonitoringMetricProps) {
-  const toneClass =
-    tone === "emerald"
-      ? "bg-emerald-50/80 border-emerald-100 text-emerald-700"
-      : "bg-slate-100/60 border-slate-100 text-slate-700";
-  return (
-    <div className={`rounded-2xl border px-4 py-4 shadow-sm ${toneClass}`}>
-      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-xl font-semibold">{value}</p>
-      {subLabel && <p className="mt-2 text-xs text-slate-500">{subLabel}</p>}
-    </div>
-  );
-}
-
-interface ParticipantProgressRowProps {
-  participant: ParticipantProgress;
-}
-
-function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
-  const completionLabel = formatPercentage(participant.completionRate);
-  const updatedLabel = formatDateTime(participant.updatedAt);
-  const progressRatio =
-    participant.totalStatements > 0
-      ? Math.min(
-          100,
-          Math.round(
-            (participant.answeredCount / participant.totalStatements) * 100,
-          ),
-        )
-      : 0;
-
-  return (
-    <div className="flex h-full flex-col gap-2 rounded-xl border border-slate-200/70 bg-white/70 p-3 shadow-sm">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-slate-900">
-            {participant.name || "名称未設定"}
-          </p>
-          <p className="text-[10px] text-slate-400">参加時期: {updatedLabel}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm font-semibold text-slate-900">
-            {completionLabel}
-          </p>
-          <p className="text-[10px] text-slate-500">
-            {participant.answeredCount}/{participant.totalStatements}
-          </p>
-        </div>
-      </div>
-      <div className="mt-2 h-1 w-full rounded-full bg-slate-200">
-        <div
-          className="h-full rounded-full bg-indigo-500 transition-all"
-          style={{ width: `${progressRatio}%` }}
-        />
       </div>
     </div>
   );

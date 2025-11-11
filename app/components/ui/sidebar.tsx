@@ -57,7 +57,7 @@ export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         ref={ref}
         data-state={open ? "open" : "closed"}
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 max-h-screen flex-col overflow-y-auto border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] transition-transform duration-200 ease-in-out lg:static lg:h-full lg:max-h-full lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-72 max-h-screen flex-col overflow-y-auto border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] transition-transform duration-200 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:max-h-screen lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
           className,
         )}
@@ -226,7 +226,7 @@ export function SidebarInset({ className, ...props }: SidebarInsetProps) {
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 w-full flex-1 flex-col bg-background lg:ml-72",
+        "flex h-full min-h-0 w-full flex-1 flex-col bg-background",
         className,
       )}
       {...props}
