@@ -44,17 +44,24 @@ export function DashboardLayout({
               {headerActions}
             </>
           }
-        >
-          <div className="hidden items-center gap-6 text-sm text-muted-foreground lg:flex">
-            <SidebarTrigger className="mr-1 shrink-0 rounded-full border border-slate-200 bg-white p-2 text-slate-600" />
-            {resolvedHeaderContent}
-          </div>
-        </AppHeader>
+        />
         <div className="flex flex-1 min-h-0 overflow-hidden bg-slate-50">
           {sidebar}
           <SidebarOverlay />
           <SidebarInset className="flex flex-1 flex-col overflow-hidden bg-white">
-            <main className="flex-1 overflow-y-auto">{children}</main>
+            <div className="border-b border-slate-200 bg-white/80 px-4 py-3 shadow-sm sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1 text-sm font-medium text-slate-700">
+                  {resolvedHeaderContent}
+                </div>
+                <div className="hidden items-center gap-3 lg:flex">
+                  {headerActions}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-1 min-h-0 overflow-hidden">
+              <main className="flex-1 overflow-hidden">{children}</main>
+            </div>
             {showFooter && <AppFooter />}
           </SidebarInset>
         </div>
