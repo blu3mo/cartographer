@@ -514,13 +514,13 @@ export default function AdminPage({
 
   const shareQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
   const fullscreenQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${FULLSCREEN_QR_SIZE}x${FULLSCREEN_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
 
   const handleSaveSettings = async (event: React.FormEvent) => {
@@ -555,12 +555,12 @@ export default function AdminPage({
       setData((prev) =>
         prev
           ? {
-              ...prev,
-              title: updated.title,
-              context: updated.context,
-              goal: updated.goal,
-              isPublic: updated.isPublic,
-            }
+            ...prev,
+            title: updated.title,
+            context: updated.context,
+            goal: updated.goal,
+            isPublic: updated.isPublic,
+          }
           : prev,
       );
       setSettingsMessage("セッション情報を更新しました。");
@@ -614,9 +614,9 @@ export default function AdminPage({
       setThreadData((prev) =>
         prev
           ? {
-              ...prev,
-              thread: updatedThread,
-            }
+            ...prev,
+            thread: updatedThread,
+          }
           : prev,
       );
     } catch (err) {
@@ -775,8 +775,8 @@ export default function AdminPage({
       const responseRate =
         totalParticipants > 0
           ? Math.round(
-              (statement.responses.totalCount / totalParticipants) * 100 * 10,
-            ) / 10
+            (statement.responses.totalCount / totalParticipants) * 100 * 10,
+          ) / 10
           : 0;
       return {
         statement,
@@ -864,7 +864,7 @@ export default function AdminPage({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                Session Admin
+                セッション管理画面
               </div>
               <h1 className="text-3xl font-semibold text-slate-900">
                 {data.title}
@@ -877,9 +877,9 @@ export default function AdminPage({
           <div className="space-y-8">
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg">モニタリング</CardTitle>
+                <CardTitle className="text-lg">各参加者の回答状況</CardTitle>
                 <CardDescription>
-                  参加状況・回答状況をリアルタイムに確認できます
+                  このセッションに参加しているメンバーの回答状況を確認できます。ページを再度読み込みして最新の状態を確認できます。
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -901,16 +901,15 @@ export default function AdminPage({
                   />
                   <MonitoringMetric
                     label="回答進行中"
-                    value={`${
-                      participantSummary.inProgressCount +
+                    value={`${participantSummary.inProgressCount +
                       participantSummary.notStartedCount
-                    }人`}
+                      }人`}
                   />
                 </div>
 
                 {participants.length === 0 ? (
                   <p className="text-sm text-slate-500">
-                    まだ参加者はいません。リンクを共有して参加を促しましょう。
+                    まだ参加者はいません。「参加用リンク」を共有して参加を促しましょう。
                   </p>
                 ) : (
                   <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
@@ -965,20 +964,20 @@ export default function AdminPage({
                       新しいレポートを生成
                     </Button>
                     <label
-                        htmlFor="reportRequest"
-                        className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                      >
-                        レポートに対するリクエスト（任意）
-                      </label>
-                      <textarea
-                        id="reportRequest"
-                        value={reportRequest}
-                        onChange={(event) => setReportRequest(event.target.value)}
-                        rows={3}
-                        maxLength={1200}
-                        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                        placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                      />
+                      htmlFor="reportRequest"
+                      className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                    >
+                      レポートに対するリクエスト（任意）
+                    </label>
+                    <textarea
+                      id="reportRequest"
+                      value={reportRequest}
+                      onChange={(event) => setReportRequest(event.target.value)}
+                      rows={3}
+                      maxLength={1200}
+                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                    />
                   </form>
                 ) : (
                   <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
@@ -1120,7 +1119,7 @@ export default function AdminPage({
 
                         <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
                           {selectedReport.status === "completed" &&
-                          selectedReport.contentMarkdown ? (
+                            selectedReport.contentMarkdown ? (
                             <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                 {selectedReport.contentMarkdown}
@@ -1313,17 +1312,11 @@ export default function AdminPage({
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg">参加用リンク</CardTitle>
                 <CardDescription>
-                  共有リンクやQRコードから参加者を招待できます
+                  URLの共有・QRコードを読み取って参加してもらいましょう
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-2">
-                  <label
-                    htmlFor="shareLink"
-                    className="text-xs font-medium text-slate-600"
-                  >
-                    コピー用URL
-                  </label>
                   <div className="flex items-center gap-2">
                     <Input
                       id="shareLink"
@@ -1348,7 +1341,7 @@ export default function AdminPage({
                         ? "コピー済み"
                         : copyStatus === "error"
                           ? "コピー失敗"
-                          : "コピー"}
+                          : "クリックしてURLをコピー"}
                     </Button>
                   </div>
                 </div>
@@ -1434,7 +1427,7 @@ export default function AdminPage({
                     <CardTitle className="text-lg">セッション情報</CardTitle>
                     <CardDescription>
                       {canEdit
-                        ? "基本情報を編集してアップデートできます"
+                        ? "参加者への質問・レポート生成の元になる基本情報を編集することができます"
                         : "セッションの基本情報"}
                     </CardDescription>
                   </div>
@@ -1463,7 +1456,7 @@ export default function AdminPage({
                     </div>
                     <div>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        ゴール
+                        セッションのゴール
                       </p>
                       <p
                         className="mt-1 leading-relaxed"
@@ -1540,7 +1533,7 @@ export default function AdminPage({
                         htmlFor="sessionGoal"
                         className="text-xs font-medium text-slate-600"
                       >
-                        ゴール
+                        セッションのゴール
                       </label>
                       <textarea
                         id="sessionGoal"
@@ -1572,11 +1565,10 @@ export default function AdminPage({
 
                     {(settingsMessage || settingsError) && (
                       <div
-                        className={`rounded-xl px-3 py-2 text-xs ${
-                          settingsError
-                            ? "bg-red-50 text-red-600"
-                            : "bg-emerald-50 text-emerald-700"
-                        }`}
+                        className={`rounded-xl px-3 py-2 text-xs ${settingsError
+                          ? "bg-red-50 text-red-600"
+                          : "bg-emerald-50 text-emerald-700"
+                          }`}
                       >
                         {settingsError ?? settingsMessage}
                       </div>
@@ -1621,9 +1613,11 @@ export default function AdminPage({
 
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg">進行設定</CardTitle>
+                <CardTitle className="text-lg">設定</CardTitle>
                 <CardDescription>
-                  自動質問生成の制御やセッションの管理を行えます
+                  回答を集め終えた後の質問生成や、セッションの削除など
+
+
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -1632,16 +1626,15 @@ export default function AdminPage({
                   onClick={canEdit ? handleToggleShouldProceed : undefined}
                   disabled={togglingProceed || !canEdit}
                   aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                    threadData?.thread?.shouldProceed
-                      ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
-                      : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                  } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
+                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${threadData?.thread?.shouldProceed
+                    ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
+                    : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
+                    } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium text-slate-900">
-                        新規Statementの自動生成
+                        新しい質問を自動生成する
                       </p>
                       <p className="text-xs text-slate-600">
                         {threadData?.thread?.shouldProceed
@@ -1652,11 +1645,10 @@ export default function AdminPage({
                     <div className="flex items-center gap-3">
                       <div
                         aria-hidden="true"
-                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${
-                          threadData?.thread?.shouldProceed
-                            ? "border-emerald-300 bg-emerald-500/90 justify-end"
-                            : "border-amber-300 bg-amber-200/90 justify-start"
-                        }`}
+                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${threadData?.thread?.shouldProceed
+                          ? "border-emerald-300 bg-emerald-500/90 justify-end"
+                          : "border-amber-300 bg-amber-200/90 justify-start"
+                          }`}
                       >
                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
                           {threadData?.thread?.shouldProceed ? (
@@ -1677,10 +1669,10 @@ export default function AdminPage({
                 {canEdit && (
                   <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
                     <p className="text-sm font-medium text-red-700">
-                      セッションを削除
+                      現在表示しているセッションを削除
                     </p>
                     <p className="mt-1 text-xs text-red-600">
-                      この操作は取り消せません。全てのデータが削除されます。
+                      この操作は取り消せません。このセッションに関連するテーマ・回答など全てのデータが削除されます。
                     </p>
                     <Button
                       onClick={handleDeleteSession}
@@ -1743,11 +1735,11 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
   const progressRatio =
     participant.totalStatements > 0
       ? Math.min(
-          100,
-          Math.round(
-            (participant.answeredCount / participant.totalStatements) * 100,
-          ),
-        )
+        100,
+        Math.round(
+          (participant.answeredCount / participant.totalStatements) * 100,
+        ),
+      )
       : 0;
 
   return (
@@ -1859,11 +1851,10 @@ function StatementHighlightColumn({
 function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-        shouldProceed
-          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-          : "bg-amber-50 text-amber-600 border border-amber-200"
-      }`}
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${shouldProceed
+        ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+        : "bg-amber-50 text-amber-600 border border-amber-200"
+        }`}
     >
       {shouldProceed ? (
         <>
@@ -2029,9 +2020,8 @@ function ThreadEventBubble({
 
   return (
     <div
-      className={`flex gap-3 ${
-        isHostMessage ? "justify-end" : "justify-start"
-      }`}
+      className={`flex gap-3 ${isHostMessage ? "justify-end" : "justify-start"
+        }`}
     >
       {!isHostMessage && (
         <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
@@ -2039,9 +2029,8 @@ function ThreadEventBubble({
         </div>
       )}
       <div
-        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${
-          isHostMessage ? "items-end" : "items-start"
-        }`}
+        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${isHostMessage ? "items-end" : "items-start"
+          }`}
       >
         <div
           className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
@@ -2053,19 +2042,17 @@ function ThreadEventBubble({
           </span>
         </div>
         <div
-          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${
-            isHostMessage
-              ? "border-indigo-100 bg-indigo-50/80"
-              : "border-slate-200 bg-white/90"
-          }`}
+          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${isHostMessage
+            ? "border-indigo-100 bg-indigo-50/80"
+            : "border-slate-200 bg-white/90"
+            }`}
         >
           <div className="flex flex-col gap-0">
             {content.content}
             {toggleButton && (
               <div
-                className={`flex ${
-                  isHostMessage ? "justify-end" : "justify-start"
-                } ${content.hasFade ? "-mt-1" : "mt-2"}`}
+                className={`flex ${isHostMessage ? "justify-end" : "justify-start"
+                  } ${content.hasFade ? "-mt-1" : "mt-2"}`}
               >
                 {toggleButton}
               </div>

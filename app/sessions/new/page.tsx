@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { Lightbulb, Loader2, Sparkles } from "lucide-react";
+import { Bot, Globe, Loader2, Lock, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -145,7 +145,7 @@ export default function NewSessionPage() {
             新しいセッションを作成
           </h1>
           <p className="text-muted-foreground">
-            チームの認識を可視化し、合意形成や新たな気づきにつなげていきましょう
+            入力した「セッション情報」を元に、AIがさまざまな角度からの『質問』を生成します
           </p>
         </div>
 
@@ -153,14 +153,14 @@ export default function NewSessionPage() {
           <CardHeader>
             <CardTitle>セッション情報</CardTitle>
             <CardDescription>
-              いくつかの質問に答えると、みんなで話したいことが整理されます。
+              AIがより良い「質問」を生成出来るように、なるべく網羅的に情報を入力してください。
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <label htmlFor="title" className="text-sm font-medium">
-                  セッションのタイトル
+                  タイトル
                 </label>
                 <Input
                   type="text"
@@ -168,17 +168,17 @@ export default function NewSessionPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  placeholder="例: プロジェクトの現状認識"
+                  placeholder="例: 社内チャットツールの入れ替えに関する各メンバーの現状認識のすり合わせ"
                 />
                 <p className="text-xs text-muted-foreground">
-                  セッションを識別しやすいタイトルを付けましょう
+                  それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
                 </p>
               </div>
 
               <div className="space-y-3">
                 <span className="text-sm font-medium">公開設定</span>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <label className="flex items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+                  <label className="flex flex-1 items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
                     <input
                       type="radio"
                       name="visibility"
@@ -187,15 +187,20 @@ export default function NewSessionPage() {
                       onChange={() => setVisibility("public")}
                       className="mt-0.5"
                     />
-                    <span>
-                      <span className="font-medium">公開セッション</span>
-                      <br />
+                    <span className="flex flex-col gap-1">
+                      <span className="flex items-center gap-2 font-medium">
+                        <Globe
+                          className="h-4 w-4 text-primary"
+                          aria-hidden="true"
+                        />
+                        公開セッション
+                      </span>
                       <span className="text-xs text-muted-foreground">
-                        Cartographerのトップページで参加者を募集できます。
+                        Cartographerのトップページに表示されます。誰でもアクセスできるようになります。
                       </span>
                     </span>
                   </label>
-                  <label className="flex items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
+                  <label className="flex flex-1 items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
                     <input
                       type="radio"
                       name="visibility"
@@ -204,11 +209,16 @@ export default function NewSessionPage() {
                       onChange={() => setVisibility("private")}
                       className="mt-0.5"
                     />
-                    <span>
-                      <span className="font-medium">非公開セッション</span>
-                      <br />
+                    <span className="flex flex-col gap-1">
+                      <span className="flex items-center gap-2 font-medium">
+                        <Lock
+                          className="h-4 w-4 text-primary"
+                          aria-hidden="true"
+                        />
+                        非公開セッション
+                      </span>
                       <span className="text-xs text-muted-foreground">
-                        直接URLを共有したメンバーだけがアクセスできます。
+                        トップページには表示されず、URLを直接共有したメンバーだけがアクセスできます。
                       </span>
                     </span>
                   </label>
@@ -225,10 +235,14 @@ export default function NewSessionPage() {
                   onChange={(e) => setBackgroundInfo(e.target.value)}
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: プロジェクトは3ヶ月前に立ち上がり、現在はプロダクトのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
+                  placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
                 />
-                <p className="text-xs text-muted-foreground">
-                  共有しておくと助かる背景や状況があればどうぞ。なくても問題ありません。
+                <p className="text-xs text-muted-foreground space-y-1">
+                  <span className="block">
+                    なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground/80">
+                  </span>
                 </p>
               </div>
 
@@ -237,7 +251,7 @@ export default function NewSessionPage() {
                   htmlFor="recognitionFocus"
                   className="text-sm font-medium"
                 >
-                  何の認識を洗い出しますか？
+                  何の認識を洗い出しますか？（必須）
                 </label>
                 <textarea
                   id="recognitionFocus"
@@ -246,7 +260,7 @@ export default function NewSessionPage() {
                   required
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: プロジェクトの現状、課題、今後の方向性について"
+                  placeholder="例: チャットツール入れ替えに向けた現状の使い方、課題、懸念点、導入後の期待"
                 />
                 <p className="text-xs text-muted-foreground">
                   洗い出したいトピックや範囲を具体的に記載してください。
@@ -258,7 +272,7 @@ export default function NewSessionPage() {
                   htmlFor="recognitionPurpose"
                   className="text-sm font-medium"
                 >
-                  何のために洗い出しますか？
+                  何のために洗い出しますか？（必須）
                 </label>
                 <textarea
                   id="recognitionPurpose"
@@ -267,7 +281,7 @@ export default function NewSessionPage() {
                   required
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
+                  placeholder="例: 導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にするため"
                 />
                 <p className="text-xs text-muted-foreground">
                   洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。
@@ -278,10 +292,10 @@ export default function NewSessionPage() {
                 <Card className="border-blue-200 bg-blue-50/50">
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-3">
-                      <Lightbulb className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <Bot className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 space-y-3">
                         <p className="text-sm font-medium text-blue-900">
-                          もっとこういう情報を書いてみませんか？
+                          AIアシスタント: もっとこういう情報を書いてみませんか？
                         </p>
                         <ul className="space-y-2">
                           {suggestions.map((suggestion) => (
