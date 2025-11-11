@@ -1,10 +1,10 @@
 "use client";
 
-import * as React from "react";
 import { Menu } from "lucide-react";
+import * as React from "react";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
 type SidebarContextValue = {
   open: boolean;
@@ -34,9 +34,7 @@ export function SidebarProvider({
   );
 
   return (
-    <SidebarContext.Provider value={value}>
-      {children}
-    </SidebarContext.Provider>
+    <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>
   );
 }
 
@@ -59,7 +57,7 @@ export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         ref={ref}
         data-state={open ? "open" : "closed"}
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] transition-transform duration-200 ease-in-out lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-72 max-h-screen flex-col overflow-y-auto border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] transition-transform duration-200 ease-in-out lg:static lg:h-full lg:max-h-full lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
           className,
         )}
@@ -79,7 +77,9 @@ export function SidebarOverlay() {
       aria-hidden="true"
       className={cn(
         "fixed inset-0 z-30 bg-black/40 transition-opacity lg:hidden",
-        open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+        open
+          ? "pointer-events-auto opacity-100"
+          : "pointer-events-none opacity-0",
       )}
       onClick={toggle}
     />
@@ -226,7 +226,7 @@ export function SidebarInset({ className, ...props }: SidebarInsetProps) {
   return (
     <div
       className={cn(
-        "flex min-h-screen w-full flex-1 flex-col bg-background lg:ml-72",
+        "flex h-full min-h-0 w-full flex-1 flex-col bg-background lg:ml-72",
         className,
       )}
       {...props}

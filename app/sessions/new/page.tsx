@@ -41,8 +41,14 @@ const FIELD_META: Record<
   { label: string; elementId: string }
 > = {
   backgroundInfo: { label: "背景情報", elementId: "backgroundInfo" },
-  recognitionFocus: { label: "洗い出したい認識", elementId: "recognitionFocus" },
-  recognitionPurpose: { label: "洗い出す目的", elementId: "recognitionPurpose" },
+  recognitionFocus: {
+    label: "洗い出したい認識",
+    elementId: "recognitionFocus",
+  },
+  recognitionPurpose: {
+    label: "洗い出す目的",
+    elementId: "recognitionPurpose",
+  },
 };
 
 const buildGoalFromInputs = (focus: string, purpose: string) =>
@@ -136,7 +142,10 @@ export default function NewSessionPage() {
 
   const handleSuggestionClick = (field: SuggestionField) => {
     const target = document.getElementById(FIELD_META[field].elementId);
-    if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+    if (
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLInputElement
+    ) {
       target.focus();
     }
 
@@ -182,8 +191,7 @@ export default function NewSessionPage() {
       );
 
       const sessionId = response.data.session.id;
-      const adminAccessToken = response.data.session.adminAccessToken;
-      router.push(`/sessions/${sessionId}/${adminAccessToken}`);
+      router.push(`/?sessionId=${sessionId}`);
     } catch (err) {
       console.error("Failed to create session:", err);
       setError("セッションの作成に失敗しました。もう一度お試しください。");
@@ -318,8 +326,7 @@ export default function NewSessionPage() {
                   <span className="block">
                     なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
                   </span>
-                  <span className="block text-[11px] text-muted-foreground/80">
-                  </span>
+                  <span className="block text-[11px] text-muted-foreground/80"></span>
                 </p>
               </div>
 
@@ -376,10 +383,14 @@ export default function NewSessionPage() {
                         </p>
                         <ul className="space-y-2">
                           {suggestions.map((suggestion) => (
-                            <li key={`${suggestion.field}-${suggestion.message}`}>
+                            <li
+                              key={`${suggestion.field}-${suggestion.message}`}
+                            >
                               <button
                                 type="button"
-                                onClick={() => handleSuggestionClick(suggestion.field)}
+                                onClick={() =>
+                                  handleSuggestionClick(suggestion.field)
+                                }
                                 className="w-full rounded-lg bg-blue-100/60 px-3 py-2 text-left transition hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                               >
                                 <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-blue-700">

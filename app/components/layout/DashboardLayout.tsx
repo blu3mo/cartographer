@@ -27,6 +27,13 @@ export function DashboardLayout({
   children,
   showFooter = true,
 }: DashboardLayoutProps) {
+  const defaultHeaderContent = (
+    <div className="flex items-center gap-2">
+      <span className="text-slate-600">すべてのセッション</span>
+    </div>
+  );
+  const resolvedHeaderContent =
+    typeof headerContent === "undefined" ? defaultHeaderContent : headerContent;
   return (
     <SidebarProvider>
       <div className="flex min-h-screen flex-col bg-background">
@@ -40,17 +47,13 @@ export function DashboardLayout({
         >
           <div className="hidden items-center gap-6 text-sm text-muted-foreground lg:flex">
             <SidebarTrigger className="mr-1 shrink-0 rounded-full border border-slate-200 bg-white p-2 text-slate-600" />
-            {headerContent ?? (
-              <div className="flex items-center gap-2">
-                <span className="text-slate-600">すべてのセッション</span>
-              </div>
-            )}
+            {resolvedHeaderContent}
           </div>
         </AppHeader>
-        <div className="flex flex-1 overflow-hidden bg-slate-50">
+        <div className="flex flex-1 min-h-0 overflow-hidden bg-slate-50">
           {sidebar}
           <SidebarOverlay />
-          <SidebarInset className="flex flex-1 flex-col border-l border-slate-200 bg-white">
+          <SidebarInset className="flex flex-1 flex-col overflow-hidden border-l border-slate-200 bg-white">
             <main className="flex-1 overflow-y-auto">{children}</main>
             {showFooter && <AppFooter />}
           </SidebarInset>
