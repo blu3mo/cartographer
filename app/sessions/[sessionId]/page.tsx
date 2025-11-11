@@ -1,11 +1,13 @@
 "use client";
 
 import axios from "axios";
-import { FileText, Loader2 } from "lucide-react";
+import { ChevronDown, FileText, Loader2 } from "lucide-react";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { AboutCartographerButton } from "@/components/AboutCartographerButton";
+import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -82,6 +84,25 @@ type HistoryEntry =
       reflection: ParticipantReflection;
       key: string;
     };
+
+type GoalSection = {
+  heading: string;
+  content: string;
+};
+
+function extractGoalSections(goal?: string | null): GoalSection[] {
+  if (!goal) return [];
+  const sections: GoalSection[] = [];
+  const pattern = /【([^】]+)】([\s\S]*?)(?=【[^】]+】|$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(goal)) !== null) {
+    const heading = match[1]?.trim();
+    const content = match[2]?.trim();
+    if (!heading || !content) continue;
+    sections.push({ heading, content });
+  }
+  return sections;
+}
 
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
@@ -176,6 +197,9 @@ export default function SessionPage({
   const [reflectionSubmissionError, setReflectionSubmissionError] = useState<
     string | null
   >(null);
+  const [isGoalCollapsed, setIsGoalCollapsed] = useState(true);
+  const [hasAutoCollapsedAfterJoin, setHasAutoCollapsedAfterJoin] =
+    useState(false);
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const sessionInfoId = sessionInfo?.id;
@@ -387,6 +411,23 @@ export default function SessionPage({
       return next;
     });
   }, []);
+  const goalSections = useMemo(
+    () => extractGoalSections(sessionInfo?.goal),
+    [sessionInfo?.goal],
+  );
+
+  useEffect(() => {
+    if (state === "NEEDS_NAME") {
+      setIsGoalCollapsed(false);
+      setHasAutoCollapsedAfterJoin(false);
+      return;
+    }
+
+    if (!hasAutoCollapsedAfterJoin) {
+      setIsGoalCollapsed(true);
+      setHasAutoCollapsedAfterJoin(true);
+    }
+  }, [state, hasAutoCollapsedAfterJoin]);
 
   const removeUpdatingResponseId = useCallback((statementId: string) => {
     setUpdatingResponseIds((prev) => {
@@ -1033,6 +1074,7 @@ export default function SessionPage({
   if (userLoading || isSessionInfoLoading || isCheckingParticipation) {
     return (
       <div className="min-h-screen bg-background">
+        <AppHeader rightSlot={<AboutCartographerButton />} />
         <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8 space-y-2">
             <Skeleton className="h-8 w-48" />
@@ -1059,6 +1101,7 @@ export default function SessionPage({
   if (sessionInfoError) {
     return (
       <div className="min-h-screen bg-background">
+        <AppHeader rightSlot={<AboutCartographerButton />} />
         <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold tracking-tight">セッション</h1>
@@ -1077,6 +1120,7 @@ export default function SessionPage({
 
   return (
     <div className="min-h-screen bg-background">
+      <AppHeader rightSlot={<AboutCartographerButton />} />
       <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8 space-y-6">
           <div>
@@ -1084,6 +1128,41 @@ export default function SessionPage({
               {sessionInfo?.title ?? "セッション"}
             </h1>
           </div>
+          {goalSections.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setIsGoalCollapsed((prev) => !prev)}
+                className="flex w-full items-center justify-between text-left"
+              >
+                <div>
+                  <p className="text-base font-semibold text-slate-900">
+                    このセッションの概要
+                  </p>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "h-5 w-5 text-slate-500 transition-transform",
+                    isGoalCollapsed ? "-rotate-90" : "rotate-0",
+                  )}
+                />
+              </button>
+              {!isGoalCollapsed && (
+                <div className="mt-4 space-y-4">
+                  {goalSections.map((section) => (
+                    <div key={section.heading} className="space-y-1.5">
+                      <p className="text-xs font-semibold text-slate-500">
+                        【{section.heading}】
+                      </p>
+                      <p className="text-sm text-slate-900 whitespace-pre-line">
+                        {section.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {state === "NEEDS_NAME" && (
