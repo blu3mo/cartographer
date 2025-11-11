@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export class SessionAccessError extends Error {
   status: number;
@@ -26,7 +26,7 @@ export async function requireSessionHost(
   sessionId: string,
   userId: string,
 ): Promise<SessionHostRow> {
-  const { data: session, error } = await supabase
+  const { data: session, error } = await getSupabase()
     .from("sessions")
     .select("id, title, context, goal, is_public, host_user_id")
     .eq("id", sessionId)
@@ -50,7 +50,7 @@ export async function requireSessionHost(
 async function fetchSessionAdminRow(
   sessionId: string,
 ): Promise<SessionAdminRow> {
-  const { data: session, error } = await supabase
+  const { data: session, error } = await getSupabase()
     .from("sessions")
     .select(
       "id, title, context, goal, is_public, host_user_id, admin_access_token",

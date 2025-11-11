@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
 import { ensureEventThreadForSession } from "@/lib/server/event-threads";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type SessionRow = {
   id: string;
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: participantSessions, error: participantSessionsError } =
-      await supabase
+      await getSupabase()
         .from("participants")
         .select("session_id")
         .eq("user_id", userId);
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       ...(participantFilter ? [participantFilter] : []),
     ].join(",");
 
-    const { data: sessionsData, error: sessionsError } = await supabase
+    const { data: sessionsData, error: sessionsError } = await getSupabase()
       .from("sessions")
       .select(
         `
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
     const normalizedVisibility =
       typeof isPublic === "boolean" ? isPublic : true;
 
-    const { data: createdSessions, error: createSessionError } = await supabase
+    const { data: createdSessions, error: createSessionError } = await getSupabase()
       .from("sessions")
       .insert({
         title: trimmedTitle,

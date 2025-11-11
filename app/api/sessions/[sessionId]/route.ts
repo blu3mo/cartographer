@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type SessionRow = {
   id: string;
@@ -42,7 +42,7 @@ export async function GET(
       );
     }
 
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await getSupabase()
       .from("sessions")
       .select(
         `

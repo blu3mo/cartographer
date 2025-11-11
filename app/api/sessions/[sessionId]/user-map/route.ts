@@ -2,7 +2,7 @@ import { PCA } from "ml-pca";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 interface ParticipantPoint {
   id: string;
@@ -88,7 +88,7 @@ export async function GET(
       );
     }
 
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await getSupabase()
       .from("sessions")
       .select("id, host_user_id")
       .eq("id", sessionId)
@@ -115,7 +115,7 @@ export async function GET(
       );
     }
 
-    const { data: statements, error: statementsError } = await supabase
+    const { data: statements, error: statementsError } = await getSupabase()
       .from("statements")
       .select("id, text, order_index")
       .eq("session_id", sessionId)
@@ -138,7 +138,7 @@ export async function GET(
       );
     }
 
-    const { data: participants, error: participantsError } = await supabase
+    const { data: participants, error: participantsError } = await getSupabase()
       .from("participants")
       .select("user_id, name")
       .eq("session_id", sessionId);
@@ -160,7 +160,7 @@ export async function GET(
       );
     }
 
-    const { data: responses, error: responsesError } = await supabase
+    const { data: responses, error: responsesError } = await getSupabase()
       .from("responses")
       .select("participant_user_id, statement_id, value")
       .eq("session_id", sessionId);

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type SessionForThread = {
   id: string;
@@ -17,7 +17,7 @@ export type EventThreadRecord = {
 };
 
 async function ensurePtolemyAgentInstance(threadId: string) {
-  const { data: existingInstance, error: lookupError } = await supabase
+  const { data: existingInstance, error: lookupError } = await getSupabase()
     .from("agent_instances")
     .select("id")
     .eq("thread_id", threadId)
@@ -34,7 +34,7 @@ async function ensurePtolemyAgentInstance(threadId: string) {
     return existingInstance;
   }
 
-  const { data: instance, error: createError } = await supabase
+  const { data: instance, error: createError } = await getSupabase()
     .from("agent_instances")
     .insert({
       thread_id: threadId,
@@ -56,7 +56,7 @@ async function createBootstrapUserMessage(
   thread: EventThreadRecord,
   session: SessionForThread,
 ) {
-  const { error } = await supabase.from("events").insert({
+  const { error } = await getSupabase().from("events").insert({
     thread_id: thread.id,
     type: "user_message",
     user_id: session.host_user_id,
@@ -81,7 +81,7 @@ async function createBootstrapUserMessage(
 export async function ensureEventThreadForSession(
   session: SessionForThread,
 ): Promise<EventThreadRecord> {
-  const { data: existingThread, error: lookupError } = await supabase
+  const { data: existingThread, error: lookupError } = await getSupabase()
     .from("event_threads")
     .select("id, session_id, should_proceed, created_at, updated_at")
     .eq("session_id", session.id)
@@ -98,7 +98,7 @@ export async function ensureEventThreadForSession(
     return existingThread;
   }
 
-  const { data: createdThread, error: createError } = await supabase
+  const { data: createdThread, error: createError } = await getSupabase()
     .from("event_threads")
     .insert({
       session_id: session.id,

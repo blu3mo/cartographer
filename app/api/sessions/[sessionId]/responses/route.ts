@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type StatementRow = {
   id: string;
@@ -48,7 +48,7 @@ export async function GET(
       );
     }
 
-    const { data: participant, error: participantError } = await supabase
+    const { data: participant, error: participantError } = await getSupabase()
       .from("participants")
       .select("user_id")
       .eq("user_id", userId)
@@ -70,7 +70,7 @@ export async function GET(
       );
     }
 
-    const { data: responses, error: responsesError } = await supabase
+    const { data: responses, error: responsesError } = await getSupabase()
       .from("responses")
       .select(
         `
@@ -152,7 +152,7 @@ export async function POST(
       );
     }
 
-    const { data: statement, error: statementError } = await supabase
+    const { data: statement, error: statementError } = await getSupabase()
       .from("statements")
       .select("id")
       .eq("id", statementId)
@@ -173,7 +173,7 @@ export async function POST(
       );
     }
 
-    const { data: participant, error: participantError } = await supabase
+    const { data: participant, error: participantError } = await getSupabase()
       .from("participants")
       .select("user_id")
       .eq("user_id", userId)
@@ -195,7 +195,7 @@ export async function POST(
       );
     }
 
-    const { data: response, error: upsertError } = await supabase
+    const { data: response, error: upsertError } = await getSupabase()
       .from("responses")
       .upsert(
         {

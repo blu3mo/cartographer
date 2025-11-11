@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type ParticipantRow = {
   user_id: string;
@@ -48,7 +48,7 @@ export async function POST(
       );
     }
 
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await getSupabase()
       .from("sessions")
       .select("id")
       .eq("id", sessionId)
@@ -66,7 +66,7 @@ export async function POST(
     }
 
     const { data: existingParticipant, error: existingParticipantError } =
-      await supabase
+      await getSupabase()
         .from("participants")
         .select("user_id")
         .eq("user_id", userId)
@@ -91,7 +91,7 @@ export async function POST(
       );
     }
 
-    const { data: participant, error: createParticipantError } = await supabase
+    const { data: participant, error: createParticipantError } = await getSupabase()
       .from("participants")
       .insert({
         user_id: userId,

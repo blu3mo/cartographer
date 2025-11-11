@@ -6,7 +6,7 @@ import {
   requireSessionHost,
   SessionAccessError,
 } from "@/lib/server/session-access";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export async function POST(
   request: NextRequest,
@@ -35,7 +35,7 @@ export async function POST(
       );
     }
 
-    const { data: event, error: insertError } = await supabase
+    const { data: event, error: insertError } = await getSupabase()
       .from("events")
       .insert({
         thread_id: thread.id,

@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
 
@@ -47,7 +47,7 @@ export async function GET(
       );
     }
 
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await getSupabase()
       .from("sessions")
       .select(
         "id, title, context, goal, is_public, created_at, host_user_id, admin_access_token",
@@ -78,7 +78,7 @@ export async function GET(
 
     const isHost = session.host_user_id === userId;
 
-    const { data: statements, error: statementsError } = await supabase
+    const { data: statements, error: statementsError } = await getSupabase()
       .from("statements")
       .select("id, session_id, text, order_index")
       .eq("session_id", sessionId)
@@ -95,7 +95,7 @@ export async function GET(
       );
     }
 
-    const { data: responseRows, error: responsesError } = await supabase
+    const { data: responseRows, error: responsesError } = await getSupabase()
       .from("responses")
       .select("statement_id, value, participant_user_id")
       .eq("session_id", sessionId);
@@ -111,7 +111,7 @@ export async function GET(
       );
     }
 
-    const { data: participantRows, error: participantsError } = await supabase
+    const { data: participantRows, error: participantsError } = await getSupabase()
       .from("participants")
       .select("user_id, name, updated_at")
       .eq("session_id", sessionId)
@@ -271,7 +271,7 @@ export async function PATCH(
       );
     }
 
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await getSupabase()
       .from("sessions")
       .select("id, host_user_id, admin_access_token")
       .eq("id", sessionId)
@@ -332,7 +332,7 @@ export async function PATCH(
       );
     }
 
-    const { data: updatedSession, error: updateError } = await supabase
+    const { data: updatedSession, error: updateError } = await getSupabase()
       .from("sessions")
       .update({
         title: title.trim(),
@@ -386,7 +386,7 @@ export async function DELETE(
       );
     }
 
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await getSupabase()
       .from("sessions")
       .select("id, host_user_id, admin_access_token")
       .eq("id", sessionId)
@@ -420,7 +420,7 @@ export async function DELETE(
       );
     }
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await getSupabase()
       .from("sessions")
       .delete()
       .eq("id", sessionId);

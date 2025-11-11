@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type ReflectionRow = {
   id: string;
@@ -20,7 +20,7 @@ const mapReflection = (row: ReflectionRow) => ({
 });
 
 async function ensureParticipant(sessionId: string, userId: string) {
-  const { data: participant, error } = await supabase
+  const { data: participant, error } = await getSupabase()
     .from("participants")
     .select("user_id")
     .eq("user_id", userId)
@@ -68,7 +68,7 @@ export async function GET(
       );
     }
 
-    const { data, error: reflectionsError } = await supabase
+    const { data, error: reflectionsError } = await getSupabase()
       .from("participant_reflections")
       .select(
         `
@@ -152,7 +152,7 @@ export async function POST(
 
     const normalizedText = text.trim();
 
-    const { data, error: insertError } = await supabase
+    const { data, error: insertError } = await getSupabase()
       .from("participant_reflections")
       .insert({
         participant_user_id: userId,

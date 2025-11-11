@@ -29,8 +29,9 @@ function createSupabaseClient(): SupabaseClient {
   });
 }
 
-export const supabase = globalForSupabase.supabase ?? createSupabaseClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForSupabase.supabase = supabase;
+export function getSupabase(): SupabaseClient {
+  if (!globalForSupabase.supabase) {
+    globalForSupabase.supabase = createSupabaseClient();
+  }
+  return globalForSupabase.supabase;
 }

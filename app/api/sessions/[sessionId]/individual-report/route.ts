@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
 import { buildSessionBrief, generateIndividualReport } from "@/lib/llm";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export async function GET(
   request: NextRequest,
@@ -19,7 +19,7 @@ export async function GET(
       );
     }
 
-    const { data: participant, error: participantError } = await supabase
+    const { data: participant, error: participantError } = await getSupabase()
       .from("participants")
       .select("user_id, session_id, name, latest_individual_report_id")
       .eq("user_id", userId)
@@ -47,7 +47,7 @@ export async function GET(
       return NextResponse.json({ report: null });
     }
 
-    const { data: report, error: reportError } = await supabase
+    const { data: report, error: reportError } = await getSupabase()
       .from("individual_reports")
       .select(
         "id, participant_user_id, session_id, content_markdown, created_at",
@@ -100,7 +100,7 @@ export async function POST(
     }
 
     // Verify that the user is a participant in this session
-    const { data: participant, error: participantError } = await supabase
+    const { data: participant, error: participantError } = await getSupabase()
       .from("participants")
       .select("user_id, session_id, name")
       .eq("user_id", userId)
@@ -125,7 +125,7 @@ export async function POST(
     }
 
     // Get session context
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await getSupabase()
       .from("sessions")
       .select("id, title, context, goal")
       .eq("id", sessionId)
@@ -146,7 +146,7 @@ export async function POST(
     }
 
     // Fetch all responses for this participant with statement text
-    const { data: responses, error: responsesError } = await supabase
+    const { data: responses, error: responsesError } = await getSupabase()
       .from("responses")
       .select("statement_id, value")
       .eq("participant_user_id", userId)
@@ -174,7 +174,7 @@ export async function POST(
       new Set((responses ?? []).map((response) => response.statement_id)),
     );
 
-    const { data: statements, error: statementsError } = await supabase
+    const { data: statements, error: statementsError } = await getSupabase()
       .from("statements")
       .select("id, text")
       .in("id", statementIds);
@@ -210,7 +210,7 @@ export async function POST(
     );
 
     // Save report to database
-    const { data: report, error: reportError } = await supabase
+    const { data: report, error: reportError } = await getSupabase()
       .from("individual_reports")
       .insert({
         participant_user_id: userId,
@@ -231,7 +231,7 @@ export async function POST(
     }
 
     // Update participant's latest report reference
-    const { error: updateParticipantError } = await supabase
+    const { error: updateParticipantError } = await getSupabase()
       .from("participants")
       .update({
         latest_individual_report_id: report.id,

@@ -6,7 +6,7 @@ import {
   requireSessionHost,
   SessionAccessError,
 } from "@/lib/server/session-access";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export async function PATCH(
   request: NextRequest,
@@ -35,7 +35,7 @@ export async function PATCH(
       );
     }
 
-    const { data: updatedThread, error: updateError } = await supabase
+    const { data: updatedThread, error: updateError } = await getSupabase()
       .from("event_threads")
       .update({
         should_proceed: shouldProceed,

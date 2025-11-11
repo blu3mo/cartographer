@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type StatementRow = {
   id: string;
@@ -34,7 +34,7 @@ export async function GET(
       );
     }
 
-    const { data: participant, error: participantError } = await supabase
+    const { data: participant, error: participantError } = await getSupabase()
       .from("participants")
       .select("user_id")
       .eq("user_id", userId)
@@ -62,7 +62,7 @@ export async function GET(
       searchParams.getAll("excludeStatementId").filter(Boolean),
     );
 
-    const { data: allStatements, error: statementsError } = await supabase
+    const { data: allStatements, error: statementsError } = await getSupabase()
       .from("statements")
       .select("id, session_id, text, order_index, created_at")
       .eq("session_id", sessionId)
@@ -77,7 +77,7 @@ export async function GET(
     }
 
     // Get all responses by this participant
-    const { data: existingResponses, error: responsesError } = await supabase
+    const { data: existingResponses, error: responsesError } = await getSupabase()
       .from("responses")
       .select("statement_id")
       .eq("participant_user_id", userId)

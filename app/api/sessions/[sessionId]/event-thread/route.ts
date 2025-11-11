@@ -6,7 +6,7 @@ import {
   requireSessionHost,
   SessionAccessError,
 } from "@/lib/server/session-access";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type SupabaseEventRow = {
   id: string;
@@ -38,7 +38,7 @@ export async function GET(
     const session = await requireSessionHost(sessionId, userId);
     const thread = await ensureEventThreadForSession(session);
 
-    const { data: rawEvents, error: eventsError } = await supabase
+    const { data: rawEvents, error: eventsError } = await getSupabase()
       .from("events")
       .select(
         "id, type, agent_id, user_id, progress, payload, order_index, created_at, updated_at",
@@ -72,7 +72,7 @@ export async function GET(
     > = {};
 
     if (statementIds.size > 0) {
-      const { data: statements, error: statementsError } = await supabase
+      const { data: statements, error: statementsError } = await getSupabase()
         .from("statements")
         .select("id, text, order_index")
         .in("id", Array.from(statementIds));
@@ -127,7 +127,7 @@ export async function GET(
       };
     });
 
-    const { data: agents, error: agentsError } = await supabase
+    const { data: agents, error: agentsError } = await getSupabase()
       .from("agent_instances")
       .select("id, agent_type, state, state_payload, created_at, updated_at")
       .eq("thread_id", thread.id)

@@ -1,5 +1,5 @@
 import { callLLM } from "@/lib/llm";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
 
@@ -155,7 +155,7 @@ function mapReportRow(row: {
 }
 
 async function getNextReportVersion(sessionId: string): Promise<number> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("session_reports")
     .select("version")
     .eq("session_id", sessionId)
@@ -179,7 +179,7 @@ async function getNextReportVersion(sessionId: string): Promise<number> {
 export async function listSessionReports(
   sessionId: string,
 ): Promise<SessionReportRecord[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("session_reports")
     .select(
       "id, session_id, version, status, request_markdown, content_markdown, created_by, model, error_message, token_usage, prompt_snapshot, created_at, updated_at, completed_at",
@@ -197,7 +197,7 @@ export async function listSessionReports(
 export async function getSessionReportById(
   reportId: string,
 ): Promise<SessionReportRecord | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("session_reports")
     .select(
       "id, session_id, version, status, request_markdown, content_markdown, created_by, model, error_message, token_usage, prompt_snapshot, created_at, updated_at, completed_at",
@@ -222,7 +222,7 @@ export async function createSessionReportRecord(options: {
 }): Promise<SessionReportRecord> {
   const version = await getNextReportVersion(options.sessionId);
   const trimmedRequest = options.requestMarkdown?.trim() ?? "";
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("session_reports")
     .insert({
       session_id: options.sessionId,
@@ -246,7 +246,7 @@ export async function createSessionReportRecord(options: {
 }
 
 async function fetchSessionRow(sessionId: string): Promise<SessionRow> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("sessions")
     .select("id, title, context, goal")
     .eq("id", sessionId)
@@ -262,7 +262,7 @@ async function fetchSessionRow(sessionId: string): Promise<SessionRow> {
 }
 
 async function fetchStatements(sessionId: string): Promise<StatementRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("statements")
     .select("id, text, order_index")
     .eq("session_id", sessionId)
@@ -276,7 +276,7 @@ async function fetchStatements(sessionId: string): Promise<StatementRow[]> {
 }
 
 async function fetchResponses(sessionId: string): Promise<ResponseRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("responses")
     .select("statement_id, participant_user_id, value")
     .eq("session_id", sessionId);
@@ -289,7 +289,7 @@ async function fetchResponses(sessionId: string): Promise<ResponseRow[]> {
 }
 
 async function fetchParticipants(sessionId: string): Promise<ParticipantRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("participants")
     .select("user_id, name")
     .eq("session_id", sessionId)
@@ -306,7 +306,7 @@ async function fetchTimelineEntries(
   sessionId: string,
   statementsById: Map<string, StatementRow>,
 ): Promise<TimelineEntry[]> {
-  const { data: thread, error: threadError } = await supabase
+  const { data: thread, error: threadError } = await getSupabase()
     .from("event_threads")
     .select("id")
     .eq("session_id", sessionId)
@@ -322,7 +322,7 @@ async function fetchTimelineEntries(
     return [];
   }
 
-  const { data: events, error: eventsError } = await supabase
+  const { data: events, error: eventsError } = await getSupabase()
     .from("events")
     .select(
       "id, type, agent_id, user_id, progress, payload, order_index, created_at",
@@ -638,7 +638,7 @@ Part 2:
 }
 
 export async function generateSessionReport(reportId: string): Promise<void> {
-  const { data: reportRow, error: reportError } = await supabase
+  const { data: reportRow, error: reportError } = await getSupabase()
     .from("session_reports")
     .select(
       "id, session_id, status, request_markdown, created_by, version, prompt_snapshot",
@@ -655,7 +655,7 @@ export async function generateSessionReport(reportId: string): Promise<void> {
     return;
   }
 
-  await supabase
+  await getSupabase()
     .from("session_reports")
     .update({
       status: "generating",
@@ -699,7 +699,7 @@ export async function generateSessionReport(reportId: string): Promise<void> {
       { role: "user", content: prompt.user },
     ]);
 
-    await supabase
+    await getSupabase()
       .from("session_reports")
       .update({
         status: "completed",
@@ -711,7 +711,7 @@ export async function generateSessionReport(reportId: string): Promise<void> {
       .eq("id", reportId);
   } catch (error) {
     console.error("Failed to generate session report:", error);
-    await supabase
+    await getSupabase()
       .from("session_reports")
       .update({
         status: "failed",
