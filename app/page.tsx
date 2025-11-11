@@ -1,12 +1,20 @@
 "use client";
 
 import axios from "axios";
-import { Calendar, FileText, Loader2, Lock, Plus, Users } from "lucide-react";
+import {
+  Calendar,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Lock,
+  Plus,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/Button";
+import { Button, buttonVariants } from "@/components/ui/Button";
 import {
   Card,
   CardContent,
@@ -23,7 +31,7 @@ type Session = {
   context: string;
   goal: string;
   hostUserId: string;
-  adminAccessToken: string;
+  adminAccessToken?: string;
   createdAt: string;
   isPublic: boolean;
   _count: {
@@ -88,7 +96,7 @@ export default function Home() {
           <Link href="/sessions/new">
             <Button>
               <Plus className="h-4 w-4" />
-              新しいセッション
+              新しいセッションを作成
             </Button>
           </Link>
         </div>
@@ -191,28 +199,41 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                       </span>
                     )}
                   </div>
-                  <CardDescription className="line-clamp-2">
+                  <CardDescription className="text-sm text-muted-foreground">
                     {session.goal || session.context}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
                         <Users className="h-4 w-4" />
-                        <span>{session._count.participants}</span>
+                        <div className="flex flex-col leading-tight">
+                          <span className="text-xs">参加者</span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {session._count.participants}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4" />
-                        <span>{session._count.statements}</span>
+                        <div className="flex flex-col leading-tight">
+                          <span className="text-xs">生成された質問数</span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {session._count.statements}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        <span>
-                          {new Date(session.createdAt).toLocaleDateString(
-                            "ja-JP",
-                          )}
-                        </span>
+                        <div className="flex flex-col leading-tight">
+                          <span className="text-xs">セッション作成日</span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {new Date(session.createdAt).toLocaleDateString(
+                              "ja-JP",
+                            )}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -222,6 +243,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                           size="sm"
                           onClick={(event) => {
                             event.stopPropagation();
+                            if (!session.adminAccessToken) return;
                             router.push(
                               `/sessions/${session.id}/${session.adminAccessToken}`,
                             );
@@ -230,15 +252,15 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                           管理
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          router.push(`/sessions/${session.id}`);
-                        }}
+                      <Link
+                        href={`/sessions/${session.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={buttonVariants({ size: "sm" })}
                       >
-                        参加
-                      </Button>
+                        <span>参加</span>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
                     </div>
                   </div>
                 </CardContent>
