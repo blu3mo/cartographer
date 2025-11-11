@@ -30,8 +30,12 @@ export function AppHeader({ className, rightSlot, children }: AppHeaderProps) {
         </Link>
         {(children || rightSlot) && (
           <div className="flex flex-1 items-center gap-4">
-            {children && <div className="flex flex-1 items-center gap-2">{children}</div>}
-            {rightSlot && <div className="ml-auto flex items-center gap-3">{rightSlot}</div>}
+            {children && (
+              <div className="flex flex-1 items-center gap-2">{children}</div>
+            )}
+            {rightSlot && (
+              <div className="ml-auto flex items-center gap-3">{rightSlot}</div>
+            )}
           </div>
         )}
       </div>

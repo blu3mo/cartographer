@@ -1,5 +1,5 @@
-import * as React from "react";
 import Link from "next/link";
+import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -76,9 +76,7 @@ const BreadcrumbSeparator = ({
   className,
   children,
 }: React.ComponentPropsWithoutRef<"span">) => (
-  <span className={cn("text-slate-300", className)}>
-    {children ?? "/"}
-  </span>
+  <span className={cn("text-slate-300", className)}>{children ?? "/"}</span>
 );
 BreadcrumbSeparator.displayName = "BreadcrumbSeparator";
 
@@ -90,4 +88,3 @@ export {
   BreadcrumbPage,
   BreadcrumbSeparator,
 };
-

@@ -4,7 +4,10 @@ import { type NextRequest, NextResponse } from "next/server";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
 
-type FormFieldKey = "backgroundInfo" | "recognitionFocus" | "recognitionPurpose";
+type FormFieldKey =
+  | "backgroundInfo"
+  | "recognitionFocus"
+  | "recognitionPurpose";
 
 interface FormSuggestionRequest {
   backgroundInfo: string;
@@ -109,7 +112,9 @@ JSON配列のみを出力し、他の説明文は含めないでください。`
       "recognitionPurpose",
     ];
 
-    const suggestions: FormSuggestionResponse[] = Array.isArray(parsedSuggestions)
+    const suggestions: FormSuggestionResponse[] = Array.isArray(
+      parsedSuggestions,
+    )
       ? parsedSuggestions.filter(
           (item): item is FormSuggestionResponse =>
             item &&

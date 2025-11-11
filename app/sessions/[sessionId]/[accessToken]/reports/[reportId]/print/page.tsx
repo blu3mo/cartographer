@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
-import SessionReportPrintClient from "./ReportPrintClient";
 import { requireSessionAdminToken } from "@/lib/server/session-access";
+import SessionReportPrintClient from "./ReportPrintClient";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const metadataBase = new URL(appUrl);

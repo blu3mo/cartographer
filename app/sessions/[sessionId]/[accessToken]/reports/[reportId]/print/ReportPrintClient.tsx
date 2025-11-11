@@ -16,8 +16,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { useUserId } from "@/lib/useUserId";
 import { createAuthorizationHeader } from "@/lib/auth";
+import { useUserId } from "@/lib/useUserId";
 
 type SessionReportStatus = "pending" | "generating" | "completed" | "failed";
 
@@ -52,7 +52,8 @@ export default function SessionReportPrintClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isViewerHost, setIsViewerHost] = useState<boolean | null>(null);
-  const [sessionTitle, setSessionTitle] = useState<string>("セッションレポート");
+  const [sessionTitle, setSessionTitle] =
+    useState<string>("セッションレポート");
   const reportPageTitle = sessionTitle
     ? `セッションレポート「${sessionTitle}」`
     : "セッションレポート";
