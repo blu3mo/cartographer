@@ -61,7 +61,7 @@ export async function callLLM(messages: LLMMessage[]): Promise<string> {
           "HTTP-Referer": "https://cartographer.app",
           "X-Title": "Cartographer",
         },
-        timeout: 30000, // 30 second timeout
+        timeout: 300000, // 300 second timeout
       },
     );
 
