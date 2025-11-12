@@ -425,6 +425,7 @@ export default function SessionPage({
     setReflectionText("");
     setCurrentStatement(null);
     setPrefetchedStatement(undefined);
+    hasJustCompletedRef.current = true;
     setState("REFLECTION");
   }, []);
 
@@ -614,12 +615,12 @@ export default function SessionPage({
     fetchParticipantReflections,
   ]);
 
-  // Auto-generate report when all questions are answered
+  // Auto-generate report when all questions are answered (even before reflection submission)
   useEffect(() => {
     if (!userId || userLoading) return;
-    if (state !== "COMPLETED") return;
+    if (state !== "COMPLETED" && state !== "REFLECTION") return;
 
-    // Only auto-generate if we just transitioned to COMPLETED (not on page reload)
+    // Only auto-generate if we just transitioned out of answering (not on page reload)
     if (!hasJustCompletedRef.current) return;
 
     // Wait for initial report fetch to complete to avoid race condition
