@@ -29,10 +29,14 @@ import { Input } from "@/components/ui/input";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { createAuthorizationHeader } from "@/lib/auth";
@@ -290,31 +294,68 @@ export default function HomePageClient() {
     );
   }
 
+  const totalSessions = sessions.length;
+  const manageableCount = adminSessions.length;
+  const participantCount = participantSessions.length;
+  const discoverCount = discoverSessions.length;
+
   const sidebar = (
     <Sidebar>
       <SidebarHeader className="space-y-4">
-        <div className="flex items-center justify-end">
-          <SidebarTrigger />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--sidebar-foreground)]/60">
+              あなたのセッション
+            </p>
+            <p className="text-2xl font-bold text-[var(--sidebar-foreground)]">
+              {totalSessions} 件
+            </p>
+            <p className="text-xs text-[var(--sidebar-foreground)]/70">
+              Cartographer Workspace
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="h-9 w-9 rounded-full border border-[var(--sidebar-border)] bg-white/80 text-[var(--sidebar-foreground)] shadow-sm" />
+            <Button
+              size="sm"
+              className="gap-1.5 rounded-full bg-[var(--sidebar-primary)] px-4 text-[var(--sidebar-primary-foreground)] shadow-sm"
+              aria-label="新しいセッションを作成"
+              onClick={openCreateModal}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              新規
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Input
-            type="search"
-            placeholder="セッションを検索"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            className="h-9 flex-1 rounded-full border-[var(--sidebar-border)] bg-white/80 px-4 text-sm focus-visible:ring-[var(--sidebar-ring)]"
-          />
-          <Button
-            size="icon"
-            className="h-9 w-9 rounded-full bg-slate-900 text-white hover:bg-slate-900/90"
-            aria-label="新しいセッションを作成"
-            onClick={openCreateModal}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+        <div className="grid gap-2 text-[11px] text-[var(--sidebar-foreground)]/80 sm:grid-cols-3">
+          <div className="rounded-2xl border border-[var(--sidebar-border)] bg-white/70 px-3 py-2">
+            <p className="font-semibold uppercase tracking-[0.18em]">管理中</p>
+            <p className="text-lg font-bold text-[var(--sidebar-foreground)]">
+              {manageableCount}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--sidebar-border)] bg-white/70 px-3 py-2">
+            <p className="font-semibold uppercase tracking-[0.18em]">参加中</p>
+            <p className="text-lg font-bold text-[var(--sidebar-foreground)]">
+              {participantCount}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--sidebar-border)] bg-white/70 px-3 py-2">
+            <p className="font-semibold uppercase tracking-[0.18em]">公開</p>
+            <p className="text-lg font-bold text-[var(--sidebar-foreground)]">
+              {discoverCount}
+            </p>
+          </div>
         </div>
+        <Input
+          type="search"
+          placeholder="タイトルや目的でフィルタ"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          className="h-10 rounded-2xl border-[var(--sidebar-border)] bg-white px-4 text-sm focus-visible:ring-[var(--sidebar-ring)]"
+        />
       </SidebarHeader>
-      <SidebarContent className="space-y-4">
+      <SidebarContent className="space-y-5 pb-6">
         <SidebarSessionsSection
           title="管理中"
           description="あなたが管理できるセッションです。"
@@ -342,6 +383,14 @@ export default function HomePageClient() {
           defaultCollapsed
         />
       </SidebarContent>
+      <SidebarFooter className="space-y-2 text-[11px] text-[var(--sidebar-foreground)]/70">
+        <p className="font-semibold uppercase tracking-[0.2em] text-[var(--sidebar-foreground)]/60">
+          Cartographer β
+        </p>
+        <p className="leading-relaxed">
+          モーダルを閉じずにセッションを組み立てて、ここからいつでも管理ビューへ戻れます。
+        </p>
+      </SidebarFooter>
     </Sidebar>
   );
 
@@ -349,7 +398,7 @@ export default function HomePageClient() {
     <>
       <DashboardLayout
         sidebar={sidebar}
-        headerContent={null}
+        headerContent={false}
         showFooter={false}
       >
         <div className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -621,13 +670,13 @@ function SidebarSessionsSection({
         )}
       </SidebarGroupLabel>
       {!collapsible || !collapsed ? (
-        <SidebarGroupContent>
+        <SidebarGroupContent className="space-y-2">
           {sessions.length === 0 ? (
             <p className="rounded-xl bg-white/70 px-3 py-3 text-[11px] text-[var(--sidebar-foreground)]/70">
               {description}
             </p>
           ) : (
-            <div className="space-y-3">
+            <SidebarMenu className="space-y-2">
               {sessions.map((session) => {
                 const isActive = selectedSessionId === session.id;
                 const context =
@@ -643,56 +692,44 @@ function SidebarSessionsSection({
                 };
 
                 return (
-                  <div
-                    key={session.id}
-                    className={cn(
-                      "space-y-3 rounded-2xl border px-4 py-4 shadow-sm transition hover:border-slate-300",
-                      isActive
-                        ? "border-slate-900 bg-slate-900/5"
-                        : "border-slate-200 bg-white",
-                    )}
-                  >
-                    <div className="relative w-full">
-                      <button
-                        type="button"
-                        onClick={cardClick}
-                        className="flex w-full flex-col items-start text-left pr-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                      >
-                        <div className="flex items-center gap-3">
-                          <p className="text-sm font-semibold text-slate-900">
-                            {session.title || "名称未設定"}
-                          </p>
-                          {!session.isPublic && (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                              非公開
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-2 text-[11px] text-slate-600">
-                          <span className="font-semibold text-slate-700">
-                            {/* 【何の認識を洗い出しますか？】 */}
-                          </span>{" "}
-                          {context}
+                  <SidebarMenuItem key={session.id}>
+                    <SidebarMenuButton
+                      type="button"
+                      onClick={cardClick}
+                      isActive={isActive}
+                      className={cn(
+                        "flex flex-col items-start gap-2 rounded-2xl border text-left shadow-sm",
+                        isActive
+                          ? "border-slate-900 bg-slate-900/5 text-slate-900"
+                          : "border-transparent bg-white text-slate-800 hover:bg-white",
+                      )}
+                    >
+                      <div className="flex w-full items-center gap-2">
+                        <p className="text-sm font-semibold">
+                          {session.title || "名称未設定"}
                         </p>
-                        <p className="mt-1 text-[11px] text-slate-600">
-                          <span className="font-semibold text-slate-700">
-                            {/* 【何のために洗い出しますか？】 */}
-                          </span>{" "}
-                          {goal}
-                        </p>
-                      </button>
-                      <a
-                        href={`/sessions/${session.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(event) => event.stopPropagation()}
-                        className="absolute right-0 top-0 inline-flex items-center justify-center rounded-full border border-slate-200 p-1.5 text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        <span className="sr-only">セッションをプレビュー</span>
-                      </a>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-900">
+                        {!session.isPublic && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                            非公開
+                          </span>
+                        )}
+                        <a
+                          href={`/sessions/${session.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                          className="ml-auto inline-flex items-center justify-center rounded-full border border-slate-200 p-1.5 text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span className="sr-only">
+                            セッションを新しいタブで開く
+                          </span>
+                        </a>
+                      </div>
+                      <p className="text-[11px] text-slate-600">{context}</p>
+                      <p className="text-[11px] text-slate-600">{goal}</p>
+                    </SidebarMenuButton>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-3 pt-1">
                       <SidebarStat
                         icon={Users}
                         label="参加者"
@@ -700,21 +737,21 @@ function SidebarSessionsSection({
                       />
                       <SidebarStat
                         icon={FileText}
-                        label="生成された質問数"
+                        label="質問"
                         value={session._count.statements}
                       />
                       <SidebarStat
                         icon={CalendarDays}
-                        label="セッション作成日"
+                        label="作成日"
                         value={new Date(session.createdAt).toLocaleDateString(
                           "ja-JP",
                         )}
                       />
                     </div>
-                  </div>
+                  </SidebarMenuItem>
                 );
               })}
-            </div>
+            </SidebarMenu>
           )}
         </SidebarGroupContent>
       ) : null}
@@ -732,9 +769,9 @@ function SidebarStat({
   value: string | number;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-slate-900">
-      <Icon className="h-4 w-4 text-slate-600" aria-hidden />
-      <span className="font-semibold">{value}</span>
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+      <Icon className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+      <span className="font-semibold text-slate-800">{value}</span>
       <span className="sr-only">{label}</span>
     </span>
   );

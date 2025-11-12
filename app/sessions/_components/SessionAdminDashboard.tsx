@@ -552,13 +552,13 @@ export function SessionAdminDashboard({
 
   const shareQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
-      shareUrl,
-    )}`
+        shareUrl,
+      )}`
     : null;
   const fullscreenQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${FULLSCREEN_QR_SIZE}x${FULLSCREEN_QR_SIZE}&data=${encodeURIComponent(
-      shareUrl,
-    )}`
+        shareUrl,
+      )}`
     : null;
 
   const handleSaveSettings = async (event: React.FormEvent) => {
@@ -593,12 +593,12 @@ export function SessionAdminDashboard({
       setData((prev) =>
         prev
           ? {
-            ...prev,
-            title: updated.title,
-            context: updated.context,
-            goal: updated.goal,
-            isPublic: updated.isPublic,
-          }
+              ...prev,
+              title: updated.title,
+              context: updated.context,
+              goal: updated.goal,
+              isPublic: updated.isPublic,
+            }
           : prev,
       );
       setSettingsMessage("セッション情報を更新しました。");
@@ -652,9 +652,9 @@ export function SessionAdminDashboard({
       setThreadData((prev) =>
         prev
           ? {
-            ...prev,
-            thread: updatedThread,
-          }
+              ...prev,
+              thread: updatedThread,
+            }
           : prev,
       );
     } catch (err) {
@@ -836,8 +836,8 @@ export function SessionAdminDashboard({
       const responseRate =
         totalParticipants > 0
           ? Math.round(
-            (statement.responses.totalCount / totalParticipants) * 100 * 10,
-          ) / 10
+              (statement.responses.totalCount / totalParticipants) * 100 * 10,
+            ) / 10
           : 0;
       return {
         statement,
@@ -956,7 +956,7 @@ export function SessionAdminDashboard({
           </div>
         )}
 
-        <div className="flex flex-1 min-h-0 flex-col gap-6 pt-6 lg:flex-row lg:gap-8">
+        <div className="flex flex-1 min-h-0 flex-col gap-6 pt-6 lg:flex-row lg:gap-6 xl:gap-8">
           <section
             className="flex-1 min-h-0 overflow-visible lg:overflow-y-auto lg:pr-4"
             aria-label="レポートビュー"
@@ -1130,7 +1130,7 @@ export function SessionAdminDashboard({
 
                           <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
                             {selectedReport.status === "completed" &&
-                              selectedReport.contentMarkdown ? (
+                            selectedReport.contentMarkdown ? (
                               <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                   {selectedReport.contentMarkdown}
@@ -1175,8 +1175,6 @@ export function SessionAdminDashboard({
                   )}
                 </CardContent>
               </Card>
-
-
             </div>
           </section>
 
@@ -1421,7 +1419,7 @@ export function SessionAdminDashboard({
                       )}
                       <div
                         ref={threadContainerRef}
-                        className="h-[620px] overflow-y-auto px-6 py-6 space-y-5"
+                        className="h-[520px] overflow-y-auto px-6 py-6 space-y-5"
                       >
                         {threadError ? (
                           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -1751,10 +1749,11 @@ export function SessionAdminDashboard({
 
                       {(settingsMessage || settingsError) && (
                         <div
-                          className={`rounded-xl px-3 py-2 text-xs ${settingsError
-                            ? "bg-red-50 text-red-600"
-                            : "bg-emerald-50 text-emerald-700"
-                            }`}
+                          className={`rounded-xl px-3 py-2 text-xs ${
+                            settingsError
+                              ? "bg-red-50 text-red-600"
+                              : "bg-emerald-50 text-emerald-700"
+                          }`}
                         >
                           {settingsError ?? settingsMessage}
                         </div>
@@ -1835,10 +1834,11 @@ export function SessionAdminDashboard({
                       onClick={canEdit ? handleToggleShouldProceed : undefined}
                       disabled={togglingProceed || !canEdit}
                       aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
-                      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${threadData?.thread?.shouldProceed
-                        ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
-                        : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                        } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
+                      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                        threadData?.thread?.shouldProceed
+                          ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
+                          : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
+                      } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                       <div className="flex items-center justify-between gap-4">
                         <div>
@@ -1854,10 +1854,11 @@ export function SessionAdminDashboard({
                         <div className="flex items-center gap-3">
                           <div
                             aria-hidden="true"
-                            className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${threadData?.thread?.shouldProceed
-                              ? "border-emerald-300 bg-emerald-500/90 justify-end"
-                              : "border-amber-300 bg-amber-200/90 justify-start"
-                              }`}
+                            className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${
+                              threadData?.thread?.shouldProceed
+                                ? "border-emerald-300 bg-emerald-500/90 justify-end"
+                                : "border-amber-300 bg-amber-200/90 justify-start"
+                            }`}
                           >
                             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
                               {threadData?.thread?.shouldProceed ? (
@@ -1988,10 +1989,11 @@ function StatementHighlightColumn({
 function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${shouldProceed
-        ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-        : "bg-amber-50 text-amber-600 border border-amber-200"
-        }`}
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+        shouldProceed
+          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+          : "bg-amber-50 text-amber-600 border border-amber-200"
+      }`}
     >
       {shouldProceed ? (
         <>
@@ -2157,8 +2159,9 @@ function ThreadEventBubble({
 
   return (
     <div
-      className={`flex gap-3 ${isHostMessage ? "justify-end" : "justify-start"
-        }`}
+      className={`flex gap-3 ${
+        isHostMessage ? "justify-end" : "justify-start"
+      }`}
     >
       {!isHostMessage && (
         <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
@@ -2166,8 +2169,9 @@ function ThreadEventBubble({
         </div>
       )}
       <div
-        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${isHostMessage ? "items-end" : "items-start"
-          }`}
+        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${
+          isHostMessage ? "items-end" : "items-start"
+        }`}
       >
         <div
           className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
@@ -2179,17 +2183,19 @@ function ThreadEventBubble({
           </span>
         </div>
         <div
-          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${isHostMessage
-            ? "border-indigo-100 bg-indigo-50/80"
-            : "border-slate-200 bg-white/90"
-            }`}
+          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${
+            isHostMessage
+              ? "border-indigo-100 bg-indigo-50/80"
+              : "border-slate-200 bg-white/90"
+          }`}
         >
           <div className="flex flex-col gap-0">
             {content.content}
             {toggleButton && (
               <div
-                className={`flex ${isHostMessage ? "justify-end" : "justify-start"
-                  } ${content.hasFade ? "-mt-1" : "mt-2"}`}
+                className={`flex ${
+                  isHostMessage ? "justify-end" : "justify-start"
+                } ${content.hasFade ? "-mt-1" : "mt-2"}`}
               >
                 {toggleButton}
               </div>
