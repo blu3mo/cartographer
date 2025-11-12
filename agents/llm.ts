@@ -115,18 +115,18 @@ export async function generatePlanMarkdown(input: {
     input.participantReflections && input.participantReflections.length > 0
       ? `<participant_reflections>
 ${input.participantReflections
-        .map((reflection) => {
-          const nameAttribute =
-            reflection.name && reflection.name.length > 0
-              ? ` name="${reflection.name}"`
-              : "";
-          const timestampAttribute =
-            reflection.submittedAt && reflection.submittedAt.length > 0
-              ? ` submitted_at="${reflection.submittedAt}"`
-              : "";
-          return `<reflection${nameAttribute}${timestampAttribute}>${reflection.text}</reflection>`;
-        })
-        .join("\n")}
+  .map((reflection) => {
+    const nameAttribute =
+      reflection.name && reflection.name.length > 0
+        ? ` name="${reflection.name}"`
+        : "";
+    const timestampAttribute =
+      reflection.submittedAt && reflection.submittedAt.length > 0
+        ? ` submitted_at="${reflection.submittedAt}"`
+        : "";
+    return `<reflection${nameAttribute}${timestampAttribute}>${reflection.text}</reflection>`;
+  })
+  .join("\n")}
 </participant_reflections>`
       : "";
 
@@ -302,12 +302,12 @@ export async function generateSurveyAnalysisMarkdown(input: {
   const participantDetailsText =
     participantMap.size > 0
       ? Array.from(participantMap.values())
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((entry) => {
-          const lines = entry.responses.map((response) => `  ${response}`);
-          return `${entry.name}:\n${lines.join("\n")}`;
-        })
-        .join("\n\n")
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((entry) => {
+            const lines = entry.responses.map((response) => `  ${response}`);
+            return `${entry.name}:\n${lines.join("\n")}`;
+          })
+          .join("\n\n")
       : "  (回答なし)";
 
   const surveyResultsText = `${statementsText}\n\n参加者別回答:\n${participantDetailsText}`;

@@ -380,7 +380,7 @@ function buildPayloadSummary(payload: Record<string, unknown>): string | null {
   if (
     Array.isArray((cloned as { statementIds?: string[] }).statementIds) &&
     ((cloned as { statementIds?: string[] }).statementIds as string[]).length >
-    0
+      0
   ) {
     delete cloned.statementIds;
   }
