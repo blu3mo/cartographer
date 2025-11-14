@@ -43,4 +43,6 @@ next-env.d.ts
 
 /app/generated/prisma
 
+/result
 /infra/supabase/bundle
+/.direnv
