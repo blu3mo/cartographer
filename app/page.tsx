@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Users, BarChart3, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
@@ -6,13 +7,45 @@ import { AppHeader } from "./components/AppHeader";
 import { MarketingNav } from "./components/MarketingNav";
 import { AboutCartographerButton } from "./components/AboutCartographerButton";
 import { getPublicSessions } from "@/lib/server/public-sessions";
-import { SessionCard } from "@/timeline/_components/SessionCard";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const metadataBase = new URL(appUrl);
 const homeTitle = "Cartographer | チームの認識をマップする";
 const homeDescription =
   "AIを活用してチーム内の多様な視点を収集・分析し、データに基づいた意思決定とコンセンサス形成を支援します。";
+
+const clientLogos = [
+  { src: "/logos/sample-logo-1.svg", alt: "クライアントロゴサンプル1" },
+  { src: "/logos/sample-logo-2.svg", alt: "クライアントロゴサンプル2" },
+  { src: "/logos/sample-logo-3.svg", alt: "クライアントロゴサンプル3" },
+  { src: "/logos/sample-logo-4.svg", alt: "クライアントロゴサンプル4" },
+  { src: "/logos/sample-logo-5.svg", alt: "クライアントロゴサンプル5" },
+  { src: "/logos/sample-logo-6.svg", alt: "クライアントロゴサンプル6" },
+];
+
+const testimonials = [
+  {
+    quote:
+      "Cartographer のレポートで論点が整理され、参加者全員が次に議論すべきテーマを迷わず共有できました。",
+    name: "黒澤 亮",
+    role: "プロダクトマネージャー",
+    organization: "DMM.com",
+  },
+  {
+    quote:
+      "経営陣の温度感の違いが数分で可視化され、クライアントとの認識合わせが驚くほどスムーズになりました。",
+    name: "結城 侑",
+    role: "コンサルタント",
+    organization: "株式会社BUTAI",
+  },
+  {
+    quote:
+      "住民ワークショップの場で Cartographer を使うことで、筋の良い論点が即座に浮かび上がり、合意形成の糸口が見つかります。",
+    name: "前田 紘司",
+    role: "ファシリテーター",
+    organization: "構想日本",
+  },
+];
 
 export const metadata: Metadata = {
   metadataBase,
@@ -77,29 +110,127 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* Client Logos */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="max-w-5xl mx-auto text-center">
+          <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">
+            Cartographerをご活用いただいているチーム
+          </h2>
+          <p className="mt-3 text-slate-600">
+            多様なステークホルダーが関わる意思決定の現場で、認識のズレを素早く可視化しています。
+          </p>
+          <div className="mt-10 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {clientLogos.map((client) => (
+              <div
+                key={client.src}
+                className="flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-6 shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg"
+              >
+                <Image
+                  src={client.src}
+                  alt={client.alt}
+                  width={160}
+                  height={64}
+                  className="h-12 w-auto object-contain"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {featuredSessions.length > 0 && (
         <section className="container mx-auto px-4 py-16 bg-white">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
-              <div>
-                <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
-                  公開セッションのハイライト
-                </h2>
-                <p className="text-slate-600 mt-3">
-                  Cartographerで公開された最新のディスカッションから、気になるトピックを覗いてみましょう。
-                </p>
+          <div className="max-w-5xl mx-auto">
+            <div className="mb-10">
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
+                公開セッションの記録
+              </h2>
+              <p className="mt-3 text-slate-600">
+                最近公開されたセッションの流れを時系列でご紹介します。
+              </p>
+            </div>
+            <div className="relative">
+              <div className="absolute left-4 top-0 hidden h-full w-px bg-slate-200 md:block" />
+              <div className="space-y-8">
+                {featuredSessions.map((session, index) => {
+                  const createdAt = new Date(session.createdAt);
+                  const formattedDate = createdAt.toLocaleDateString("ja-JP", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  });
+                  const truncatedContext =
+                    session.context && session.context.length > 110
+                      ? `${session.context.slice(0, 110)}…`
+                      : session.context;
+                  const truncatedGoal =
+                    session.goal && session.goal.length > 110
+                      ? `${session.goal.slice(0, 110)}…`
+                      : session.goal;
+
+                  return (
+                    <div
+                      key={session.id}
+                      className="relative rounded-2xl border border-slate-200 bg-slate-50 px-6 py-6 shadow-sm"
+                    >
+                      <div className="absolute left-4 top-6 hidden h-3 w-3 -translate-x-1.5 rounded-full border-2 border-white bg-blue-500 md:block" />
+                      <div className="flex flex-col gap-3 md:pl-8">
+                        <div className="text-sm font-semibold text-blue-600">
+                          {formattedDate}
+                        </div>
+                        <h3 className="text-xl font-semibold text-slate-900">
+                          {session.title || `未設定のセッション ${index + 1}`}
+                        </h3>
+
+                        {truncatedContext && (
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              背景
+                            </p>
+                            <p className="text-sm text-slate-600">
+                              {truncatedContext}
+                            </p>
+                          </div>
+                        )}
+
+                        {truncatedGoal && (
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              目的
+                            </p>
+                            <p className="text-sm text-slate-600">
+                              {truncatedGoal}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                          <span>{session._count.participants} 人参加</span>
+                          <span>{session._count.statements} 質問</span>
+                        </div>
+
+                        <div>
+                          <Link
+                            href={`/sessions/${session.id}`}
+                            className="inline-flex items-center text-sm font-semibold text-blue-600 transition hover:text-blue-700"
+                          >
+                            詳細を見る
+                            <ArrowRight className="ml-1 h-4 w-4" />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+            <div className="mt-10 text-right">
               <Link href="/timeline">
                 <Button variant="outline" className="w-full md:w-auto">
-                  すべてのセッションを見る
+                  すべての公開セッションを見る
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-            </div>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {featuredSessions.map((session) => (
-                <SessionCard key={session.id} session={session} />
-              ))}
             </div>
           </div>
         </section>
@@ -199,6 +330,37 @@ export default async function LandingPage() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="container mx-auto px-4 py-20 bg-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-900">
+              現場の声
+            </h2>
+            <p className="text-lg text-slate-600">
+              Cartographerが議論の質とスピードをどう変えたのか、実際のチームのコメントをご紹介します。
+            </p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {testimonials.map((testimonial) => (
+              <div
+                key={testimonial.name}
+                className="flex h-full flex-col rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm"
+              >
+                <p className="text-left text-sm leading-relaxed text-slate-700">
+                  “{testimonial.quote}”
+                </p>
+                <div className="mt-6 pt-4 text-left text-sm text-slate-600 border-t border-slate-200">
+                  <p className="font-semibold text-slate-800">{testimonial.name}</p>
+                  <p>{testimonial.role}</p>
+                  <p className="text-slate-500">{testimonial.organization}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
