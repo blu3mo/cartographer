@@ -219,6 +219,7 @@ export function DashboardClient() {
   );
   const [reportRequestControls, setReportRequestControls] =
     useState<ReactNode | null>(null);
+  const [reportHeader, setReportHeader] = useState<ReactNode | null>(null);
   const [isShareQrFullscreen, setIsShareQrFullscreen] = useState(false);
   const [isShareQrErrored, setIsShareQrErrored] = useState(false);
 
@@ -424,12 +425,14 @@ export function DashboardClient() {
       setEventLog([]);
       setEventLogError(null);
       setReportRequestControls(null);
+      setReportHeader(null);
       setIsShareQrErrored(false);
       return;
     }
 
     let cancelled = false;
     setReportRequestControls(null);
+    setReportHeader(null);
 
     const fetchDetail = async () => {
       try {
@@ -567,7 +570,7 @@ export function DashboardClient() {
         icon: Users,
       },
       {
-        label: "ステートメント",
+        label: "質問数",
         value: String(
           sessionDetail?.totalStatements ??
             selectedAdminSession._count.statements,
@@ -599,12 +602,12 @@ export function DashboardClient() {
       <div className="flex h-screen flex-col bg-background">
         <header className="flex h-20 flex-col justify-center gap-2 border-b bg-primary px-6 text-primary-foreground">
           <div className="flex items-center gap-3">
-            <FileText className="h-5 w-5" />
+            {/* <FileText className="h-5 w-5" /> */}
             <span className="text-sm font-semibold uppercase tracking-wide">
               Cartographer
             </span>
           </div>
-          <div className="flex items-center justify-between">
+          {/* <div className="flex items-center justify-between">
             <h1 className="text-lg font-semibold">
               {selectedAdminSession
                 ? selectedAdminSession.title || "名称未設定"
@@ -613,7 +616,7 @@ export function DashboardClient() {
             <Button variant="ghost" size="icon">
               <User className="h-4 w-4" />
             </Button>
-          </div>
+          </div> */}
         </header>
 
         <div className="flex flex-1 overflow-hidden">
@@ -754,8 +757,37 @@ export function DashboardClient() {
               )}
             </div>
 
+            {/* <div className="border-b bg-card px-6 py-4">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-semibold text-card-foreground">
+                    分析レポート
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    参加者の回答結果や、セッション情報をもとに、現状把握レポートを生成します。
+                  </p>
+                </div>
+                {reportHeader && <div>{reportHeader}</div>}
+              </div>
+            </div> */}
+
             <div className="flex flex-1 overflow-hidden">
               <div className="flex flex-1 flex-col overflow-hidden border-r">
+
+                <div className="border-b bg-card px-6 py-4">
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <h3 className="text-lg font-semibold text-card-foreground">
+                        分析レポート
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        参加者の回答結果や、セッション情報をもとに、現状把握レポートを生成します。
+                      </p>
+                    </div>
+                    {reportHeader && <div>{reportHeader}</div>}
+                  </div>
+                </div>
+
                 <div className="flex-1 overflow-hidden bg-muted/30 p-6">
                   <div className="flex h-full flex-col gap-4">
                     {error && (
@@ -778,8 +810,8 @@ export function DashboardClient() {
                           </div>
                         ) : hasSelectedSession && selectedAdminAccessToken ? (
                           <SessionAdminDashboard
-                            key={selectedAdminSession.id}
-                            sessionId={selectedAdminSession.id}
+                            key={selectedAdminSession?.id}
+                            sessionId={selectedAdminSession?.id ?? ""}
                             accessToken={selectedAdminAccessToken}
                             embedded
                             showHeader={false}
@@ -788,6 +820,8 @@ export function DashboardClient() {
                             onReportRequestControlsRender={
                               setReportRequestControls
                             }
+                            externalizeReportHeader
+                            onReportHeaderRender={setReportHeader}
                           />
                         ) : (
                           <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
