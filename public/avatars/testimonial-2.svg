@@ -1,0 +1,8 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="160" height="160" rx="80" fill="#E2E8F0"/>
+  <path d="M80 82C95.463 82 108 69.463 108 54C108 38.5369 95.463 26 80 26C64.5369 26 52 38.5369 52 54C52 69.463 64.5369 82 80 82Z" fill="#CBD5F5"/>
+  <path d="M32 138C32 110.386 52.386 90 80 90C107.614 90 128 110.386 128 138H32Z" fill="#CBD5F5"/>
+  <text x="50%" y="150" text-anchor="middle" font-size="18" fill="#64748B" font-family="sans-serif">
+    Sample
+  </text>
+</svg>

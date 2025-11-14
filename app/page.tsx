@@ -18,6 +18,9 @@ const clientLogos = [
   { src: "/logos/sample-logo-1.svg", alt: "クライアントロゴサンプル1" },
   { src: "/logos/sample-logo-2.svg", alt: "クライアントロゴサンプル2" },
   { src: "/logos/sample-logo-3.svg", alt: "クライアントロゴサンプル3" },
+  { src: "/logos/sample-logo-3.svg", alt: "クライアントロゴサンプル4" },
+  { src: "/logos/sample-logo-3.svg", alt: "クライアントロゴサンプル5" },
+  { src: "/logos/sample-logo-3.svg", alt: "クライアントロゴサンプル6" },
 ];
 
 const productShots = [
@@ -51,6 +54,7 @@ const testimonials = [
     name: "黒澤 亮",
     role: "プロダクトマネージャー",
     organization: "DMM.com",
+    avatar: "/avatars/testimonial-1.svg",
   },
   {
     quote:
@@ -58,6 +62,7 @@ const testimonials = [
     name: "結城 侑",
     role: "コンサルタント",
     organization: "株式会社BUTAI",
+    avatar: "/avatars/testimonial-2.svg",
   },
   {
     quote:
@@ -65,6 +70,7 @@ const testimonials = [
     name: "前田 紘司",
     role: "ファシリテーター",
     organization: "構想日本",
+    avatar: "/avatars/testimonial-3.svg",
   },
 ];
 
@@ -117,7 +123,7 @@ export default async function LandingPage() {
                 データに基づいた意思決定とコンセンサス形成を支援します。
               </p>
 
-              <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+              <div className="mt-8 flex flex-col justify-stater gap-4 sm:flex-row">
                 <Link href="/dashboard">
                   <Button size="lg" className="px-8 text-base">
                     始める
@@ -429,41 +435,35 @@ export default async function LandingPage() {
               Cartographerが議論の質とスピードをどう変えたのか、実際のチームのコメントをご紹介します。
             </p>
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="space-y-10 divide-y divide-slate-200">
             {testimonials.map((testimonial) => (
               <div
                 key={testimonial.name}
-                className="flex h-full flex-col rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm"
+                className="pt-10 first:pt-0 md:flex md:items-center md:justify-between md:gap-10"
               >
-                <p className="text-left text-sm leading-relaxed text-slate-700">
+                <div className="flex items-center gap-4 md:gap-6">
+                  <Image
+                    src={testimonial.avatar}
+                    alt={`${testimonial.name}のアイコン`}
+                    width={96}
+                    height={96}
+                    className="h-16 w-16 rounded-full border border-slate-300 bg-slate-200 object-cover md:h-20 md:w-20"
+                  />
+                  <div>
+                    <p className="text-lg font-semibold text-slate-900">
+                      {testimonial.name}
+                    </p>
+                    <p className="text-sm text-slate-500">{testimonial.role}</p>
+                    <p className="text-sm text-slate-400">
+                      {testimonial.organization}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-4 text-left text-lg font-medium text-slate-700 md:mt-0 md:w-1/2 md:text-right md:text-xl md:leading-relaxed">
                   “{testimonial.quote}”
                 </p>
-                <div className="mt-6 pt-4 text-left text-sm text-slate-600 border-t border-slate-200">
-                  <p className="font-semibold text-slate-800">{testimonial.name}</p>
-                  <p>{testimonial.role}</p>
-                  <p className="text-slate-500">{testimonial.organization}</p>
-                </div>
               </div>
             ))}
-          </div>
-          <div className="mt-12">
-            <figure className="flex flex-col items-center gap-4 rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <div className="relative w-full overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-200">
-                <Image
-                  src="/screens/customer-success.svg"
-                  alt="カスタマーサクセス資料のサンプル画像"
-                  width={640}
-                  height={400}
-                  className="w-full object-contain"
-                />
-                <div className="absolute left-5 top-5 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-semibold text-white">
-                  カスタマーサクセス事例のスクリーンショット
-                </div>
-              </div>
-              <figcaption className="text-sm text-slate-500">
-                本番では事例PDFや導入実績レポートの抜粋を差し込み、コメントと合わせて信頼感を高めます。
-              </figcaption>
-            </figure>
           </div>
         </div>
       </section>
