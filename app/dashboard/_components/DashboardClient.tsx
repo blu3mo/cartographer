@@ -1,29 +1,172 @@
 "use client";
 
 import axios from "axios";
-import { ExternalLink, Loader2, Plus, Trash2, X } from "lucide-react";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  FileText,
+  Loader2,
+  MessageSquare,
+  Plus,
+  Trash2,
+  User,
+  Users,
+  X,
+} from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
   type CreatedSession,
   CreateSessionForm,
 } from "@/components/sessions/CreateSessionForm";
 import { SessionSurveyPreview } from "@/components/sessions/SessionSurveyPreview";
 import { Button } from "@/components/ui/Button";
-import { DesktopLayout } from "@/dashboard/_components/layout/desktop/DesktopLayout";
-import { Header as DesktopHeader } from "@/dashboard/_components/layout/desktop/Header";
-import { Main as DesktopMain } from "@/dashboard/_components/layout/desktop/main/Main";
-import { MainHeader } from "@/dashboard/_components/layout/desktop/main/MainHeader";
 import {
-  SessionNavigatorMobile,
-  SessionNavigatorSidebar,
-} from "@/dashboard/_components/SessionNavigator";
-import { SessionSummary } from "@/dashboard/_components/SessionSummary";
-import { SessionWorkspace } from "@/dashboard/_components/SessionWorkspace";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type { Session } from "@/dashboard/_components/types";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
+import { cn } from "@/lib/utils";
 import { SessionAdminDashboard } from "@/sessions/_components/SessionAdminDashboard";
+
+type StatementResponseStats = {
+  strongYes: number;
+  yes: number;
+  dontKnow: number;
+  no: number;
+  strongNo: number;
+  totalCount: number;
+};
+
+type StatementWithStats = {
+  id: string;
+  sessionId: string;
+  text: string;
+  orderIndex: number;
+  responses: StatementResponseStats;
+  agreementScore: number;
+};
+
+type ParticipantProgress = {
+  userId: string;
+  name: string;
+  answeredCount: number;
+  completionRate: number;
+  totalStatements: number;
+  updatedAt: string;
+};
+
+type AdminSessionDetail = {
+  id: string;
+  title: string;
+  context: string;
+  goal: string;
+  isPublic: boolean;
+  createdAt: string;
+  statements: StatementWithStats[];
+  participants: ParticipantProgress[];
+  totalStatements: number;
+  totalParticipants: number;
+};
+
+type TimelineEventStatement = {
+  id: string;
+  text: string;
+  orderIndex: number;
+};
+
+type TimelineEvent = {
+  id: string;
+  type: string;
+  agentId: string | null;
+  userId: string | null;
+  progress: number | string | null;
+  payload: Record<string, unknown>;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+  statements: TimelineEventStatement[];
+};
+
+type StatementHighlight = {
+  id: string;
+  text: string;
+  totalResponses: number;
+  agreementScore: number;
+  positiveShare: number;
+  negativeShare: number;
+};
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  plan: "プラン生成",
+  survey: "アンケート実施",
+  survey_analysis: "分析",
+  user_message: "メッセージ",
+};
+
+const formatRelativeTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "たった今";
+  if (minutes < 60) return `${minutes}分前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}時間前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}日前`;
+  return date.toLocaleString("ja-JP", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
+const formatDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const formatPercent = (value: number) => {
+  if (Number.isNaN(value)) return "0%";
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded)
+    ? `${rounded.toFixed(0)}%`
+    : `${rounded.toFixed(1)}%`;
+};
+
+function VisibilityBadge({ isPublic }: { isPublic: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+        isPublic
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : "border-amber-200 bg-amber-50 text-amber-700",
+      )}
+    >
+      {isPublic ? "公開" : "非公開"}
+    </span>
+  );
+}
 
 export function DashboardClient() {
   const router = useRouter();
@@ -45,6 +188,18 @@ export function DashboardClient() {
   const [shareBaseUrl, setShareBaseUrl] = useState<string>("");
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
     null,
+  );
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [sessionDetail, setSessionDetail] = useState<AdminSessionDetail | null>(
+    null,
+  );
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [eventLog, setEventLog] = useState<TimelineEvent[]>([]);
+  const [eventLogLoading, setEventLogLoading] = useState(false);
+  const [eventLogError, setEventLogError] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle",
   );
 
   const syncSelectedSessionQuery = useCallback(
@@ -174,6 +329,10 @@ export function DashboardClient() {
   const selectedAdminAccessToken =
     selectedAdminSession?.adminAccessToken ?? null;
 
+  const selectedSessionShareLink = selectedAdminSession
+    ? `${shareBaseUrl}/sessions/${selectedAdminSession.id}`
+    : "";
+
   const openCreateModal = useCallback(() => {
     setPreviewSession(null);
     setIsCreateModalOpen(true);
@@ -250,245 +409,731 @@ export function DashboardClient() {
     userId,
   ]);
 
-  const selectedSessionShareLink = selectedAdminSession
-    ? `${shareBaseUrl}/sessions/${selectedAdminSession.id}`
-    : "";
+  useEffect(() => {
+    setCopyStatus("idle");
+    if (!selectedAdminSession || !selectedAdminAccessToken || !userId) {
+      setSessionDetail(null);
+      setDetailError(null);
+      setEventLog([]);
+      setEventLogError(null);
+      return;
+    }
 
-  const summaryInsights = useMemo(
-    () =>
-      selectedAdminSession
-        ? [
-            {
-              label: "参加者",
-              value: selectedAdminSession._count.participants,
-            },
-            {
-              label: "生成された質問数",
-              value: selectedAdminSession._count.statements,
-            },
-            {
-              label: "公開状態",
-              value: selectedAdminSession.isPublic ? "公開" : "非公開",
-            },
-            {
-              label: "セッション作成日",
-              value: new Date(
-                selectedAdminSession.createdAt,
-              ).toLocaleDateString("ja-JP"),
-            },
-            {
-              label: "共有リンク",
-              value: selectedSessionShareLink ? "発行済み" : "未発行",
-            },
-          ]
-        : [],
-    [selectedAdminSession, selectedSessionShareLink],
-  );
+    let cancelled = false;
 
-  const workspaceMetrics = useMemo(
-    () =>
-      selectedAdminSession
-        ? [
-            {
-              label: "参加者",
-              value: selectedAdminSession._count.participants,
-            },
-            {
-              label: "生成された質問数",
-              value: selectedAdminSession._count.statements,
-            },
-            {
-              label: "セッション作成日",
-              value: new Date(
-                selectedAdminSession.createdAt,
-              ).toLocaleDateString("ja-JP"),
-            },
-          ]
-        : [],
-    [selectedAdminSession],
-  );
+    const fetchDetail = async () => {
+      try {
+        setDetailLoading(true);
+        setDetailError(null);
+        const response = await axios.get(
+          `/api/sessions/${selectedAdminSession.id}/${selectedAdminAccessToken}`,
+          {
+            headers: createAuthorizationHeader(userId),
+          },
+        );
+        if (cancelled) return;
+        setSessionDetail(response.data.data as AdminSessionDetail);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Failed to fetch session detail:", err);
+        setDetailError("セッション詳細の取得に失敗しました。");
+        setSessionDetail(null);
+      } finally {
+        if (!cancelled) {
+          setDetailLoading(false);
+        }
+      }
+    };
 
-  const renderShareButton = useCallback(
-    () =>
-      selectedSessionShareLink ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => {
-            if (!selectedSessionShareLink) return;
-            window.open(selectedSessionShareLink, "_blank", "noreferrer");
-          }}
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          参加用URL
-        </Button>
-      ) : null,
-    [selectedSessionShareLink],
-  );
+    const fetchEventThread = async () => {
+      try {
+        setEventLogLoading(true);
+        setEventLogError(null);
+        const response = await axios.get(
+          `/api/sessions/${selectedAdminSession.id}/${selectedAdminAccessToken}/event-thread`,
+          {
+            headers: createAuthorizationHeader(userId),
+          },
+        );
+        if (cancelled) return;
+        setEventLog((response.data?.events ?? []) as TimelineEvent[]);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Failed to fetch event thread:", err);
+        setEventLogError("進行ログの取得に失敗しました。");
+        setEventLog([]);
+      } finally {
+        if (!cancelled) {
+          setEventLogLoading(false);
+        }
+      }
+    };
 
-  const renderDeleteButton = useCallback(
-    () =>
-      selectedAdminSession ? (
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          className="gap-1.5"
-          onClick={handleDeleteSession}
-          disabled={deletingSessionId === selectedAdminSession.id}
-          isLoading={deletingSessionId === selectedAdminSession.id}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          セッションを削除
-        </Button>
-      ) : null,
-    [deletingSessionId, handleDeleteSession, selectedAdminSession],
-  );
+    fetchDetail();
+    fetchEventThread();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAdminAccessToken, selectedAdminSession, userId]);
+
+  const statementHighlights = useMemo<StatementHighlight[]>(() => {
+    if (!sessionDetail?.statements?.length) return [];
+    const sorted = [...sessionDetail.statements].sort(
+      (a, b) => b.responses.totalCount - a.responses.totalCount,
+    );
+    return sorted.slice(0, 3).map((statement) => {
+      const positive = statement.responses.strongYes + statement.responses.yes;
+      const negative = statement.responses.strongNo + statement.responses.no;
+      return {
+        id: statement.id,
+        text: statement.text,
+        totalResponses: statement.responses.totalCount,
+        agreementScore: statement.agreementScore,
+        positiveShare: Math.round(positive * 10) / 10,
+        negativeShare: Math.round(negative * 10) / 10,
+      };
+    });
+  }, [sessionDetail]);
+
+  const participantProgress = useMemo(() => {
+    if (!sessionDetail?.participants?.length) return [];
+    return [...sessionDetail.participants].sort(
+      (a, b) => b.completionRate - a.completionRate,
+    );
+  }, [sessionDetail]);
+
+  const latestEvents = useMemo(() => {
+    if (!eventLog.length) return [];
+    return [...eventLog]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      .slice(0, 5);
+  }, [eventLog]);
+
+  const handleCopyShareLink = useCallback(async () => {
+    if (!selectedSessionShareLink) return;
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.clipboard ||
+      typeof navigator.clipboard.writeText !== "function"
+    ) {
+      setCopyStatus("error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(selectedSessionShareLink);
+      setCopyStatus("copied");
+      window.setTimeout(() => setCopyStatus("idle"), 2000);
+    } catch (err) {
+      console.error("Failed to copy share link:", err);
+      setCopyStatus("error");
+      window.setTimeout(() => setCopyStatus("idle"), 2000);
+    }
+  }, [selectedSessionShareLink]);
+
+  const headerStats = useMemo(() => {
+    if (!selectedAdminSession) return [];
+    return [
+      {
+        label: "参加者",
+        value: String(
+          sessionDetail?.totalParticipants ??
+            selectedAdminSession._count.participants,
+        ),
+        icon: Users,
+      },
+      {
+        label: "ステートメント",
+        value: String(
+          sessionDetail?.totalStatements ??
+            selectedAdminSession._count.statements,
+        ),
+        icon: FileText,
+      },
+      {
+        label: "作成日",
+        value: formatDate(selectedAdminSession.createdAt),
+        icon: Calendar,
+      },
+    ];
+  }, [selectedAdminSession, sessionDetail]);
 
   if (userLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  const headerNode = (
-    <DesktopHeader>
-      <div className="space-y-1">
-        <p className="text-3xl font-bold tracking-tight text-slate-900">
-          Cartographer
-        </p>
-        <p className="text-sm text-slate-500">
-          チームのアジェンダと認識を同じマップで共有しましょう
-        </p>
-      </div>
-      <div className="hidden items-center gap-3 lg:flex">
-        <Button size="sm" className="gap-1.5" onClick={openCreateModal}>
-          <Plus className="h-4 w-4" />
-          新規セッション
-        </Button>
-      </div>
-    </DesktopHeader>
-  );
-
   const hasSelectedSession = Boolean(
     selectedAdminSession && selectedAdminAccessToken,
   );
 
-  const mainHeader = (
-    <MainHeader
-      title={
-        selectedAdminSession ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <span>{selectedAdminSession.title || "名称未設定"}</span>
-            {!selectedAdminSession.isPublic && (
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                非公開
-              </span>
-            )}
-          </div>
-        ) : sessions.length === 0 ? (
-          "まだセッションがありません"
-        ) : (
-          "セッションを選択してください"
-        )
-      }
-      description={
-        selectedAdminSession
-          ? selectedAdminSession.goal ||
-            selectedAdminSession.context ||
-            "目的や背景は未設定です。"
-          : adminSessions.length > 0
-            ? "左のセッション一覧から管理対象を選ぶと、レポートが表示されます。"
-            : "まずは新しいセッションを作成して、議論の土台を準備しましょう。"
-      }
-      actions={null}
-    />
-  );
+  const renderSessionGroup = (
+    label: string,
+    sessionList: Session[],
+    canSelect: boolean,
+  ) => {
+    if (sessionList.length === 0) return null;
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        <div className="space-y-2">
+          {sessionList.map((session) => {
+            const isSelected = selectedSessionId === session.id;
+            return (
+              <button
+                key={session.id}
+                type="button"
+                onClick={() => {
+                  if (!canSelect) return;
+                  handleSessionSelect(session.id);
+                }}
+                disabled={!canSelect}
+                className={cn(
+                  "w-full rounded-lg border px-4 py-3 text-left transition-all",
+                  isSelected
+                    ? "border-primary bg-primary/10 shadow-sm"
+                    : "border-transparent bg-card hover:border-border hover:bg-muted/40",
+                  !canSelect && "cursor-not-allowed opacity-60",
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-card-foreground">
+                      {session.title || "名称未設定"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatDate(session.createdAt)}
+                    </p>
+                  </div>
+                  <VisibilityBadge isPublic={session.isPublic} />
+                </div>
+                <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                  {session.goal ||
+                    session.context ||
+                    "セッションの説明は未設定です。"}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
-      <DesktopLayout
-        header={headerNode}
-        leftSidebar={
-          <SessionNavigatorSidebar
-            totalSessions={sessions.length}
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            manageableCount={adminSessions.length}
-            participantCount={participantSessions.length}
-            discoverCount={discoverSessions.length}
-            adminSessions={adminSessions}
-            participantSessions={participantSessions}
-            discoverSessions={discoverSessions}
-            selectedSessionId={selectedSessionId}
-            onSelectSession={handleSessionSelect}
-            onNavigateSession={(id) => router.push(`/sessions/${id}`)}
-            onCreateSession={openCreateModal}
-          />
-        }
-        main={
-          <DesktopMain
-            header={mainHeader}
-            mobileSessions={
-              <SessionNavigatorMobile
-                totalSessions={sessions.length}
-                searchTerm={searchTerm}
-                onSearchTermChange={setSearchTerm}
-                manageableCount={adminSessions.length}
-                participantCount={participantSessions.length}
-                discoverCount={discoverSessions.length}
-                adminSessions={adminSessions}
-                participantSessions={participantSessions}
-                discoverSessions={discoverSessions}
-                selectedSessionId={selectedSessionId}
-                onSelectSession={handleSessionSelect}
-                onNavigateSession={(id) => router.push(`/sessions/${id}`)}
-                onCreateSession={openCreateModal}
-              />
-            }
-            group={
-              <SessionWorkspace
-                selectedSession={selectedAdminSession}
-                hasAccessToken={Boolean(selectedAdminAccessToken)}
-                metrics={workspaceMetrics}
-                reportContent={
-                  hasSelectedSession && selectedAdminSession ? (
-                    <SessionAdminDashboard
-                      key={selectedAdminSession.id}
-                      sessionId={selectedAdminSession.id}
-                      accessToken={selectedAdminAccessToken ?? ""}
-                      embedded
-                      showHeader={false}
-                    />
-                  ) : null
-                }
-                shareButton={hasSelectedSession ? renderShareButton() : null}
-                deleteButton={hasSelectedSession ? renderDeleteButton() : null}
-                error={error}
-                onCreateSession={openCreateModal}
-                totalSessions={sessions.length}
-                adminSessionsCount={adminSessions.length}
-                rightSidebar={
-                  <SessionSummary
-                    insights={summaryInsights}
-                    hasSelection={hasSelectedSession}
-                    shareButton={
-                      hasSelectedSession ? renderShareButton() : null
-                    }
-                    deleteButton={
-                      hasSelectedSession ? renderDeleteButton() : null
-                    }
+      <div className="flex h-screen flex-col bg-background">
+        <header className="flex h-20 flex-col justify-center gap-2 border-b bg-primary px-6 text-primary-foreground">
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5" />
+            <span className="text-sm font-semibold uppercase tracking-wide">
+              Cartographer
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-semibold">
+              {selectedAdminSession
+                ? selectedAdminSession.title || "名称未設定"
+                : "セッションを選択してください"}
+            </h1>
+            <Button variant="ghost" size="icon">
+              <User className="h-4 w-4" />
+            </Button>
+          </div>
+        </header>
+
+        <div className="flex flex-1 overflow-hidden">
+          <aside
+            className={cn(
+              "flex flex-col border-r bg-muted/30 transition-all duration-300",
+              isSidebarCollapsed ? "w-0" : "w-80",
+            )}
+          >
+            {!isSidebarCollapsed && (
+              <>
+                <div className="flex h-16 items-center justify-between border-b px-4">
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">
+                      セッション
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      管理中 {adminSessions.length} 件
+                    </p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8"
+                    onClick={openCreateModal}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="border-b px-4 py-3">
+                  <Input
+                    placeholder="セッションを検索..."
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
                   />
-                }
-              />
-            }
-          />
-        }
-      />
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 py-4">
+                  <div className="space-y-6">
+                    {renderSessionGroup("管理中", adminSessions, true)}
+                    {renderSessionGroup("参加中", participantSessions, false)}
+                    {renderSessionGroup(
+                      "公開セッション",
+                      discoverSessions,
+                      false,
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </aside>
+
+          <main className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex h-16 items-center justify-between border-b bg-card px-6">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setIsSidebarCollapsed((value) => !value)}
+                >
+                  {isSidebarCollapsed ? (
+                    <ChevronRight className="h-4 w-4" />
+                  ) : (
+                    <ChevronLeft className="h-4 w-4" />
+                  )}
+                </Button>
+                <div className="space-y-1">
+                  <h2 className="text-lg font-semibold text-card-foreground">
+                    {selectedAdminSession
+                      ? selectedAdminSession.title || "名称未設定"
+                      : sessions.length === 0
+                        ? "まだセッションがありません"
+                        : "管理可能なセッションを選択してください"}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedAdminSession
+                      ? selectedAdminSession.goal ||
+                        selectedAdminSession.context ||
+                        "セッションの目的や背景は未設定です。"
+                      : adminSessions.length > 0
+                        ? "左側の一覧からセッションを選ぶとレポートが表示されます。"
+                        : "まずは新しいセッションを作成して、対話を設計しましょう。"}
+                  </p>
+                </div>
+              </div>
+              {headerStats.length > 0 && (
+                <div className="hidden items-center gap-3 md:flex">
+                  {headerStats.map((stat) => {
+                    const Icon = stat.icon;
+                    return (
+                      <div
+                        key={stat.label}
+                        className="flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground"
+                      >
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="font-semibold text-foreground">
+                          {stat.value}
+                        </span>
+                        <span>{stat.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-1 overflow-hidden">
+              <div className="flex flex-1 flex-col overflow-hidden border-r">
+                <div className="flex-1 overflow-hidden bg-muted/30 p-6">
+                  <div className="flex h-full flex-col gap-4">
+                    {error && (
+                      <Card className="border-destructive/40 bg-destructive/10 text-destructive">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold">
+                            データの取得に失敗しました
+                          </CardTitle>
+                          <CardDescription className="text-xs text-destructive">
+                            {error}
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    )}
+                    <Card className="flex h-full flex-col border-border/60">
+                      <CardHeader className="flex flex-col gap-1 border-b border-border/60 bg-card/60">
+                        <CardTitle className="text-base font-semibold text-card-foreground">
+                          セッションレポート
+                        </CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground">
+                          Cartographer が自動生成するワークスペースを通じて、
+                          ステートメント・回答・進行状況を俯瞰します。
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex-1 overflow-hidden p-0">
+                        {detailLoading && hasSelectedSession ? (
+                          <div className="flex h-full items-center justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : hasSelectedSession && selectedAdminAccessToken ? (
+                          <div className="h-full overflow-hidden p-4">
+                            <div className="h-full overflow-hidden rounded-3xl border border-border/60 bg-white">
+                              <SessionAdminDashboard
+                                key={selectedAdminSession.id}
+                                sessionId={selectedAdminSession.id}
+                                accessToken={selectedAdminAccessToken}
+                                embedded
+                                showHeader={false}
+                                disableLocalSidebar
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                            {sessions.length === 0 ? (
+                              <>
+                                <p>セッションがありません。</p>
+                                <Button onClick={openCreateModal}>
+                                  <Plus className="h-4 w-4" />
+                                  新規セッションを作成
+                                </Button>
+                              </>
+                            ) : (
+                              <p>
+                                管理権限のあるセッションを選択してください。
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {detailError && hasSelectedSession && (
+                          <div className="px-4 pb-4">
+                            <Card className="border-amber-300 bg-amber-50 text-amber-700">
+                              <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-semibold">
+                                  {detailError}
+                                </CardTitle>
+                              </CardHeader>
+                            </Card>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+                <div className="border-t bg-card px-6 py-4">
+                  <div className="flex gap-3">
+                    <textarea
+                      placeholder="コメント機能は近日対応予定です。"
+                      className="min-h-[80px] flex-1 resize-none rounded-md border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      readOnly
+                    />
+                    <Button size="sm" className="self-end" disabled>
+                      投稿
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="w-80 bg-muted/20">
+                <div className="flex h-16 items-center border-b px-6">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    詳細
+                  </h3>
+                </div>
+                <div className="flex h-[calc(100%-4rem)] flex-col overflow-y-auto px-6 py-6">
+                  <div className="space-y-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">
+                          参加用リンク
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          チームと共有する招待URLを管理します。
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {selectedSessionShareLink ? (
+                          <>
+                            <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                              <span className="break-all">
+                                {selectedSessionShareLink}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  void handleCopyShareLink();
+                                }}
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                                {copyStatus === "copied"
+                                  ? "コピーしました"
+                                  : copyStatus === "error"
+                                    ? "コピーできません"
+                                    : "リンクをコピー"}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  window.open(
+                                    selectedSessionShareLink,
+                                    "_blank",
+                                    "noreferrer",
+                                  )
+                                }
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                新しいタブで開く
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            管理権限のあるセッションを選択すると、共有リンクが表示されます。
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">
+                          ステートメントのハイライト
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          回答が集まっているテーマを把握し、次の打ち手を検討します。
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {detailLoading && hasSelectedSession ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : statementHighlights.length > 0 ? (
+                          statementHighlights.map((highlight) => (
+                            <div
+                              key={highlight.id}
+                              className="space-y-2 rounded-md border border-border/50 bg-background px-3 py-3"
+                            >
+                              <p className="text-xs font-semibold text-muted-foreground">
+                                回答 {highlight.totalResponses} 件 / スコア{" "}
+                                {highlight.agreementScore}
+                              </p>
+                              <p className="text-sm leading-relaxed text-foreground">
+                                {highlight.text}
+                              </p>
+                              <div className="flex items-center gap-2 text-[11px] font-semibold">
+                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
+                                  YES {formatPercent(highlight.positiveShare)}
+                                </span>
+                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">
+                                  NO {formatPercent(highlight.negativeShare)}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            十分な回答がまだ集まっていません。
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">
+                          進行ログ
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Cartographer エージェントの動作履歴を確認します。
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {eventLogLoading && hasSelectedSession ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : eventLogError ? (
+                          <p className="text-xs text-amber-600">
+                            {eventLogError}
+                          </p>
+                        ) : latestEvents.length > 0 ? (
+                          latestEvents.map((event) => {
+                            const label =
+                              EVENT_TYPE_LABELS[event.type] ?? "イベント";
+                            return (
+                              <div
+                                key={event.id}
+                                className="rounded-md border border-border/50 bg-background px-3 py-3 text-xs"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                                    <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                                    {label}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {formatRelativeTime(event.createdAt)}
+                                  </span>
+                                </div>
+                                {event.statements.length > 0 && (
+                                  <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                                    {event.statements
+                                      .slice(0, 2)
+                                      .map((statement) => (
+                                        <li
+                                          key={statement.id}
+                                          className="line-clamp-2"
+                                        >
+                                          ・{statement.text}
+                                        </li>
+                                      ))}
+                                  </ul>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            まだ記録されたイベントはありません。
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">
+                          回答状況の把握
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          参加者ごとのアンケート回答率を確認します。
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {detailLoading && hasSelectedSession ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : participantProgress.length > 0 ? (
+                          participantProgress.slice(0, 5).map((participant) => (
+                            <div
+                              key={participant.userId}
+                              className="rounded-md border border-border/50 bg-background px-3 py-3 text-xs"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-foreground">
+                                  {participant.name || "匿名ユーザー"}
+                                </span>
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                  {formatPercent(participant.completionRate)}
+                                </span>
+                              </div>
+                              <div className="mt-2 text-[11px] text-muted-foreground">
+                                回答 {participant.answeredCount} /{" "}
+                                {participant.totalStatements} 件・更新{" "}
+                                {formatRelativeTime(participant.updatedAt)}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            まだ参加者がいないか、回答が記録されていません。
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">
+                          セッション情報設定
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          目的や背景、公開設定を確認・更新できます。
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3 text-xs text-muted-foreground">
+                        {selectedAdminSession ? (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span>公開状態</span>
+                              <VisibilityBadge
+                                isPublic={selectedAdminSession.isPublic}
+                              />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-foreground">
+                                ゴール
+                              </p>
+                              <p className="mt-1 whitespace-pre-wrap">
+                                {selectedAdminSession.goal || "未設定です。"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-foreground">
+                                コンテキスト
+                              </p>
+                              <p className="mt-1 whitespace-pre-wrap">
+                                {selectedAdminSession.context || "未設定です。"}
+                              </p>
+                            </div>
+                            <div className="flex flex-col gap-2 pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  router.push(
+                                    `/sessions/${selectedAdminSession.id}`,
+                                  )
+                                }
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                管理ビューを開く
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  void handleDeleteSession();
+                                }}
+                                disabled={
+                                  deletingSessionId === selectedAdminSession.id
+                                }
+                                isLoading={
+                                  deletingSessionId === selectedAdminSession.id
+                                }
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                セッションを削除
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <p>管理セッションを選択すると設定を編集できます。</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </main>
+        </div>
+      </div>
 
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50">
