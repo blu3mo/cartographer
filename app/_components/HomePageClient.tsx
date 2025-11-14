@@ -286,6 +286,37 @@ export default function HomePageClient() {
     ? `${shareBaseUrl}/sessions/${selectedAdminSession.id}`
     : "";
 
+  const sessionInsightItems = useMemo(
+    () =>
+      selectedAdminSession
+        ? [
+            {
+              label: "参加者",
+              value: selectedAdminSession._count.participants,
+            },
+            {
+              label: "生成された質問数",
+              value: selectedAdminSession._count.statements,
+            },
+            {
+              label: "公開状態",
+              value: selectedAdminSession.isPublic ? "公開" : "非公開",
+            },
+            {
+              label: "セッション作成日",
+              value: new Date(
+                selectedAdminSession.createdAt,
+              ).toLocaleDateString("ja-JP"),
+            },
+            {
+              label: "共有リンク",
+              value: selectedSessionShareLink ? "発行済み" : "未発行",
+            },
+          ]
+        : [],
+    [selectedAdminSession, selectedSessionShareLink],
+  );
+
   if (userLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -399,154 +430,264 @@ export default function HomePageClient() {
       <DashboardLayout
         sidebar={sidebar}
         headerContent={false}
+        headerActions={null}
         showFooter={false}
       >
-        <div className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex h-full min-h-0 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
           {error && (
-            <Card className="border-destructive">
-              <CardContent className="pt-6">
-                <p className="text-sm text-destructive">{error}</p>
+            <Card className="border border-destructive/30 bg-destructive/5 text-destructive">
+              <CardContent className="pt-5">
+                <p className="text-sm">{error}</p>
               </CardContent>
             </Card>
           )}
 
-          {selectedAdminSession ? (
-            selectedAdminAccessToken ? (
-              <div className="space-y-6">
-                <div className="sticky top-0 z-10 rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        選択中のセッション
-                      </p>
-                      <div className="mt-1 space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <h1 className="text-2xl font-bold text-slate-900">
-                            {selectedAdminSession.title || "名称未設定"}
-                          </h1>
-                          {!selectedAdminSession.isPublic && (
-                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                              非公開
-                            </span>
-                          )}
+          <div className="hidden lg:block">
+            <div className="flex h-24 items-center justify-between rounded-3xl border border-slate-200 bg-slate-900/95 px-6 py-5 text-white shadow-lg">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
+                  Cartographer ダッシュボード
+                </p>
+                <p className="mt-1 text-lg font-semibold">
+                  セッションの状況を俯瞰して次のアクションを計画しましょう
+                </p>
+              </div>
+              <div className="hidden items-center gap-4 xl:flex">
+                {[
+                  { label: "管理中", value: manageableCount },
+                  { label: "参加中", value: participantCount },
+                  { label: "公開", value: discoverCount },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-left shadow-sm"
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-200">
+                      {item.label}
+                    </p>
+                    <p className="text-xl font-semibold text-white">
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 min-h-0">
+            <div className="grid h-full min-h-0 gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+              <section className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                {selectedAdminSession ? (
+                  selectedAdminAccessToken ? (
+                    <>
+                      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-6 py-5 backdrop-blur supports-[backdrop-filter]:bg-white/70">
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              選択中のセッション
+                            </p>
+                            <div className="space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h1 className="text-2xl font-bold text-slate-900">
+                                  {selectedAdminSession.title || "名称未設定"}
+                                </h1>
+                                {!selectedAdminSession.isPublic && (
+                                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                    非公開
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-slate-500 whitespace-pre-wrap">
+                                {selectedAdminSession.goal ||
+                                  selectedAdminSession.context ||
+                                  "詳細情報は未設定です。"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                              disabled={!selectedSessionShareLink}
+                              onClick={() => {
+                                if (!selectedSessionShareLink) return;
+                                window.open(
+                                  selectedSessionShareLink,
+                                  "_blank",
+                                  "noreferrer",
+                                );
+                              }}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              参加用URL
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="gap-1.5"
+                              onClick={handleDeleteSession}
+                              disabled={
+                                deletingSessionId === selectedAdminSession.id
+                              }
+                              isLoading={
+                                deletingSessionId === selectedAdminSession.id
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              セッションを削除
+                            </Button>
+                          </div>
                         </div>
-                        <p className="text-sm text-slate-500 whitespace-pre-wrap">
-                          {selectedAdminSession.goal ||
-                            selectedAdminSession.context ||
-                            "詳細情報は未設定です。"}
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-hidden">
+                        <SessionAdminDashboard
+                          key={selectedAdminSession.id}
+                          sessionId={selectedAdminSession.id}
+                          accessToken={selectedAdminAccessToken}
+                          embedded
+                          showHeader={false}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center text-sm text-slate-500">
+                      <p className="text-base font-semibold text-slate-600">
+                        管理トークンを確認できません
+                      </p>
+                      <p>管理者権限を発行してから再度お試しください。</p>
+                    </div>
+                  )
+                ) : sessions.length === 0 ? (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                      <FileText className="h-8 w-8 text-primary" />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-base font-semibold text-slate-800">
+                        セッションがありません
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        新しいセッションを作成して、チームとの対話を始めましょう。
+                      </p>
+                    </div>
+                    <Button onClick={openCreateModal}>
+                      <Plus className="mr-1 h-4 w-4" />
+                      最初のセッションを作成
+                    </Button>
+                  </div>
+                ) : adminSessions.length > 0 ? (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center text-sm text-slate-500">
+                    <p className="text-base font-semibold text-slate-600">
+                      サイドバーからセッションを選択してください
+                    </p>
+                    <p>
+                      「管理」ボタンを押すと、ここにセッションの管理ビューが表示されます。
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center text-sm text-slate-500">
+                    <p className="text-base font-semibold text-slate-600">
+                      管理可能なセッションが見つかりません
+                    </p>
+                    <p>
+                      新しいセッションを作成するか、サイドバーから管理セッションを追加してください。
+                    </p>
+                  </div>
+                )}
+              </section>
+              <aside className="flex min-h-0 flex-col rounded-3xl border border-slate-200 bg-white/80 shadow-sm">
+                <div className="border-b border-slate-200 px-6 py-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    サマリー
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    セッションの指標と関連アクションをここから確認できます。
+                  </p>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+                  {selectedAdminSession ? (
+                    <div className="flex h-full flex-col gap-5">
+                      <div className="grid gap-3">
+                        {sessionInsightItems.map((item) => (
+                          <SessionHighlightStat
+                            key={item.label}
+                            label={item.label}
+                            value={item.value}
+                          />
+                        ))}
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          クイックアクション
                         </p>
+                        <div className="mt-3 space-y-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-start gap-2"
+                            disabled={!selectedSessionShareLink}
+                            onClick={() => {
+                              if (!selectedSessionShareLink) return;
+                              window.open(
+                                selectedSessionShareLink,
+                                "_blank",
+                                "noreferrer",
+                              );
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            参加用URLを開く
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+                            onClick={handleDeleteSession}
+                            disabled={
+                              deletingSessionId === selectedAdminSession.id
+                            }
+                            isLoading={
+                              deletingSessionId === selectedAdminSession.id
+                            }
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            セッションを削除
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        disabled={!selectedSessionShareLink}
-                        onClick={() => {
-                          if (!selectedSessionShareLink) return;
-                          window.open(
-                            selectedSessionShareLink,
-                            "_blank",
-                            "noreferrer",
-                          );
-                        }}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        参加用URL
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={handleDeleteSession}
-                        disabled={deletingSessionId === selectedAdminSession.id}
-                        isLoading={
-                          deletingSessionId === selectedAdminSession.id
-                        }
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        セッションを削除
-                      </Button>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-slate-500">
+                      <p className="text-base font-semibold text-slate-600">
+                        セッションが未選択です
+                      </p>
+                      <p>
+                        サイドバーからセッションを選ぶと、ここにサマリーが表示されます。
+                      </p>
                     </div>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <SessionHighlightStat
-                      label="参加者"
-                      value={selectedAdminSession._count.participants}
-                    />
-                    <SessionHighlightStat
-                      label="生成された質問数"
-                      value={selectedAdminSession._count.statements}
-                    />
-                    <SessionHighlightStat
-                      label="セッション作成日"
-                      value={new Date(
-                        selectedAdminSession.createdAt,
-                      ).toLocaleDateString("ja-JP")}
-                    />
-                  </div>
+                  )}
                 </div>
-                <SessionAdminDashboard
-                  key={selectedAdminSession.id}
-                  sessionId={selectedAdminSession.id}
-                  accessToken={selectedAdminAccessToken}
-                  embedded
-                />
-              </div>
-            ) : (
-              <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
-                <p className="font-semibold text-slate-600">
-                  管理トークンを確認できません
-                </p>
-                <p className="text-xs text-slate-500">
-                  管理者権限を発行してから再度お試しください。
-                </p>
-              </div>
-            )
-          ) : sessions.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 pb-6 text-center">
-                <div className="flex flex-col items-center gap-3 py-12">
-                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                    <FileText className="h-8 w-8 text-primary" />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-base font-semibold">
-                      セッションがありません
-                    </p>
-                    <p className="text-sm text-muted-foreground max-w-sm">
-                      新しいセッションを作成して、チームとの対話を始めましょう
-                    </p>
-                  </div>
-                  <Button onClick={openCreateModal} className="mt-2">
-                    <Plus className="h-4 w-4" />
-                    最初のセッションを作成
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : adminSessions.length > 0 ? (
-            <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 text-center text-sm text-slate-500">
-              <p className="font-semibold text-slate-600">
-                サイドバーからセッションを選択してください
+              </aside>
+            </div>
+          </div>
+
+          <div className="hidden xl:flex h-32 items-center justify-between rounded-3xl border border-slate-200 bg-white/80 px-6 shadow-sm">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                次のアクション
               </p>
-              <p className="text-xs text-slate-500">
-                「管理」ボタンを押すと、ここにセッションの管理ビューが表示されます。
+              <p className="mt-1 text-sm text-slate-600">
+                新しいセッションを作成して、議論の準備を始めましょう。
               </p>
             </div>
-          ) : (
-            <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
-              <p className="font-semibold text-slate-600">
-                管理可能なセッションが見つかりません
-              </p>
-              <p className="text-xs text-slate-500">
-                新しいセッションを作成するか、サイドバーから管理セッションを追加してください。
-              </p>
-            </div>
-          )}
+            <Button onClick={openCreateModal}>
+              <Plus className="mr-1 h-4 w-4" />
+              新規セッション
+            </Button>
+          </div>
         </div>
       </DashboardLayout>
 

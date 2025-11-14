@@ -8,8 +8,6 @@ export const metadata: Metadata = {
 
 export default function AdminPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <AdminSidebarLayout />
-    </div>
+    <AdminSidebarLayout />
   );
 }

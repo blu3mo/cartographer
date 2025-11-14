@@ -34,6 +34,14 @@ export function DashboardLayout({
   );
   const resolvedHeaderContent =
     typeof headerContent === "undefined" ? defaultHeaderContent : headerContent;
+  const hasHeaderContent =
+    resolvedHeaderContent !== false &&
+    resolvedHeaderContent !== null &&
+    typeof resolvedHeaderContent !== "undefined";
+  const hasHeaderActions =
+    headerActions !== null &&
+    headerActions !== false &&
+    typeof headerActions !== "undefined";
   return (
     <SidebarProvider>
       <div className="flex min-h-screen flex-col bg-background">
@@ -49,16 +57,26 @@ export function DashboardLayout({
           {sidebar}
           <SidebarOverlay />
           <SidebarInset className="flex flex-1 flex-col overflow-hidden bg-white">
-            <div className="border-b border-slate-200 bg-white/80 px-4 py-3 shadow-sm sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1 text-sm font-medium text-slate-700">
-                  {resolvedHeaderContent}
-                </div>
-                <div className="hidden items-center gap-3 lg:flex">
-                  {headerActions}
+            {(hasHeaderContent || hasHeaderActions) && (
+              <div className="border-b border-slate-200 bg-white/80 px-4 py-3 shadow-sm sm:px-6 lg:px-8">
+                <div className="flex items-center gap-4">
+                  {hasHeaderContent && (
+                    <div className="min-w-0 flex-1 text-sm font-medium text-slate-700">
+                      {resolvedHeaderContent}
+                    </div>
+                  )}
+                  {hasHeaderActions && (
+                    <div
+                      className={`hidden items-center gap-3 lg:flex${
+                        hasHeaderContent ? "" : " lg:ml-auto"
+                      }`}
+                    >
+                      {headerActions}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
             <div className="flex flex-1 min-h-0 overflow-hidden">
               <main className="flex-1 overflow-hidden">{children}</main>
             </div>
