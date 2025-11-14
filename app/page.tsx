@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-
-import HomePageClient from "./_components/HomePageClient";
+import { redirect } from "next/navigation";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const metadataBase = new URL(appUrl);
-const homeTitle = "Cartographerについて | Cartographer";
+const homeTitle = "Cartographer | チームの認識をマップする";
 const homeDescription =
-  "Cartographerとは、「それぞれの認識を洗い出し、合意点、相違点、不明点を可視化するツール」です。";
+  "Cartographerのセッションダッシュボードで、議論の進行状況と参加状況をまとめて管理できます。";
 
 export const metadata: Metadata = {
   metadataBase,
@@ -27,5 +26,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <HomePageClient />;
+  redirect("/dashboard");
 }

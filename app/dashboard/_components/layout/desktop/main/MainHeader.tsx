@@ -8,11 +8,7 @@ type MainHeaderProps = {
   description?: ReactNode;
 };
 
-export function MainHeader({
-  title,
-  actions,
-  description,
-}: MainHeaderProps) {
+export function MainHeader({ title, actions, description }: MainHeaderProps) {
   return (
     <div className="flex flex-col gap-3 text-slate-800 lg:flex-row lg:items-center lg:justify-between">
       <div className="space-y-1">

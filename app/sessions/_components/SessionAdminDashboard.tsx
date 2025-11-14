@@ -29,7 +29,6 @@ import {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { AdminSidebarSession } from "@/admin/_components/AdminSidebar";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/Button";
 import {
@@ -48,6 +47,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import type { Session } from "@/dashboard/_components/types";
 import { useUserId } from "@/lib/useUserId";
 
 type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
@@ -202,7 +202,7 @@ const EVENT_TYPE_META: Record<
 
 export type SessionAdminSidebarPayload = {
   render: () => ReactNode;
-  session: AdminSidebarSession | null;
+  session: Session | null;
   summaryStats: Array<{ label: string; value: string; hint: string }>;
 };
 
@@ -1850,6 +1850,8 @@ export function SessionAdminDashboard({
     editingTitle,
     editingVisibility,
     sendingMessage,
+    totalStatementsCount,
+    totalParticipants,
   ]);
   const headerStats = useMemo(() => {
     if (!data) return [];
@@ -1874,7 +1876,7 @@ export function SessionAdminDashboard({
     ];
   }, [data, totalParticipants, totalStatementsCount]);
 
-  const sidebarSession = useMemo<AdminSidebarSession | null>(() => {
+  const sidebarSession = useMemo<Session | null>(() => {
     if (!data) return null;
     return {
       id: data.id,

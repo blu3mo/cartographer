@@ -10,9 +10,7 @@ type RightSidebarProps = {
 export function RightSidebar({ summary, actions }: RightSidebarProps) {
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="space-y-2">
-        {summary}
-      </div>
+      <div className="space-y-2">{summary}</div>
       {actions && <div className="mt-auto flex flex-col gap-2">{actions}</div>}
     </div>
   );
