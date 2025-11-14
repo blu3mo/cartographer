@@ -5,6 +5,8 @@ import { Users, BarChart3, Sparkles, ArrowRight, CheckCircle2 } from "lucide-rea
 import { AppHeader } from "./components/AppHeader";
 import { MarketingNav } from "./components/MarketingNav";
 import { AboutCartographerButton } from "./components/AboutCartographerButton";
+import { getPublicSessions } from "@/lib/server/public-sessions";
+import { SessionCard } from "@/timeline/_components/SessionCard";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const metadataBase = new URL(appUrl);
@@ -30,11 +32,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const sessions = await getPublicSessions();
+  const featuredSessions = sessions.slice(0, 3);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <AppHeader rightSlot={<AboutCartographerButton />}>
-        <MarketingNav />
+        {/* <MarketingNav /> */}
       </AppHeader>
 
       {/* Hero Section */}
@@ -65,12 +70,40 @@ export default function LandingPage() {
             </Link>
             <Link href="/timeline">
               <Button size="lg" variant="outline" className="text-base px-8">
-                公開タイムラインを見る
+                公開議論を見る
               </Button>
             </Link>
           </div>
         </div>
       </section>
+
+      {featuredSessions.length > 0 && (
+        <section className="container mx-auto px-4 py-16 bg-white">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
+                  公開セッションのハイライト
+                </h2>
+                <p className="text-slate-600 mt-3">
+                  Cartographerで公開された最新のディスカッションから、気になるトピックを覗いてみましょう。
+                </p>
+              </div>
+              <Link href="/timeline">
+                <Button variant="outline" className="w-full md:w-auto">
+                  すべてのセッションを見る
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {featuredSessions.map((session) => (
+                <SessionCard key={session.id} session={session} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Features Section */}
       <section className="container mx-auto px-4 py-20 bg-white">
