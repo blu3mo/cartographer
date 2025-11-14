@@ -13,7 +13,6 @@ import {
   Loader2,
   Lock,
   Maximize2,
-  MessageSquare,
   PanelLeft,
   PanelLeftClose,
   Pause,
@@ -27,7 +26,6 @@ import {
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  type ReactElement,
   type ReactNode,
   useCallback,
   useEffect,
@@ -220,6 +218,28 @@ const formatRelativeTime = (value: string) => {
   });
 };
 
+const formatDateTime = (value: string) => {
+  const date = new Date(value);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "たった今";
+  if (minutes < 60) return `${minutes}分前`;
+  if (hours < 24) return `${hours}時間前`;
+  if (days < 7) return `${days}日前`;
+
+  return date.toLocaleString("ja-JP", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
 const formatDate = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
@@ -253,6 +273,181 @@ function VisibilityBadge({ isPublic }: { isPublic: boolean }) {
   );
 }
 
+function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+        shouldProceed
+          ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+          : "border-amber-200 bg-amber-50 text-amber-600",
+      )}
+    >
+      {shouldProceed ? (
+        <>
+          <Play className="h-3 w-3" />
+          自動進行
+        </>
+      ) : (
+        <>
+          <Pause className="h-3 w-3" />
+          停止中
+        </>
+      )}
+    </div>
+  );
+}
+
+interface ThreadEventBubbleProps {
+  event: TimelineEvent;
+  isHostMessage: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+function ThreadEventBubble({
+  event,
+  isHostMessage,
+  expanded,
+  onToggle,
+}: ThreadEventBubbleProps) {
+  const meta =
+    event.type in EVENT_TYPE_META
+      ? EVENT_TYPE_META[event.type as ThreadEventType]
+      : DEFAULT_EVENT_META;
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const markdown =
+    typeof payload.markdown === "string" ? payload.markdown : "";
+  const statements =
+    event.type === "survey" ? event.statements ?? [] : [];
+  const showStatementToggle =
+    event.type === "survey" && statements.length > 3;
+  const visibleStatements =
+    expanded || !showStatementToggle
+      ? statements
+      : statements.slice(0, 3);
+
+  const statementContent =
+    statements.length > 0 ? (
+      <div className="space-y-2">
+        {visibleStatements.map((statement) => (
+          <div
+            key={statement.id}
+            className="rounded-md border border-border/60 bg-background/90 px-3 py-2 text-xs text-foreground"
+          >
+            <span className="mr-2 text-[10px] font-semibold text-muted-foreground">
+              #{statement.orderIndex + 1}
+            </span>
+            {statement.text}
+          </div>
+        ))}
+        {!expanded && showStatementToggle && (
+          <p className="text-[10px] text-muted-foreground">
+            他{statements.length - visibleStatements.length}
+            件のステートメントがあります。
+          </p>
+        )}
+      </div>
+    ) : null;
+
+  const shouldClampMarkdown = markdown.length > 260 && !expanded;
+
+  const markdownContent = markdown ? (
+    <div className="relative">
+      <div
+        className={cn(
+          "prose prose-xs max-w-none text-foreground prose-p:my-1 prose-ol:my-1 prose-ul:my-1",
+          shouldClampMarkdown && "max-h-40 overflow-hidden",
+        )}
+      >
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {markdown}
+        </ReactMarkdown>
+      </div>
+      {shouldClampMarkdown && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background to-transparent" />
+      )}
+    </div>
+  ) : null;
+
+  const content =
+    statementContent ?? markdownContent ?? (
+      <p className="text-xs text-muted-foreground">コンテンツを準備中です。</p>
+    );
+
+  const showToggle = showStatementToggle || shouldClampMarkdown;
+
+  const orderNumber = Number(event.orderIndex ?? 0);
+  const orderLabel = `#${String(
+    Number.isNaN(orderNumber) ? 0 : orderNumber,
+  ).padStart(3, "0")}`;
+
+  return (
+    <div
+      className={cn(
+        "flex gap-2 text-xs",
+        isHostMessage ? "justify-end" : "justify-start",
+      )}
+    >
+      {!isHostMessage && (
+        <div className="mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <Bot className="h-3.5 w-3.5" />
+        </div>
+      )}
+      <div
+        className={cn(
+          "flex max-w-[260px] flex-col gap-2",
+          isHostMessage ? "items-end text-right" : "items-start text-left",
+        )}
+      >
+        <div
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+            meta.badge,
+          )}
+        >
+          <span>{meta.label}</span>
+          <span className="text-[9px] text-muted-foreground">
+            {orderLabel}・{formatDateTime(event.updatedAt)}
+          </span>
+        </div>
+        <div
+          className={cn(
+            "w-full rounded-xl border px-3 py-2 shadow-sm",
+            isHostMessage
+              ? "border-indigo-200 bg-indigo-50/90"
+              : "border-border/60 bg-card",
+          )}
+        >
+          {content}
+          {showToggle && (
+            <button
+              type="button"
+              onClick={onToggle}
+              className={cn(
+                "mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground",
+                isHostMessage ? "ml-auto" : "",
+              )}
+            >
+              {expanded ? (
+                <>
+                  <ChevronUp className="h-3 w-3" />
+                  閉じる
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3" />
+                  全文を見る
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardClient() {
   const router = useRouter();
   const pathname = usePathname();
@@ -280,9 +475,17 @@ export function DashboardClient() {
   );
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [eventLog, setEventLog] = useState<TimelineEvent[]>([]);
-  const [eventLogLoading, setEventLogLoading] = useState(false);
-  const [eventLogError, setEventLogError] = useState<string | null>(null);
+  const [threadData, setThreadData] = useState<EventThreadResponse | null>(
+    null,
+  );
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [threadError, setThreadError] = useState<string | null>(null);
+  const [messageDraft, setMessageDraft] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [togglingThreadProceed, setTogglingThreadProceed] = useState(false);
+  const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>(
+    {},
+  );
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
     "idle",
   );
@@ -291,6 +494,9 @@ export function DashboardClient() {
   const [reportHeader, setReportHeader] = useState<ReactNode | null>(null);
   const [isShareQrFullscreen, setIsShareQrFullscreen] = useState(false);
   const [isShareQrErrored, setIsShareQrErrored] = useState(false);
+  const threadContainerRef = useRef<HTMLDivElement | null>(null);
+  const latestThreadKeyRef = useRef<string>("");
+  const threadFetchInFlightRef = useRef(false);
 
   const syncSelectedSessionQuery = useCallback(
     (sessionId: string | null) => {
@@ -404,6 +610,7 @@ export function DashboardClient() {
     managedSessions.find((session) => session.id === selectedSessionId) ?? null;
   const selectedAdminAccessToken =
     selectedAdminSession?.adminAccessToken ?? null;
+  const selectedAdminSessionId = selectedAdminSession?.id ?? null;
 
   const selectedSessionShareLink = selectedAdminSession
     ? `${shareBaseUrl}/sessions/${selectedAdminSession.id}`
@@ -488,27 +695,35 @@ export function DashboardClient() {
   useEffect(() => {
     setCopyStatus("idle");
     setIsShareQrFullscreen(false);
-    if (!selectedAdminSession || !selectedAdminAccessToken || !userId) {
+
+    if (!selectedAdminSessionId || !selectedAdminAccessToken || !userId) {
       setSessionDetail(null);
       setDetailError(null);
-      setEventLog([]);
-      setEventLogError(null);
+      setThreadData(null);
+      setThreadError(null);
+      setThreadLoading(false);
+      setMessageDraft("");
+      setExpandedEvents({});
       setReportRequestControls(null);
       setReportHeader(null);
       setIsShareQrErrored(false);
+      latestThreadKeyRef.current = "";
       return;
     }
 
     let cancelled = false;
     setReportRequestControls(null);
     setReportHeader(null);
+    setDetailLoading(true);
+    setDetailError(null);
+    setThreadData(null);
+    setThreadError(null);
+    setThreadLoading(true);
 
     const fetchDetail = async () => {
       try {
-        setDetailLoading(true);
-        setDetailError(null);
         const response = await axios.get(
-          `/api/sessions/${selectedAdminSession.id}/${selectedAdminAccessToken}`,
+          `/api/sessions/${selectedAdminSessionId}/${selectedAdminAccessToken}`,
           {
             headers: createAuthorizationHeader(userId),
           },
@@ -527,38 +742,107 @@ export function DashboardClient() {
       }
     };
 
-    const fetchEventThread = async () => {
-      try {
-        setEventLogLoading(true);
-        setEventLogError(null);
-        const response = await axios.get(
-          `/api/sessions/${selectedAdminSession.id}/${selectedAdminAccessToken}/event-thread`,
-          {
-            headers: createAuthorizationHeader(userId),
-          },
-        );
-        if (cancelled) return;
-        setEventLog((response.data?.events ?? []) as TimelineEvent[]);
-      } catch (err) {
-        if (cancelled) return;
-        console.error("Failed to fetch event thread:", err);
-        setEventLogError("進行ログの取得に失敗しました。");
-        setEventLog([]);
-      } finally {
-        if (!cancelled) {
-          setEventLogLoading(false);
-        }
-      }
-    };
-
-    fetchDetail();
-    fetchEventThread();
+    void fetchDetail();
     setIsShareQrErrored(false);
 
     return () => {
       cancelled = true;
     };
-  }, [selectedAdminAccessToken, selectedAdminSession, userId]);
+  }, [selectedAdminAccessToken, selectedAdminSessionId, userId]);
+
+  const fetchEventThread = useCallback(
+    async ({ showSpinner = false }: { showSpinner?: boolean } = {}) => {
+      if (!selectedAdminSessionId || !selectedAdminAccessToken || !userId) {
+        return;
+      }
+      if (threadFetchInFlightRef.current && !showSpinner) {
+        return;
+      }
+      const requestKey = `${selectedAdminSessionId}:${selectedAdminAccessToken}`;
+      latestThreadKeyRef.current = requestKey;
+      threadFetchInFlightRef.current = true;
+      if (showSpinner) {
+        setThreadLoading(true);
+        setThreadError(null);
+      }
+      try {
+        const response = await axios.get(
+          `/api/sessions/${selectedAdminSessionId}/${selectedAdminAccessToken}/event-thread`,
+          {
+            headers: createAuthorizationHeader(userId),
+          },
+        );
+        if (latestThreadKeyRef.current !== requestKey) {
+          return;
+        }
+        const responseData = response.data as EventThreadResponse;
+        setThreadData(responseData);
+        setThreadError(null);
+      } catch (err) {
+        if (latestThreadKeyRef.current !== requestKey) {
+          return;
+        }
+        console.error("Failed to fetch event thread:", err);
+        setThreadError("進行ログの取得に失敗しました。");
+      } finally {
+        threadFetchInFlightRef.current = false;
+        if (showSpinner) {
+          setThreadLoading(false);
+        }
+      }
+    },
+    [
+      selectedAdminAccessToken,
+      selectedAdminSessionId,
+      userId,
+    ],
+  );
+
+  useEffect(() => {
+    if (!selectedAdminSessionId || !selectedAdminAccessToken || !userId) {
+      return;
+    }
+    void fetchEventThread({ showSpinner: true });
+    const intervalId = window.setInterval(() => {
+      void fetchEventThread();
+    }, 6000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    fetchEventThread,
+    selectedAdminAccessToken,
+    selectedAdminSessionId,
+    userId,
+  ]);
+
+  useEffect(() => {
+    setExpandedEvents({});
+    setMessageDraft("");
+  }, [selectedAdminSessionId]);
+
+  useEffect(() => {
+    if (!threadData?.events?.length) return;
+    const container = threadContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [threadData?.events]);
+
+  useEffect(() => {
+    if (!threadData?.events) return;
+    const ids = new Set(threadData.events.map((event) => event.id));
+    setExpandedEvents((previous) => {
+      let changed = false;
+      const next = { ...previous };
+      Object.keys(next).forEach((id) => {
+        if (!ids.has(id)) {
+          delete next[id];
+          changed = true;
+        }
+      });
+      return changed ? next : previous;
+    });
+  }, [threadData?.events]);
 
   const statementHighlights = useMemo<StatementHighlight[]>(() => {
     if (!sessionDetail?.statements?.length) return [];
@@ -585,16 +869,6 @@ export function DashboardClient() {
       (a, b) => b.completionRate - a.completionRate,
     );
   }, [sessionDetail]);
-
-  const latestEvents = useMemo(() => {
-    if (!eventLog.length) return [];
-    return [...eventLog]
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-      .slice(0, 5);
-  }, [eventLog]);
 
   const shareQrSrc = useMemo(() => {
     if (!selectedSessionShareLink) return "";
@@ -627,6 +901,63 @@ export function DashboardClient() {
     }
   }, [selectedSessionShareLink]);
 
+  const handleSendThreadMessage = useCallback(async () => {
+    if (
+      !selectedAdminSessionId ||
+      !userId ||
+      messageDraft.trim().length === 0
+    ) {
+      return;
+    }
+    setSendingMessage(true);
+    try {
+      await axios.post(
+        `/api/sessions/${selectedAdminSessionId}/event-thread/events/user-message`,
+        { markdown: messageDraft.trim() },
+        {
+          headers: createAuthorizationHeader(userId),
+        },
+      );
+      setMessageDraft("");
+      await fetchEventThread({ showSpinner: true });
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      window.alert("メッセージの送信に失敗しました。");
+    } finally {
+      setSendingMessage(false);
+    }
+  }, [fetchEventThread, messageDraft, selectedAdminSessionId, userId]);
+
+  const handleToggleThreadProceed = useCallback(async () => {
+    if (!selectedAdminSessionId || !threadData?.thread || !userId) {
+      return;
+    }
+    setTogglingThreadProceed(true);
+    try {
+      const response = await axios.patch(
+        `/api/sessions/${selectedAdminSessionId}/event-thread/should-proceed`,
+        { shouldProceed: !threadData.thread.shouldProceed },
+        {
+          headers: createAuthorizationHeader(userId),
+        },
+      );
+      const updatedThread = response.data.thread as EventThreadSummary;
+      setThreadData((previous) =>
+        previous
+          ? {
+              ...previous,
+              thread: updatedThread,
+            }
+          : previous,
+      );
+    } catch (err) {
+      console.error("Failed to toggle shouldProceed:", err);
+      window.alert("自動進行の切り替えに失敗しました。");
+    } finally {
+      setTogglingThreadProceed(false);
+    }
+  }, [selectedAdminSessionId, threadData, userId]);
+
   const headerStats = useMemo(() => {
     if (!selectedAdminSession) return [];
     return [
@@ -649,10 +980,15 @@ export function DashboardClient() {
       {
         label: "作成",
         value: `${formatDate(selectedAdminSession.createdAt)}`,
-        icon: Calendar,
+          icon: Calendar,
       },
     ];
   }, [selectedAdminSession, sessionDetail]);
+
+  const threadEvents = threadData?.events ?? [];
+  const hasThread = Boolean(threadData?.thread);
+  const threadShouldProceed = threadData?.thread?.shouldProceed ?? false;
+  const canManageThread = Boolean(selectedAdminSession?.isHost);
 
   if (userLoading || loading) {
     return (
@@ -1084,61 +1420,129 @@ export function DashboardClient() {
 
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold">
-                          進行ログ
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Cartographer エージェントの動作履歴を確認します。
-                        </CardDescription>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-sm font-semibold">
+                              進行ログ
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                              Cartographer エージェントの動作履歴を確認します。
+                            </CardDescription>
+                          </div>
+                          {hasSelectedSession && hasThread && (
+                            <ThreadStatusPill shouldProceed={threadShouldProceed} />
+                          )}
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {eventLogLoading && hasSelectedSession ? (
+                        {!hasSelectedSession ? (
+                          <p className="text-xs text-muted-foreground">
+                            管理権限のあるセッションを選択すると、進行ログが表示されます。
+                          </p>
+                        ) : threadLoading ? (
                           <div className="flex items-center justify-center py-6">
                             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                           </div>
-                        ) : eventLogError ? (
-                          <p className="text-xs text-amber-600">
-                            {eventLogError}
-                          </p>
-                        ) : latestEvents.length > 0 ? (
-                          latestEvents.map((event) => {
-                            const label =
-                              EVENT_TYPE_LABELS[event.type] ?? "イベント";
-                            return (
-                              <div
-                                key={event.id}
-                                className="rounded-md border border-border/50 bg-background px-3 py-3 text-xs"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="inline-flex items-center gap-1 font-semibold text-foreground">
-                                    <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                                    {label}
-                                  </span>
-                                  <span className="text-muted-foreground">
-                                    {formatRelativeTime(event.createdAt)}
-                                  </span>
-                                </div>
-                                {event.statements.length > 0 && (
-                                  <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-                                    {event.statements
-                                      .slice(0, 2)
-                                      .map((statement) => (
-                                        <li
-                                          key={statement.id}
-                                          className="line-clamp-2"
-                                        >
-                                          ・{statement.text}
-                                        </li>
-                                      ))}
-                                  </ul>
-                                )}
-                              </div>
-                            );
-                          })
+                        ) : threadError ? (
+                          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-xs text-amber-700">
+                            {threadError}
+                          </div>
                         ) : (
-                          <p className="text-xs text-muted-foreground">
-                            まだ記録されたイベントはありません。
-                          </p>
+                          <>
+                            {canManageThread && hasThread && (
+                              <Button
+                                variant={
+                                  threadShouldProceed ? "ghost" : "outline"
+                                }
+                                size="sm"
+                                className="w-full justify-center gap-1 text-xs"
+                                onClick={() => {
+                                  void handleToggleThreadProceed();
+                                }}
+                                disabled={togglingThreadProceed}
+                              >
+                                {togglingThreadProceed ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : threadShouldProceed ? (
+                                  <Pause className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Play className="h-3.5 w-3.5" />
+                                )}
+                                {threadShouldProceed
+                                  ? "自動進行を一時停止"
+                                  : "自動進行を再開"}
+                              </Button>
+                            )}
+                            {threadEvents.length > 0 ? (
+                              <div
+                                ref={threadContainerRef}
+                                className="max-h-80 space-y-3 overflow-y-auto pr-1"
+                              >
+                                {threadEvents.map((event) => {
+                                  const isHostMessage =
+                                    event.type === "user_message";
+                                  const expanded =
+                                    Boolean(expandedEvents[event.id]);
+                                  return (
+                                    <ThreadEventBubble
+                                      key={event.id}
+                                      event={event}
+                                      isHostMessage={isHostMessage}
+                                      expanded={expanded}
+                                      onToggle={() =>
+                                        setExpandedEvents((previous) => ({
+                                          ...previous,
+                                          [event.id]: !previous[event.id],
+                                        }))
+                                      }
+                                    />
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                まだ記録されたイベントはありません。
+                              </p>
+                            )}
+                          </>
+                        )}
+                        {hasSelectedSession && canManageThread && (
+                          <div className="space-y-2 border-t border-dashed border-border/60 pt-3">
+                            <label
+                              htmlFor="threadMessage"
+                              className="text-[11px] font-semibold text-muted-foreground"
+                            >
+                              ファシリテーターAIへのメッセージ
+                            </label>
+                            <textarea
+                              id="threadMessage"
+                              value={messageDraft}
+                              onChange={(event) =>
+                                setMessageDraft(event.target.value)
+                              }
+                              rows={3}
+                              className="w-full rounded-md border border-border/60 bg-background px-2.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                              placeholder="進行の補足情報や指示があれば、ここに入力してください。"
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                  void handleSendThreadMessage();
+                                }}
+                                disabled={
+                                  sendingMessage ||
+                                  messageDraft.trim().length === 0
+                                }
+                                isLoading={sendingMessage}
+                                className="gap-1 text-xs"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                送信
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </CardContent>
                     </Card>
