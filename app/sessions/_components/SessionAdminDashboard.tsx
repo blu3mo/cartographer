@@ -268,6 +268,8 @@ type SessionAdminDashboardProps = {
   showHeader?: boolean;
   disableLocalSidebar?: boolean;
   onRightSidebarRender?: (payload: SessionAdminSidebarPayload | null) => void;
+  externalizeReportRequestControls?: boolean;
+  onReportRequestControlsRender?: (node: ReactNode | null) => void;
 };
 
 export function SessionAdminDashboard({
@@ -276,6 +278,8 @@ export function SessionAdminDashboard({
   embedded,
   showHeader = true,
   disableLocalSidebar = false,
+  externalizeReportRequestControls = false,
+  onReportRequestControlsRender,
   onRightSidebarRender,
 }: SessionAdminDashboardProps) {
   const { userId, isLoading: isUserIdLoading } = useUserId();
@@ -782,6 +786,43 @@ export function SessionAdminDashboard({
   const statements = data?.statements ?? [];
   const hasReports = reports.length > 0;
 
+  const reportRequestControlsNode = useMemo(() => {
+    if (!hasReports) return null;
+    return (
+      <div className="space-y-2">
+        <label
+          htmlFor="reportRequest"
+          className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+        >
+          レポートに対するリクエスト（任意）
+        </label>
+        <textarea
+          id="reportRequest"
+          value={reportRequest}
+          onChange={(event) => setReportRequest(event.target.value)}
+          rows={3}
+          maxLength={1200}
+          className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+          placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+        />
+      </div>
+    );
+  }, [hasReports, reportRequest]);
+
+  useEffect(() => {
+    if (!externalizeReportRequestControls || !onReportRequestControlsRender) {
+      return;
+    }
+    onReportRequestControlsRender(reportRequestControlsNode);
+    return () => {
+      onReportRequestControlsRender(null);
+    };
+  }, [
+    externalizeReportRequestControls,
+    onReportRequestControlsRender,
+    reportRequestControlsNode,
+  ]);
+
   const participantStats = useMemo(() => {
     if (!participants.length) {
       return {
@@ -944,25 +985,10 @@ export function SessionAdminDashboard({
                   <FileText className="h-4 w-4" />
                   新しいレポートを生成
                 </Button>
-                {hasReports && (
-                  <>
-                    <label
-                      htmlFor="reportRequest"
-                      className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                    >
-                      レポートに対するリクエスト（任意）
-                    </label>
-                    <textarea
-                      id="reportRequest"
-                      value={reportRequest}
-                      onChange={(event) => setReportRequest(event.target.value)}
-                      rows={3}
-                      maxLength={1200}
-                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                    />
-                  </>
-                )}
+                {hasReports &&
+                  (!externalizeReportRequestControls
+                    ? reportRequestControlsNode
+                    : null)}
               </form>
             ) : (
               <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">

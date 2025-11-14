@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileText,
   Loader2,
+  Maximize2,
   MessageSquare,
   Plus,
   Trash2,
@@ -17,7 +18,13 @@ import {
   X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   type CreatedSession,
@@ -114,6 +121,14 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   user_message: "メッセージ",
 };
 
+const SHARE_QR_SIZE = 176;
+const FULLSCREEN_QR_SIZE = 768;
+
+const buildQrUrl = (url: string, size: number) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(
+    url,
+  )}`;
+
 const formatRelativeTime = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -201,6 +216,10 @@ export function DashboardClient() {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
     "idle",
   );
+  const [reportRequestControls, setReportRequestControls] =
+    useState<ReactNode | null>(null);
+  const [isShareQrFullscreen, setIsShareQrFullscreen] = useState(false);
+  const [isShareQrErrored, setIsShareQrErrored] = useState(false);
 
   const syncSelectedSessionQuery = useCallback(
     (sessionId: string | null) => {
@@ -271,22 +290,8 @@ export function DashboardClient() {
     });
   }, [sessions, searchTerm]);
 
-  const adminSessions = useMemo(
+  const managedSessions = useMemo(
     () => filteredSessions.filter((session) => session.isHost),
-    [filteredSessions],
-  );
-  const participantSessions = useMemo(
-    () =>
-      filteredSessions.filter(
-        (session) => !session.isHost && session.isParticipant,
-      ),
-    [filteredSessions],
-  );
-  const discoverSessions = useMemo(
-    () =>
-      filteredSessions.filter(
-        (session) => !session.isHost && !session.isParticipant,
-      ),
     [filteredSessions],
   );
 
@@ -299,7 +304,7 @@ export function DashboardClient() {
   );
 
   useEffect(() => {
-    if (adminSessions.length === 0) {
+    if (managedSessions.length === 0) {
       if (selectedSessionId !== null) {
         setSelectedSessionId(null);
         syncSelectedSessionQuery(null);
@@ -308,24 +313,24 @@ export function DashboardClient() {
     }
 
     if (!selectedSessionId) {
-      const fallback = adminSessions[0].id;
+      const fallback = managedSessions[0].id;
       setSelectedSessionId(fallback);
       syncSelectedSessionQuery(fallback);
       return;
     }
 
-    const exists = adminSessions.some(
+    const exists = managedSessions.some(
       (session) => session.id === selectedSessionId,
     );
     if (!exists) {
-      const fallback = adminSessions[0].id;
+      const fallback = managedSessions[0].id;
       setSelectedSessionId(fallback);
       syncSelectedSessionQuery(fallback);
     }
-  }, [adminSessions, selectedSessionId, syncSelectedSessionQuery]);
+  }, [managedSessions, selectedSessionId, syncSelectedSessionQuery]);
 
   const selectedAdminSession =
-    adminSessions.find((session) => session.id === selectedSessionId) ?? null;
+    managedSessions.find((session) => session.id === selectedSessionId) ?? null;
   const selectedAdminAccessToken =
     selectedAdminSession?.adminAccessToken ?? null;
 
