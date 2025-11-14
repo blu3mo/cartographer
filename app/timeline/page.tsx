@@ -45,29 +45,16 @@ export default async function TimelinePage() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-12 md:py-20">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 text-sm font-medium mb-6">
+          {/* <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 text-sm font-medium mb-6">
             <Sparkles className="h-4 w-4" />
             公開セッション
-          </div>
+          </div> */}
 
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
             タイムライン
           </h1>
 
-          <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
-            さまざまなチームが公開しているセッションを閲覧できます。
-            <br />
-            興味のあるセッションに参加して、認識マップを体験しましょう。
-          </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/dashboard">
-              <Button size="lg" className="text-base px-8">
-                自分のセッションを作成
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
         </div>
       </section>
 
@@ -114,6 +101,18 @@ export default async function TimelinePage() {
               </div>
             </>
           )}
+        </div>
+      </section>
+      <section className="container mx-auto px-4 py-12 md:py-20">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/dashboard">
+              <Button size="lg" className="text-base px-8">
+                自分のセッションを作成
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
