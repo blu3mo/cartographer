@@ -145,10 +145,6 @@ function SessionSections({ sessions }: SessionSectionsProps) {
     const participatingSessions = sessions.filter(
       (session) => !session.isHost && session.isParticipant,
     );
-    const otherSessions = sessions.filter(
-      (session) =>
-        !session.isHost && !session.isParticipant && session.isPublic,
-    );
 
     return [
       {
@@ -158,10 +154,6 @@ function SessionSections({ sessions }: SessionSectionsProps) {
       {
         title: "参加中のセッション",
         sessions: participatingSessions,
-      },
-      {
-        title: "未参加の公開セッション",
-        sessions: otherSessions,
       },
     ].filter((category) => category.sessions.length > 0);
   }, [sessions]);
