@@ -9,11 +9,11 @@ import {
   ExternalLink,
   FileText,
   Loader2,
+  Lock,
   Maximize2,
   MessageSquare,
   Plus,
   Trash2,
-  User,
   Users,
   X,
 } from "lucide-react";
@@ -154,11 +154,10 @@ const formatRelativeTime = (value: string) => {
 const formatDate = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}/${month}/${day}`;
 };
 
 const formatPercent = (value: number) => {
@@ -170,16 +169,17 @@ const formatPercent = (value: number) => {
 };
 
 function VisibilityBadge({ isPublic }: { isPublic: boolean }) {
+  if (isPublic) {
+    return (
+      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+        公開
+      </span>
+    );
+  }
+
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-        isPublic
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-amber-200 bg-amber-50 text-amber-700",
-      )}
-    >
-      {isPublic ? "公開" : "非公開"}
+    <span className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-slate-100 p-1.5">
+      <Lock className="h-3 w-3 text-slate-700" />
     </span>
   );
 }
@@ -578,8 +578,8 @@ export function DashboardClient() {
         icon: FileText,
       },
       {
-        label: "作成日",
-        value: formatDate(selectedAdminSession.createdAt),
+        label: "作成",
+        value: `${formatDate(selectedAdminSession.createdAt)}`,
         icon: Calendar,
       },
     ];

@@ -912,7 +912,7 @@ export function SessionAdminDashboard({
             }
             onClick={() =>
               window.open(
-                `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}`,
+                `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
                 "_blank",
               )
             }
@@ -1135,7 +1135,7 @@ export function SessionAdminDashboard({
             ) : hasReports && selectedReport ? (
               <div className="flex flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white/80 shadow-inner">
                 <div className="flex flex-1 flex-col overflow-y-auto p-6">
-                  <div className="flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.2em] text-slate-400">
+                  {/* <div className="flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.2em] text-slate-400">
                     <span
                       className={`rounded-full px-3 py-1 text-[11px] font-semibold ${REPORT_STATUS_META[selectedReport.status].badge}`}
                     >
@@ -1150,7 +1150,7 @@ export function SessionAdminDashboard({
                       {selectedReport.estimatedTokenUsage?.toLocaleString() ??
                         "N/A"}
                     </span>
-                  </div>
+                  </div> */}
                   <div className="mt-4 flex-1">
                     {selectedReport.status === "completed" &&
                     selectedReport.contentMarkdown ? (
