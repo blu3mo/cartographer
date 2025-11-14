@@ -2,9 +2,10 @@
 
 import axios from "axios";
 import {
+  Bot,
   Calendar,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Copy,
   ExternalLink,
   FileText,
@@ -13,7 +14,12 @@ import {
   Lock,
   Maximize2,
   MessageSquare,
+  PanelLeft,
+  PanelLeftClose,
+  Pause,
+  Play,
   Plus,
+  Send,
   Trash2,
   Users,
   X,
@@ -21,12 +27,16 @@ import {
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  type ReactElement,
   type ReactNode,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { AboutCartographerButton } from "@/components/AboutCartographerButton";
 import { AppHeader } from "@/components/AppHeader";
@@ -96,9 +106,11 @@ type TimelineEventStatement = {
   orderIndex: number;
 };
 
+type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
+
 type TimelineEvent = {
   id: string;
-  type: string;
+  type: ThreadEventType | string;
   agentId: string | null;
   userId: string | null;
   progress: number | string | null;
@@ -107,6 +119,35 @@ type TimelineEvent = {
   createdAt: string;
   updatedAt: string;
   statements: TimelineEventStatement[];
+};
+
+type EventThreadSummary = {
+  id: string;
+  shouldProceed: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type EventThreadAgent = {
+  id: string;
+  agentType: string;
+  state: string;
+  statePayload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type EventThreadResponse = {
+  session: {
+    id: string;
+    title: string | null;
+    context: string | null;
+    goal: string | null;
+    isPublic: boolean;
+  };
+  thread: EventThreadSummary | null;
+  events: TimelineEvent[];
+  agents: EventThreadAgent[];
 };
 
 type StatementHighlight = {
@@ -118,11 +159,36 @@ type StatementHighlight = {
   negativeShare: number;
 };
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  plan: "プラン生成",
-  survey: "アンケート実施",
-  survey_analysis: "分析",
-  user_message: "メッセージ",
+const EVENT_TYPE_META: Record<
+  ThreadEventType,
+  { label: string; accent: string; badge: string }
+> = {
+  plan: {
+    label: "Plan",
+    accent: "text-sky-600",
+    badge: "bg-sky-50 text-sky-700 border-sky-200",
+  },
+  survey: {
+    label: "Survey",
+    accent: "text-emerald-600",
+    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  survey_analysis: {
+    label: "Analysis",
+    accent: "text-purple-600",
+    badge: "bg-purple-50 text-purple-700 border-purple-200",
+  },
+  user_message: {
+    label: "You",
+    accent: "text-indigo-600",
+    badge: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  },
+};
+
+const DEFAULT_EVENT_META = {
+  label: "イベント",
+  accent: "text-slate-600",
+  badge: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
 const SHARE_QR_SIZE = 176;
@@ -698,9 +764,9 @@ export function DashboardClient() {
                   onClick={() => setIsSidebarCollapsed((value) => !value)}
                 >
                   {isSidebarCollapsed ? (
-                    <ChevronRight className="h-4 w-4" />
+                    <PanelLeft className="h-4 w-4" />
                   ) : (
-                    <ChevronLeft className="h-4 w-4" />
+                    <PanelLeftClose className="h-4 w-4" />
                   )}
                 </Button>
                 <div className="space-y-1">
@@ -743,25 +809,12 @@ export function DashboardClient() {
               )}
             </div>
 
-            {/* <div className="border-b bg-card px-6 py-4">
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <h3 className="text-lg font-semibold text-card-foreground">
-                    分析レポート
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    参加者の回答結果や、セッション情報をもとに、現状把握レポートを生成します。
-                  </p>
-                </div>
-                {reportHeader && <div>{reportHeader}</div>}
-              </div>
-            </div> */}
 
             <div className="flex flex-1 overflow-hidden">
               <div className="flex flex-1 flex-col overflow-hidden border-r">
 
-                <div className="border-b bg-card px-6 py-4">
-                  <div className="space-y-4">
+                <div className="bg-card px-6 py-7">
+                  <div className="space-y-5">
                     <div className="space-y-1.5">
                       <h3 className="text-lg font-semibold text-card-foreground">
                         分析レポート
