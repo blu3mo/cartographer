@@ -803,37 +803,27 @@ export function SessionAdminDashboard({
     return (
       <form
         onSubmit={handleCreateReportSubmit}
-        className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-inner"
+        className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-inner"
       >
-        <div className="space-y-2">
-          <label
-            htmlFor="reportRequest"
-            className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-          >
-            レポートに対するリクエスト（任意）
-          </label>
-          <textarea
-            id="reportRequest"
-            value={reportRequest}
-            onChange={(event) => setReportRequest(event.target.value)}
-            rows={3}
-            maxLength={1200}
-            className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-            placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            size="sm"
-            disabled={creatingReport}
-            isLoading={creatingReport}
-            className="gap-1.5 text-xs"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            新しいレポートを作成
-          </Button>
-        </div>
+        <textarea
+          id="reportRequest"
+          value={reportRequest}
+          onChange={(event) => setReportRequest(event.target.value)}
+          rows={3}
+          maxLength={1200}
+          className="flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+          placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          disabled={creatingReport}
+          isLoading={creatingReport}
+          className="gap-1.5 text-xs"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          コメントを元に再度作成
+        </Button>
       </form>
     );
   }, [
