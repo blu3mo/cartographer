@@ -18,9 +18,30 @@ const clientLogos = [
   { src: "/logos/sample-logo-1.svg", alt: "クライアントロゴサンプル1" },
   { src: "/logos/sample-logo-2.svg", alt: "クライアントロゴサンプル2" },
   { src: "/logos/sample-logo-3.svg", alt: "クライアントロゴサンプル3" },
-  { src: "/logos/sample-logo-4.svg", alt: "クライアントロゴサンプル4" },
-  { src: "/logos/sample-logo-5.svg", alt: "クライアントロゴサンプル5" },
-  { src: "/logos/sample-logo-6.svg", alt: "クライアントロゴサンプル6" },
+];
+
+const productShots = [
+  {
+    src: "/screens/session-setup.svg",
+    alt: "セッション設定UIのサンプル画像",
+    label: "セッション設定の入力フォーム",
+    description:
+      "背景情報や目的を数分で整理する設定画面。議事録や資料を読み込ませる流れを視覚化すると、利用開始の手軽さが伝わります。",
+  },
+  {
+    src: "/screens/live-session.svg",
+    alt: "参加者回答画面のサンプル画像",
+    label: "回答画面とリアルタイム集計",
+    description:
+      "参加者が5段階で回答し、回答率や論点の偏りがライブで変化する様子を表現することで、会議内での活用イメージを想起させます。",
+  },
+  {
+    src: "/screens/report-insights.svg",
+    alt: "分析レポートのサンプル画像",
+    label: "AIレポートとPCAマップ",
+    description:
+      "合意点・相違点・不明点の整理と、PCAマップによる立場の俯瞰を表示。議論後のアクション決定まで導く価値を補強します。",
+  },
 ];
 
 const testimonials = [
@@ -76,36 +97,59 @@ export default async function LandingPage() {
       </AppHeader>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 md:py-32">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 text-sm font-medium mb-6">
-            <Sparkles className="h-4 w-4" />
-            AI駆動のコンセンサス形成ツール
-          </div>
+      <section className="container mx-auto px-4 py-20 md:py-28">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <div className="text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
+                <Sparkles className="h-4 w-4" />
+                AI駆動のコンセンサス形成ツール
+              </div>
 
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-            チームの認識を
-            <br />
-            可視化する
-          </h1>
+              <h1 className="mt-6 text-5xl font-bold tracking-tight text-slate-900 md:text-6xl">
+                チームの認識を
+                <br />
+                可視化する
+              </h1>
 
-          <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Cartographerは、AIを活用してチーム内の多様な視点を収集・分析し、
-            データに基づいた意思決定とコンセンサス形成を支援します。
-          </p>
+              <p className="mt-6 text-xl leading-relaxed text-slate-600">
+                Cartographerは、AIを活用してチーム内の多様な視点を収集・分析し、
+                データに基づいた意思決定とコンセンサス形成を支援します。
+              </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/dashboard">
-              <Button size="lg" className="text-base px-8">
-                始める
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/timeline">
-              <Button size="lg" variant="outline" className="text-base px-8">
-                公開議論を見る
-              </Button>
-            </Link>
+              <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+                <Link href="/dashboard">
+                  <Button size="lg" className="px-8 text-base">
+                    始める
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/timeline">
+                  <Button size="lg" variant="outline" className="px-8 text-base">
+                    公開議論を見る
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-xl">
+                <Image
+                  src="/screens/hero-dashboard.svg"
+                  alt="Cartographerダッシュボードのサンプル"
+                  width={960}
+                  height={540}
+                  className="w-full rounded-2xl border border-dashed border-slate-300 bg-slate-200 object-cover"
+                  priority
+                />
+                <div className="absolute left-6 top-6 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-semibold text-white">
+                  ここにダッシュボード全体のスクリーンショット
+                </div>
+              </div>
+              <p className="text-sm text-slate-500">
+                セッションの稼働状況や合意ポイントのハイライトを一目で伝えるビジュアルを想定。
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -113,17 +157,14 @@ export default async function LandingPage() {
       {/* Client Logos */}
       <section className="container mx-auto px-4 py-16">
         <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">
+          <p className="text-2xl md:text-3xl font-semibold text-slate-900">
             Cartographerをご活用いただいているチーム
-          </h2>
-          <p className="mt-3 text-slate-600">
-            多様なステークホルダーが関わる意思決定の現場で、認識のズレを素早く可視化しています。
           </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
             {clientLogos.map((client) => (
               <div
                 key={client.src}
-                className="flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-6 shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg"
+                className="flex items-center justify-center rounded-xl px-4 py-6"
               >
                 <Image
                   src={client.src}
@@ -140,98 +181,103 @@ export default async function LandingPage() {
 
       {featuredSessions.length > 0 && (
         <section className="container mx-auto px-4 py-16 bg-white">
-          <div className="max-w-5xl mx-auto">
-            <div className="mb-10">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-10 text-center lg:text-left">
               <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
                 公開セッションの記録
               </h2>
               <p className="mt-3 text-slate-600">
-                最近公開されたセッションの流れを時系列でご紹介します。
+                最近公開されたセッションの流れを時系列で示し、詳細ページに誘導します。
               </p>
             </div>
-            <div className="relative">
-              <div className="absolute left-4 top-0 hidden h-full w-px bg-slate-200 md:block" />
-              <div className="space-y-8">
-                {featuredSessions.map((session, index) => {
-                  const createdAt = new Date(session.createdAt);
-                  const formattedDate = createdAt.toLocaleDateString("ja-JP", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  });
-                  const truncatedContext =
-                    session.context && session.context.length > 110
-                      ? `${session.context.slice(0, 110)}…`
-                      : session.context;
-                  const truncatedGoal =
-                    session.goal && session.goal.length > 110
-                      ? `${session.goal.slice(0, 110)}…`
-                      : session.goal;
+            <div className="grid gap-10 lg:grid-cols-[1.6fr,1fr] lg:items-start">
+              <div className="relative rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+                <div className="absolute left-8 top-0 hidden h-full w-px -translate-x-1/2 bg-slate-300 lg:block" />
+                <div className="space-y-8">
+                  {featuredSessions.map((session, index) => {
+                    const createdAt = new Date(session.createdAt);
+                    const formattedDate = createdAt.toLocaleDateString("ja-JP", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    });
+                    const truncatedContext =
+                      session.context && session.context.length > 110
+                        ? `${session.context.slice(0, 110)}…`
+                        : session.context;
+                    const truncatedGoal =
+                      session.goal && session.goal.length > 110
+                        ? `${session.goal.slice(0, 110)}…`
+                        : session.goal;
 
-                  return (
-                    <div
-                      key={session.id}
-                      className="relative rounded-2xl border border-slate-200 bg-slate-50 px-6 py-6 shadow-sm"
-                    >
-                      <div className="absolute left-4 top-6 hidden h-3 w-3 -translate-x-1.5 rounded-full border-2 border-white bg-blue-500 md:block" />
-                      <div className="flex flex-col gap-3 md:pl-8">
-                        <div className="text-sm font-semibold text-blue-600">
-                          {formattedDate}
-                        </div>
-                        <h3 className="text-xl font-semibold text-slate-900">
-                          {session.title || `未設定のセッション ${index + 1}`}
-                        </h3>
+                    return (
+                      <div
+                        key={session.id}
+                        className="relative rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm lg:pl-12"
+                      >
+                        <div className="absolute left-6 top-8 hidden h-3 w-3 -translate-x-1/2 rounded-full border-2 border-white bg-blue-500 lg:block" />
+                        <div className="flex flex-col gap-3">
+                          {/* <div className="text-sm font-semibold text-blue-600">
+                            {formattedDate}
+                          </div> */}
+                          <h3 className="text-xl font-semibold text-slate-900">
+                            {session.title || `未設定のセッション ${index + 1}`}
+                          </h3>
 
-                        {truncatedContext && (
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              背景
-                            </p>
-                            <p className="text-sm text-slate-600">
-                              {truncatedContext}
-                            </p>
+                          {/* {truncatedContext && (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                背景
+                              </p>
+                              <p className="text-sm text-slate-600">
+                                {truncatedContext}
+                              </p>
+                            </div>
+                          )} */}
+
+                          {truncatedGoal && (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                目的
+                              </p>
+                              <p className="text-sm text-slate-600">
+                                {truncatedGoal}
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                            <span>{session._count.participants} 人参加</span>
+                            {/* <span>{session._count.statements} 質問</span> */}
                           </div>
-                        )}
 
-                        {truncatedGoal && (
                           <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              目的
-                            </p>
-                            <p className="text-sm text-slate-600">
-                              {truncatedGoal}
-                            </p>
+                            <Link
+                              href={`/sessions/${session.id}`}
+                              className="inline-flex items-center text-sm font-semibold text-blue-600 transition hover:text-blue-700"
+                            >
+                              詳細を見る
+                              <ArrowRight className="ml-1 h-4 w-4" />
+                            </Link>
                           </div>
-                        )}
-
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                          <span>{session._count.participants} 人参加</span>
-                          <span>{session._count.statements} 質問</span>
-                        </div>
-
-                        <div>
-                          <Link
-                            href={`/sessions/${session.id}`}
-                            className="inline-flex items-center text-sm font-semibold text-blue-600 transition hover:text-blue-700"
-                          >
-                            詳細を見る
-                            <ArrowRight className="ml-1 h-4 w-4" />
-                          </Link>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
-            <div className="mt-10 text-right">
+
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/timeline">
-                <Button variant="outline" className="w-full md:w-auto">
+                <Button size="lg" className="text-base px-8">
                   すべての公開セッションを見る
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
             </div>
+
           </div>
         </section>
       )}
@@ -281,6 +327,44 @@ export default async function LandingPage() {
                 AIが回答パターンを分析し、個人レポートとセッションレポートを自動生成。データに基づいた意思決定を実現します。
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Product Shots */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
+              プロダクトの流れをイメージ
+            </h2>
+            <p className="mt-3 text-lg text-slate-600">
+              実際のUIキャプチャを差し込む位置づけをサンプルで示しています。
+            </p>
+          </div>
+          <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-3">
+            {productShots.map((shot) => (
+              <figure
+                key={shot.src}
+                className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
+                <div className="relative overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-200">
+                  <Image
+                    src={shot.src}
+                    alt={shot.alt}
+                    width={720}
+                    height={480}
+                    className="w-full object-contain"
+                  />
+                  <div className="absolute left-5 top-5 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-semibold text-white">
+                    {shot.label}
+                  </div>
+                </div>
+                <figcaption className="space-y-2 text-left">
+                  <p className="text-sm text-slate-500">{shot.description}</p>
+                </figcaption>
+              </figure>
+            ))}
           </div>
         </div>
       </section>
@@ -361,6 +445,25 @@ export default async function LandingPage() {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="mt-12">
+            <figure className="flex flex-col items-center gap-4 rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+              <div className="relative w-full overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-200">
+                <Image
+                  src="/screens/customer-success.svg"
+                  alt="カスタマーサクセス資料のサンプル画像"
+                  width={640}
+                  height={400}
+                  className="w-full object-contain"
+                />
+                <div className="absolute left-5 top-5 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-semibold text-white">
+                  カスタマーサクセス事例のスクリーンショット
+                </div>
+              </div>
+              <figcaption className="text-sm text-slate-500">
+                本番では事例PDFや導入実績レポートの抜粋を差し込み、コメントと合わせて信頼感を高めます。
+              </figcaption>
+            </figure>
           </div>
         </div>
       </section>

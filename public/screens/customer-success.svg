@@ -1,0 +1,7 @@
+<svg width="640" height="400" viewBox="0 0 640 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="400" rx="24" fill="#D1D5DB"/>
+  <rect x="32" y="48" width="576" height="304" rx="18" fill="#E5E7EB" stroke="#9CA3AF" stroke-dasharray="8 8"/>
+  <text x="50%" y="50%" text-anchor="middle" fill="#4B5563" font-family="sans-serif" font-size="28" font-weight="600">
+    サンプル画像（カスタマーサクセス事例）
+  </text>
+</svg>
