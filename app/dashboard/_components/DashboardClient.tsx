@@ -28,6 +28,8 @@ import {
   useState,
 } from "react";
 
+import { AboutCartographerButton } from "@/components/AboutCartographerButton";
+import { AppHeader } from "@/components/AppHeader";
 import {
   type CreatedSession,
   CreateSessionForm,
@@ -601,24 +603,7 @@ export function DashboardClient() {
   return (
     <>
       <div className="flex h-screen flex-col bg-background">
-        <header className="flex h-20 flex-col justify-center gap-2 border-b bg-primary px-6 text-primary-foreground">
-          <div className="flex items-center gap-3">
-            {/* <FileText className="h-5 w-5" /> */}
-            <span className="text-sm font-semibold uppercase tracking-wide">
-              Cartographer
-            </span>
-          </div>
-          {/* <div className="flex items-center justify-between">
-            <h1 className="text-lg font-semibold">
-              {selectedAdminSession
-                ? selectedAdminSession.title || "名称未設定"
-                : "セッションを選択してください"}
-            </h1>
-            <Button variant="ghost" size="icon">
-              <User className="h-4 w-4" />
-            </Button>
-          </div> */}
-        </header>
+        <AppHeader rightSlot={<AboutCartographerButton />} />
 
         <div className="flex flex-1 overflow-hidden">
           <aside
