@@ -730,11 +730,8 @@ export function SessionAdminDashboard({
     }
   }, [shareUrl]);
 
-  const handleCreateReport = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-    if (!userId) return;
+  const startReportGeneration = useCallback(async () => {
+    if (!userId || !canEdit) return;
     if (creatingReport) return;
 
     try {
@@ -763,7 +760,15 @@ export function SessionAdminDashboard({
     } finally {
       setCreatingReport(false);
     }
-  };
+  }, [accessToken, canEdit, creatingReport, reportRequest, sessionId, userId]);
+
+  const handleCreateReportSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      void startReportGeneration();
+    },
+    [startReportGeneration],
+  );
 
   const handleCopyReportMarkdown = async () => {
     if (!selectedReport?.contentMarkdown) return;
@@ -788,26 +793,56 @@ export function SessionAdminDashboard({
 
   const reportRequestControlsNode = useMemo(() => {
     if (!hasReports) return null;
+    if (!canEdit) {
+      return (
+        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
+          レポート生成はセッションのホストのみ利用できます。
+        </div>
+      );
+    }
     return (
-      <div className="space-y-2">
-        <label
-          htmlFor="reportRequest"
-          className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-        >
-          レポートに対するリクエスト（任意）
-        </label>
-        <textarea
-          id="reportRequest"
-          value={reportRequest}
-          onChange={(event) => setReportRequest(event.target.value)}
-          rows={3}
-          maxLength={1200}
-          className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-          placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-        />
-      </div>
+      <form
+        onSubmit={handleCreateReportSubmit}
+        className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-inner"
+      >
+        <div className="space-y-2">
+          <label
+            htmlFor="reportRequest"
+            className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+          >
+            レポートに対するリクエスト（任意）
+          </label>
+          <textarea
+            id="reportRequest"
+            value={reportRequest}
+            onChange={(event) => setReportRequest(event.target.value)}
+            rows={3}
+            maxLength={1200}
+            className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+            placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            size="sm"
+            disabled={creatingReport}
+            isLoading={creatingReport}
+            className="gap-1.5 text-xs"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            新しいレポートを作成
+          </Button>
+        </div>
+      </form>
     );
-  }, [hasReports, reportRequest]);
+  }, [
+    canEdit,
+    creatingReport,
+    handleCreateReportSubmit,
+    hasReports,
+    reportRequest,
+  ]);
 
   useEffect(() => {
     if (!externalizeReportRequestControls || !onReportRequestControlsRender) {
@@ -958,8 +993,8 @@ export function SessionAdminDashboard({
       aria-label="レポートビュー"
     >
       <div className="space-y-6 pb-10">
-        <Card className="border-none bg-white/80 shadow-sm">
-          <CardHeader className="pb-4">
+        <Card className="flex h-full flex-col border-none bg-white/80 shadow-sm">
+          <CardHeader className="space-y-6 pb-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-1.5">
                 <CardTitle className="text-lg">分析レポート</CardTitle>
@@ -967,118 +1002,118 @@ export function SessionAdminDashboard({
                   参加者の回答結果や、セッション情報をもとに、現状把握レポートを生成します。
                 </CardDescription>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {canEdit ? (
-              <form
-                onSubmit={handleCreateReport}
-                className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-inner"
-              >
-                <Button
-                  type="submit"
-                  size="lg"
-                  disabled={creatingReport}
-                  isLoading={creatingReport}
-                  className="w-full justify-center gap-2 rounded-2xl py-6 text-base shadow-lg shadow-slate-900/10"
+              {canEdit && !hasReports ? (
+                <form
+                  onSubmit={handleCreateReportSubmit}
+                  className="w-full max-w-sm lg:w-auto"
                 >
-                  <FileText className="h-4 w-4" />
-                  新しいレポートを生成
-                </Button>
-                {hasReports &&
-                  (!externalizeReportRequestControls
-                    ? reportRequestControlsNode
-                    : null)}
-              </form>
-            ) : (
+                  <Button
+                    type="submit"
+                    size="lg"
+                    disabled={creatingReport}
+                    isLoading={creatingReport}
+                    className="w-full justify-center gap-2 rounded-2xl py-6 text-base shadow-lg shadow-slate-900/10"
+                  >
+                    <FileText className="h-4 w-4" />
+                    新しいレポートを生成
+                  </Button>
+                </form>
+              ) : null}
+            </div>
+            {!canEdit && (
               <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
                 レポート生成はセッションのホストのみ利用できます。
               </div>
             )}
-
+            {hasReports && selectedReport ? (
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="reportVersionSelect"
+                    className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                  >
+                    表示するバージョン
+                  </label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <select
+                      id="reportVersionSelect"
+                      value={selectedReportId ?? ""}
+                      onChange={(event) =>
+                        setSelectedReportId(event.target.value)
+                      }
+                      className="max-w-xs rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                    >
+                      {reports.map((report) => {
+                        const meta = REPORT_STATUS_META[report.status];
+                        return (
+                          <option key={report.id} value={report.id}>
+                            v{String(report.version).padStart(2, "0")}・
+                            {meta.label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      selectedReport.status !== "completed" ||
+                      !selectedReport.contentMarkdown
+                    }
+                    onClick={handleCopyReportMarkdown}
+                    className="gap-1.5 text-xs"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    {reportCopyStatus === "copied"
+                      ? "コピー済み"
+                      : reportCopyStatus === "error"
+                        ? "コピー失敗"
+                        : "Markdownをコピー"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      selectedReport.status !== "completed" ||
+                      !selectedReport.contentMarkdown
+                    }
+                    onClick={() =>
+                      window.open(
+                        `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}`,
+                        "_blank",
+                      )
+                    }
+                    className="gap-1.5 text-xs"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    公開用ページを開く
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {hasReports &&
+              !externalizeReportRequestControls &&
+              reportRequestControlsNode}
             {reportsError && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 {reportsError}
               </div>
             )}
-
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col gap-6 overflow-hidden pt-0">
             {reportsLoading ? (
               <div className="space-y-4">
                 <div className="h-12 animate-pulse rounded-2xl bg-slate-100/80" />
                 <div className="h-[420px] animate-pulse rounded-3xl bg-slate-100/80" />
               </div>
             ) : hasReports && selectedReport ? (
-              <div className="space-y-6">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="reportVersionSelect"
-                      className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                    >
-                      表示するバージョン
-                    </label>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <select
-                        id="reportVersionSelect"
-                        value={selectedReportId ?? ""}
-                        onChange={(event) =>
-                          setSelectedReportId(event.target.value)
-                        }
-                        className="max-w-xs rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                      >
-                        {reports.map((report) => {
-                          const meta = REPORT_STATUS_META[report.status];
-                          return (
-                            <option key={report.id} value={report.id}>
-                              v{String(report.version).padStart(2, "0")}・
-                              {meta.label}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        selectedReport.status !== "completed" ||
-                        !selectedReport.contentMarkdown
-                      }
-                      onClick={handleCopyReportMarkdown}
-                      className="gap-1.5 text-xs"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      {reportCopyStatus === "copied"
-                        ? "コピー済み"
-                        : reportCopyStatus === "error"
-                          ? "コピー失敗"
-                          : "Markdownをコピー"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        selectedReport.status !== "completed" ||
-                        !selectedReport.contentMarkdown
-                      }
-                      onClick={() =>
-                        window.open(
-                          `/sessions/${sessionId}/reports/${selectedReport.id}`,
-                          "_blank",
-                        )
-                      }
-                      className="gap-1.5 text-xs"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      公開用ページを開く
-                    </Button>
-                  </div>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-inner">
+              <div className="flex flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white/80 shadow-inner">
+                <div className="flex flex-1 flex-col overflow-y-auto p-6">
                   <div className="flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.2em] text-slate-400">
                     <span
                       className={`rounded-full px-3 py-1 text-[11px] font-semibold ${REPORT_STATUS_META[selectedReport.status].badge}`}
@@ -1095,7 +1130,7 @@ export function SessionAdminDashboard({
                         "N/A"}
                     </span>
                   </div>
-                  <div className="mt-4 space-y-4">
+                  <div className="mt-4 flex-1">
                     {selectedReport.status === "completed" &&
                     selectedReport.contentMarkdown ? (
                       <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
@@ -1120,8 +1155,7 @@ export function SessionAdminDashboard({
                       </div>
                     )}
                   </div>
-
-                  <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                  <div className="mt-4 flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-slate-400">
                     <span>
                       作成: {formatDateTime(selectedReport.createdAt)}
                     </span>

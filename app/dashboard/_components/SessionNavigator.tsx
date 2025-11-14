@@ -7,7 +7,8 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  FileText,
+  HelpCircle,
+  Lock,
   Plus,
   Users,
 } from "lucide-react";
@@ -266,6 +267,12 @@ function SidebarSessionsSection({
               const context =
                 session.context?.trim() || "まだ入力されていません";
               const goal = session.goal?.trim() || "まだ入力されていません";
+              const createdAt = new Date(session.createdAt);
+              const formattedCreatedAt = [
+                createdAt.getFullYear(),
+                String(createdAt.getMonth() + 1).padStart(2, "0"),
+                String(createdAt.getDate()).padStart(2, "0"),
+              ].join("/");
 
               const handleClick = () => {
                 if (mode === "select") {
@@ -295,8 +302,12 @@ function SidebarSessionsSection({
                         {session.title || "名称未設定"}
                       </p>
                       {!session.isPublic && (
-                        <span className="rounded-full bg-slate-100/20 px-2 py-0.5 text-[10px] font-semibold text-slate-200">
-                          非公開
+                        <span className="inline-flex items-center justify-center rounded-full bg-slate-100/20 p-1.5">
+                          <Lock
+                            className="h-3 w-3 text-slate-200"
+                            aria-hidden
+                          />
+                          <span className="sr-only">非公開</span>
                         </span>
                       )}
                       <a
@@ -322,16 +333,14 @@ function SidebarSessionsSection({
                       value={session._count.participants}
                     />
                     <SidebarStat
-                      icon={FileText}
-                      label="質問"
+                      icon={HelpCircle}
+                      label="質問数"
                       value={session._count.statements}
                     />
                     <SidebarStat
                       icon={CalendarDays}
-                      label="作成日"
-                      value={new Date(session.createdAt).toLocaleDateString(
-                        "ja-JP",
-                      )}
+                      label="作成"
+                      value={formattedCreatedAt}
                     />
                   </div>
                 </div>
@@ -354,10 +363,10 @@ function SidebarStat({
   value: string | number;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px]">
+    <span className="inline-flex items-center gap-2 text-[11px]">
       <Icon className="h-3.5 w-3.5 text-slate-300" aria-hidden />
+      <span className="text-slate-200/90">{label}</span>
       <span className="font-semibold text-white">{value}</span>
-      <span className="sr-only">{label}</span>
     </span>
   );
 }
