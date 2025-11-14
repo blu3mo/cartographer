@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { MarketingNav } from "@/components/MarketingNav";
 import { getPublicSessions } from "@/lib/server/public-sessions";
 import { SessionCard } from "./_components/SessionCard";
+import { AboutCartographerButton } from "@/components/AboutCartographerButton";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const metadataBase = new URL(appUrl);
@@ -37,14 +38,8 @@ export default async function TimelinePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <AppHeader
-        rightSlot={
-          <Link href="/dashboard">
-            <Button variant="outline">ダッシュボード</Button>
-          </Link>
-        }
-      >
-        <MarketingNav />
+      <AppHeader rightSlot={<AboutCartographerButton />}>
+        {/* <MarketingNav /> */}
       </AppHeader>
 
       {/* Hero Section */}
