@@ -1189,8 +1189,29 @@ export function SessionAdminDashboard({
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
-                レポートを生成するとここに表示されます。
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-6 py-10 text-center text-sm text-slate-500">
+                <p>レポートを生成するとここに表示されます。</p>
+                {canEdit ? (
+                  <form
+                    onSubmit={handleCreateReportSubmit}
+                    className="w-full max-w-xs"
+                  >
+                    <Button
+                      type="submit"
+                      size="lg"
+                      disabled={creatingReport}
+                      isLoading={creatingReport}
+                      className="w-full justify-center gap-2 rounded-2xl py-5 text-base shadow-lg shadow-slate-900/10"
+                    >
+                      <FileText className="h-4 w-4" />
+                      新しいレポートを生成
+                    </Button>
+                  </form>
+                ) : (
+                  <p className="text-xs text-slate-400">
+                    レポート生成はセッションのホストのみ利用できます。
+                  </p>
+                )}
               </div>
             )}
           </CardContent>
