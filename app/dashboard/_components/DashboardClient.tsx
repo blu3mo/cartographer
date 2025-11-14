@@ -17,13 +17,14 @@ import {
   Users,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
 } from "react";
 
 import {
@@ -416,15 +417,19 @@ export function DashboardClient() {
 
   useEffect(() => {
     setCopyStatus("idle");
+    setIsShareQrFullscreen(false);
     if (!selectedAdminSession || !selectedAdminAccessToken || !userId) {
       setSessionDetail(null);
       setDetailError(null);
       setEventLog([]);
       setEventLogError(null);
+      setReportRequestControls(null);
+      setIsShareQrErrored(false);
       return;
     }
 
     let cancelled = false;
+    setReportRequestControls(null);
 
     const fetchDetail = async () => {
       try {
@@ -476,6 +481,7 @@ export function DashboardClient() {
 
     fetchDetail();
     fetchEventThread();
+    setIsShareQrErrored(false);
 
     return () => {
       cancelled = true;
@@ -517,6 +523,16 @@ export function DashboardClient() {
       )
       .slice(0, 5);
   }, [eventLog]);
+
+  const shareQrSrc = useMemo(() => {
+    if (!selectedSessionShareLink) return "";
+    return buildQrUrl(selectedSessionShareLink, SHARE_QR_SIZE);
+  }, [selectedSessionShareLink]);
+
+  const shareQrFullscreenSrc = useMemo(() => {
+    if (!selectedSessionShareLink) return "";
+    return buildQrUrl(selectedSessionShareLink, FULLSCREEN_QR_SIZE);
+  }, [selectedSessionShareLink]);
 
   const handleCopyShareLink = useCallback(async () => {
     if (!selectedSessionShareLink) return;
@@ -578,61 +594,6 @@ export function DashboardClient() {
     selectedAdminSession && selectedAdminAccessToken,
   );
 
-  const renderSessionGroup = (
-    label: string,
-    sessionList: Session[],
-    canSelect: boolean,
-  ) => {
-    if (sessionList.length === 0) return null;
-    return (
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <div className="space-y-2">
-          {sessionList.map((session) => {
-            const isSelected = selectedSessionId === session.id;
-            return (
-              <button
-                key={session.id}
-                type="button"
-                onClick={() => {
-                  if (!canSelect) return;
-                  handleSessionSelect(session.id);
-                }}
-                disabled={!canSelect}
-                className={cn(
-                  "w-full rounded-lg border px-4 py-3 text-left transition-all",
-                  isSelected
-                    ? "border-primary bg-primary/10 shadow-sm"
-                    : "border-transparent bg-card hover:border-border hover:bg-muted/40",
-                  !canSelect && "cursor-not-allowed opacity-60",
-                )}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-card-foreground">
-                      {session.title || "名称未設定"}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(session.createdAt)}
-                    </p>
-                  </div>
-                  <VisibilityBadge isPublic={session.isPublic} />
-                </div>
-                <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-                  {session.goal ||
-                    session.context ||
-                    "セッションの説明は未設定です。"}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <>
       <div className="flex h-screen flex-col bg-background">
@@ -664,41 +625,75 @@ export function DashboardClient() {
           >
             {!isSidebarCollapsed && (
               <>
-                <div className="flex h-16 items-center justify-between border-b px-4">
-                  <div>
-                    <h2 className="text-sm font-semibold text-foreground">
-                      セッション
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      管理中 {adminSessions.length} 件
-                    </p>
-                  </div>
+                <div className="flex h-16 items-center gap-2 border-b px-4">
+                  <Input
+                    placeholder="セッションを検索..."
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    className="h-9 flex-1"
+                  />
                   <Button
                     size="icon"
                     variant="outline"
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     onClick={openCreateModal}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="border-b px-4 py-3">
-                  <Input
-                    placeholder="セッションを検索..."
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                  />
-                </div>
                 <div className="flex-1 overflow-y-auto px-4 py-4">
-                  <div className="space-y-6">
-                    {renderSessionGroup("管理中", adminSessions, true)}
-                    {renderSessionGroup("参加中", participantSessions, false)}
-                    {renderSessionGroup(
-                      "公開セッション",
-                      discoverSessions,
-                      false,
-                    )}
-                  </div>
+                  {managedSessions.length > 0 ? (
+                    <div className="space-y-3">
+                      {managedSessions.map((session) => {
+                        const isSelected = selectedSessionId === session.id;
+                        return (
+                          <button
+                            key={session.id}
+                            type="button"
+                            onClick={() => handleSessionSelect(session.id)}
+                            className={cn(
+                              "w-full rounded-xl border px-4 py-3 text-left transition-all",
+                              isSelected
+                                ? "border-primary bg-primary/10 shadow-sm"
+                                : "border-transparent bg-card hover:border-border hover:bg-muted/40",
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 space-y-1">
+                                <p className="truncate text-sm font-semibold text-card-foreground">
+                                  {session.title || "名称未設定"}
+                                </p>
+                                <p className="line-clamp-2 text-xs text-muted-foreground">
+                                  {session.goal ||
+                                    session.context ||
+                                    "セッションの説明は未設定です。"}
+                                </p>
+                              </div>
+                              <VisibilityBadge isPublic={session.isPublic} />
+                            </div>
+                            <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+                              <span className="inline-flex items-center gap-1">
+                                <Users className="h-3 w-3" />
+                                {session._count.participants}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <FileText className="h-3 w-3" />
+                                {session._count.statements}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {formatDate(session.createdAt)}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex min-h-[200px] items-center justify-center rounded-xl border border-dashed border-muted-foreground/40 bg-muted/20 px-4 text-center text-xs text-muted-foreground">
+                      管理中のセッションがありません。新規作成してチームの対話を始めましょう。
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -732,7 +727,7 @@ export function DashboardClient() {
                       ? selectedAdminSession.goal ||
                         selectedAdminSession.context ||
                         "セッションの目的や背景は未設定です。"
-                      : adminSessions.length > 0
+                      : managedSessions.length > 0
                         ? "左側の一覧からセッションを選ぶとレポートが表示されます。"
                         : "まずは新しいセッションを作成して、対話を設計しましょう。"}
                   </p>
@@ -776,33 +771,24 @@ export function DashboardClient() {
                       </Card>
                     )}
                     <Card className="flex h-full flex-col border-border/60">
-                      <CardHeader className="flex flex-col gap-1 border-b border-border/60 bg-card/60">
-                        <CardTitle className="text-base font-semibold text-card-foreground">
-                          セッションレポート
-                        </CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground">
-                          Cartographer が自動生成するワークスペースを通じて、
-                          ステートメント・回答・進行状況を俯瞰します。
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="flex-1 overflow-hidden p-0">
+                      <CardContent className="flex-1 overflow-hidden p-4">
                         {detailLoading && hasSelectedSession ? (
                           <div className="flex h-full items-center justify-center">
                             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                           </div>
                         ) : hasSelectedSession && selectedAdminAccessToken ? (
-                          <div className="h-full overflow-hidden p-4">
-                            <div className="h-full overflow-hidden rounded-3xl border border-border/60 bg-white">
-                              <SessionAdminDashboard
-                                key={selectedAdminSession.id}
-                                sessionId={selectedAdminSession.id}
-                                accessToken={selectedAdminAccessToken}
-                                embedded
-                                showHeader={false}
-                                disableLocalSidebar
-                              />
-                            </div>
-                          </div>
+                          <SessionAdminDashboard
+                            key={selectedAdminSession.id}
+                            sessionId={selectedAdminSession.id}
+                            accessToken={selectedAdminAccessToken}
+                            embedded
+                            showHeader={false}
+                            disableLocalSidebar
+                            externalizeReportRequestControls
+                            onReportRequestControlsRender={
+                              setReportRequestControls
+                            }
+                          />
                         ) : (
                           <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
                             {sessions.length === 0 ? (
@@ -821,14 +807,8 @@ export function DashboardClient() {
                           </div>
                         )}
                         {detailError && hasSelectedSession && (
-                          <div className="px-4 pb-4">
-                            <Card className="border-amber-300 bg-amber-50 text-amber-700">
-                              <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-semibold">
-                                  {detailError}
-                                </CardTitle>
-                              </CardHeader>
-                            </Card>
+                          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                            {detailError}
                           </div>
                         )}
                       </CardContent>
@@ -836,26 +816,26 @@ export function DashboardClient() {
                   </div>
                 </div>
                 <div className="border-t bg-card px-6 py-4">
-                  <div className="flex gap-3">
-                    <textarea
-                      placeholder="コメント機能は近日対応予定です。"
-                      className="min-h-[80px] flex-1 resize-none rounded-md border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      readOnly
-                    />
-                    <Button size="sm" className="self-end" disabled>
-                      投稿
-                    </Button>
-                  </div>
+                  {reportRequestControls ? (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-card-foreground">
+                        レポートへのリクエスト
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        追加で伝えたい条件があれば、ここに入力してください。
+                      </p>
+                      {reportRequestControls}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      レポートが生成されると、ここから追記リクエストを入力できます。
+                    </p>
+                  )}
                 </div>
               </div>
 
               <aside className="w-80 bg-muted/20">
-                <div className="flex h-16 items-center border-b px-6">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    詳細
-                  </h3>
-                </div>
-                <div className="flex h-[calc(100%-4rem)] flex-col overflow-y-auto px-6 py-6">
+                <div className="flex h-full flex-col overflow-y-auto px-6 py-6">
                   <div className="space-y-4">
                     <Card>
                       <CardHeader className="pb-2">
@@ -863,7 +843,7 @@ export function DashboardClient() {
                           参加用リンク
                         </CardTitle>
                         <CardDescription className="text-xs">
-                          チームと共有する招待URLを管理します。
+                          招待URLとQRコードをまとめて共有できます。
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3">
@@ -903,11 +883,82 @@ export function DashboardClient() {
                                 <ExternalLink className="h-3.5 w-3.5" />
                                 新しいタブで開く
                               </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsShareQrFullscreen(true)}
+                                disabled={!shareQrSrc || isShareQrErrored}
+                              >
+                                <Maximize2 className="h-3.5 w-3.5" />
+                                QRを拡大
+                              </Button>
                             </div>
+                            {shareQrSrc && !isShareQrErrored ? (
+                              <div className="flex justify-center">
+                                <Image
+                                  src={shareQrSrc}
+                                  alt="参加用QRコード"
+                                  width={SHARE_QR_SIZE}
+                                  height={SHARE_QR_SIZE}
+                                  className="rounded-lg border border-border/60 bg-white p-2"
+                                  onError={() => setIsShareQrErrored(true)}
+                                  onLoadingComplete={() =>
+                                    setIsShareQrErrored(false)
+                                  }
+                                />
+                              </div>
+                            ) : shareQrSrc ? (
+                              <p className="text-[11px] text-muted-foreground">
+                                QRコードを生成できませんでした。
+                              </p>
+                            ) : null}
                           </>
                         ) : (
                           <p className="text-xs text-muted-foreground">
                             管理権限のあるセッションを選択すると、共有リンクが表示されます。
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">
+                          モニタリング
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          参加者ごとの回答率をトラッキングできます。
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {detailLoading && hasSelectedSession ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : participantProgress.length > 0 ? (
+                          participantProgress.slice(0, 5).map((participant) => (
+                            <div
+                              key={participant.userId}
+                              className="rounded-md border border-border/50 bg-background px-3 py-3 text-xs"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-foreground">
+                                  {participant.name || "匿名ユーザー"}
+                                </span>
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                  {formatPercent(participant.completionRate)}
+                                </span>
+                              </div>
+                              <div className="mt-2 text-[11px] text-muted-foreground">
+                                回答 {participant.answeredCount} /{" "}
+                                {participant.totalStatements} 件・更新{" "}
+                                {formatRelativeTime(participant.updatedAt)}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            まだ参加者がいないか、回答が記録されていません。
                           </p>
                         )}
                       </CardContent>
@@ -1022,53 +1073,10 @@ export function DashboardClient() {
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-semibold">
-                          回答状況の把握
+                          セッション情報
                         </CardTitle>
                         <CardDescription className="text-xs">
-                          参加者ごとのアンケート回答率を確認します。
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {detailLoading && hasSelectedSession ? (
-                          <div className="flex items-center justify-center py-6">
-                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                          </div>
-                        ) : participantProgress.length > 0 ? (
-                          participantProgress.slice(0, 5).map((participant) => (
-                            <div
-                              key={participant.userId}
-                              className="rounded-md border border-border/50 bg-background px-3 py-3 text-xs"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-semibold text-foreground">
-                                  {participant.name || "匿名ユーザー"}
-                                </span>
-                                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                                  {formatPercent(participant.completionRate)}
-                                </span>
-                              </div>
-                              <div className="mt-2 text-[11px] text-muted-foreground">
-                                回答 {participant.answeredCount} /{" "}
-                                {participant.totalStatements} 件・更新{" "}
-                                {formatRelativeTime(participant.updatedAt)}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            まだ参加者がいないか、回答が記録されていません。
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold">
-                          セッション情報設定
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          目的や背景、公開設定を確認・更新できます。
+                          目的や背景、公開設定を確認できます。
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3 text-xs text-muted-foreground">
@@ -1096,7 +1104,29 @@ export function DashboardClient() {
                                 {selectedAdminSession.context || "未設定です。"}
                               </p>
                             </div>
-                            <div className="flex flex-col gap-2 pt-2">
+                          </>
+                        ) : (
+                          <p>管理セッションを選択すると情報が表示されます。</p>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">
+                          進行設定
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          セッション運営に関する操作を行えます。
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3 text-xs text-muted-foreground">
+                        {selectedAdminSession ? (
+                          <>
+                            <p>
+                              セッションの詳細管理や削除などの操作を実行できます。
+                            </p>
+                            <div className="flex flex-col gap-2 pt-1">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1128,7 +1158,9 @@ export function DashboardClient() {
                             </div>
                           </>
                         ) : (
-                          <p>管理セッションを選択すると設定を編集できます。</p>
+                          <p>
+                            管理セッションを選択すると操作メニューが表示されます。
+                          </p>
                         )}
                       </CardContent>
                     </Card>
@@ -1139,6 +1171,45 @@ export function DashboardClient() {
           </main>
         </div>
       </div>
+
+      {isShareQrFullscreen && shareQrFullscreenSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <button
+            type="button"
+            aria-label="QR表示を閉じる"
+            className="absolute inset-0 h-full w-full bg-slate-950/70"
+            onClick={() => setIsShareQrFullscreen(false)}
+          />
+          <div className="relative z-10 flex flex-col items-center gap-4 rounded-3xl border border-border/70 bg-white px-6 py-6 shadow-2xl">
+            <div className="flex w-full items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">
+                参加用QRコード
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsShareQrFullscreen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <Image
+              src={shareQrFullscreenSrc}
+              alt="参加用QRコード（拡大表示）"
+              width={FULLSCREEN_QR_SIZE}
+              height={FULLSCREEN_QR_SIZE}
+              className="max-h-[70vh] max-w-[70vw] rounded-3xl border border-border/80 bg-white p-6"
+              onError={() => {
+                setIsShareQrErrored(true);
+                setIsShareQrFullscreen(false);
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              スマートフォンでスキャンしてセッションに参加できます。
+            </p>
+          </div>
+        </div>
+      )}
 
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50">
