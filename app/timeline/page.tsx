@@ -1,4 +1,4 @@
-// サーバーコンポーネント。メタデータをエクスポートするため `use client` は付与しない。
+// このページはサーバーコンポーネント。メタデータをエクスポートするため `use client` は付与しない。
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
