@@ -8,6 +8,7 @@ import {
   Copy,
   ExternalLink,
   FileText,
+  Globe,
   Loader2,
   Lock,
   Maximize2,
@@ -171,8 +172,8 @@ const formatPercent = (value: number) => {
 function VisibilityBadge({ isPublic }: { isPublic: boolean }) {
   if (isPublic) {
     return (
-      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-        公開
+      <span className="inline-flex items-center justify-center rounded-full border border-emerald-300 bg-emerald-100 p-1.5">
+        <Globe className="h-3 w-3 text-emerald-700" />
       </span>
     );
   }

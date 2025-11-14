@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, FileText, Lock, Plus } from "lucide-react";
+import { ExternalLink, FileText, Globe, Lock, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -123,7 +123,11 @@ export function SessionWorkspace({
                 <h1 className="text-2xl font-bold text-slate-900">
                   {selectedSession.title || "名称未設定"}
                 </h1>
-                {!selectedSession.isPublic && (
+                {selectedSession.isPublic ? (
+                  <span className="flex items-center justify-center rounded-full border border-emerald-300 bg-emerald-100 p-1.5">
+                    <Globe className="h-3 w-3 text-emerald-700" />
+                  </span>
+                ) : (
                   <span className="flex items-center justify-center rounded-full border border-slate-300 bg-slate-100 p-1.5">
                     <Lock className="h-3 w-3 text-slate-700" />
                   </span>
