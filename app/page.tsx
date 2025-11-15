@@ -185,109 +185,6 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {featuredSessions.length > 0 && (
-        <section className="container mx-auto px-4 py-16 bg-white">
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-10 text-center lg:text-left">
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
-                公開セッションの記録
-              </h2>
-              <p className="mt-3 text-slate-600">
-                最近公開されたセッションの流れを時系列で示し、詳細ページに誘導します。
-              </p>
-            </div>
-            <div className="grid gap-10 lg:grid-cols-[1.6fr,1fr] lg:items-start">
-              <div className="relative rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-                <div className="absolute left-8 top-0 hidden h-full w-px -translate-x-1/2 bg-slate-300 lg:block" />
-                <div className="space-y-8">
-                  {featuredSessions.map((session, index) => {
-                    const createdAt = new Date(session.createdAt);
-                    const formattedDate = createdAt.toLocaleDateString("ja-JP", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    });
-                    const truncatedContext =
-                      session.context && session.context.length > 110
-                        ? `${session.context.slice(0, 110)}…`
-                        : session.context;
-                    const truncatedGoal =
-                      session.goal && session.goal.length > 110
-                        ? `${session.goal.slice(0, 110)}…`
-                        : session.goal;
-
-                    return (
-                      <div
-                        key={session.id}
-                        className="relative rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm lg:pl-12"
-                      >
-                        <div className="absolute left-6 top-8 hidden h-3 w-3 -translate-x-1/2 rounded-full border-2 border-white bg-blue-500 lg:block" />
-                        <div className="flex flex-col gap-3">
-                          {/* <div className="text-sm font-semibold text-blue-600">
-                            {formattedDate}
-                          </div> */}
-                          <h3 className="text-xl font-semibold text-slate-900">
-                            {session.title || `未設定のセッション ${index + 1}`}
-                          </h3>
-
-                          {/* {truncatedContext && (
-                            <div>
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                背景
-                              </p>
-                              <p className="text-sm text-slate-600">
-                                {truncatedContext}
-                              </p>
-                            </div>
-                          )} */}
-
-                          {truncatedGoal && (
-                            <div>
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                目的
-                              </p>
-                              <p className="text-sm text-slate-600">
-                                {truncatedGoal}
-                              </p>
-                            </div>
-                          )}
-
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                            <span>{session._count.participants} 人参加</span>
-                            {/* <span>{session._count.statements} 質問</span> */}
-                          </div>
-
-                          <div>
-                            <Link
-                              href={`/sessions/${session.id}`}
-                              className="inline-flex items-center text-sm font-semibold text-blue-600 transition hover:text-blue-700"
-                            >
-                              詳細を見る
-                              <ArrowRight className="ml-1 h-4 w-4" />
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/timeline">
-                <Button size="lg" className="text-base px-8">
-                  すべての公開セッションを見る
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-
-          </div>
-        </section>
-      )}
-
       {/* Features Section */}
       <section className="container mx-auto px-4 py-20 bg-white">
         <div className="max-w-6xl mx-auto">
@@ -467,6 +364,110 @@ export default async function LandingPage() {
           </div>
         </div>
       </section>
+
+      {featuredSessions.length > 0 && (
+        <section className="container mx-auto px-4 py-16 bg-white">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-10 text-center lg:text-left">
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
+                公開セッションの記録
+              </h2>
+              <p className="mt-3 text-slate-600">
+                最近公開されたセッションの流れを時系列で示し、詳細ページに誘導します。
+              </p>
+            </div>
+            <div className="grid gap-10 lg:grid-cols-[1.6fr,1fr] lg:items-start">
+              <div className="relative rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+                <div className="absolute left-8 top-0 hidden h-full w-px -translate-x-1/2 bg-slate-300 lg:block" />
+                <div className="space-y-8">
+                  {featuredSessions.map((session, index) => {
+                    const createdAt = new Date(session.createdAt);
+                    const formattedDate = createdAt.toLocaleDateString("ja-JP", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    });
+                    const truncatedContext =
+                      session.context && session.context.length > 110
+                        ? `${session.context.slice(0, 110)}…`
+                        : session.context;
+                    const truncatedGoal =
+                      session.goal && session.goal.length > 110
+                        ? `${session.goal.slice(0, 110)}…`
+                        : session.goal;
+
+                    return (
+                      <div
+                        key={session.id}
+                        className="relative rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm lg:pl-12"
+                      >
+                        <div className="absolute left-6 top-8 hidden h-3 w-3 -translate-x-1/2 rounded-full border-2 border-white bg-blue-500 lg:block" />
+                        <div className="flex flex-col gap-3">
+                          {/* <div className="text-sm font-semibold text-blue-600">
+                            {formattedDate}
+                          </div> */}
+                          <h3 className="text-xl font-semibold text-slate-900">
+                            {session.title || `未設定のセッション ${index + 1}`}
+                          </h3>
+
+                          {/* {truncatedContext && (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                背景
+                              </p>
+                              <p className="text-sm text-slate-600">
+                                {truncatedContext}
+                              </p>
+                            </div>
+                          )} */}
+
+                          {truncatedGoal && (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                目的
+                              </p>
+                              <p className="text-sm text-slate-600">
+                                {truncatedGoal}
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                            <span>{session._count.participants} 人参加</span>
+                            {/* <span>{session._count.statements} 質問</span> */}
+                          </div>
+
+                          <div>
+                            <Link
+                              href={`/sessions/${session.id}`}
+                              className="inline-flex items-center text-sm font-semibold text-blue-600 transition hover:text-blue-700"
+                            >
+                              詳細を見る
+                              <ArrowRight className="ml-1 h-4 w-4" />
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/timeline">
+                <Button size="lg" className="text-base px-8">
+                  すべての公開セッションを見る
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+
+          </div>
+        </section>
+      )}
+
 
       {/* Key Benefits */}
       <section className="container mx-auto px-4 py-20 bg-slate-50">
