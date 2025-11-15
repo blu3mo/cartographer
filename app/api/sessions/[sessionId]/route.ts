@@ -72,6 +72,19 @@ export async function GET(
     }
 
     const mappedSession = mapSession(session);
+    const { count: statementsCount, error: statementsCountError } =
+      await supabase
+        .from("statements")
+        .select("*", { count: "exact", head: true })
+        .eq("session_id", sessionId);
+
+    if (statementsCountError) {
+      console.error("Failed to count statements:", statementsCountError);
+      return NextResponse.json(
+        { error: "Failed to load session" },
+        { status: 500 },
+      );
+    }
     const isHost = mappedSession.hostUserId === userId;
     const participants = session.participants ?? [];
     const isParticipant = participants.some(
@@ -83,6 +96,7 @@ export async function GET(
         ...mappedSession,
         isHost,
         isParticipant,
+        totalStatements: statementsCount ?? 0,
       },
     });
   } catch (error) {

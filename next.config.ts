@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   // Produce a minimal runtime bundle (Node.js) that we can ship separately
@@ -11,6 +15,9 @@ const nextConfig: NextConfig = {
         hostname: "api.qrserver.com",
       },
     ],
+  },
+  turbopack: {
+    root: projectRoot,
   },
 };
 

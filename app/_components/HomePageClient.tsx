@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { AboutCartographerButton } from "@/components/AboutCartographerButton";
 import { AppHeader } from "@/components/AppHeader";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import {
@@ -43,7 +44,7 @@ type Session = {
   isParticipant: boolean;
 };
 
-export default function Home() {
+export default function HomePageClient() {
   const { userId, isLoading: userLoading } = useUserId();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,67 +80,66 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-      <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        {/* Hero Section */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tight mb-3">
-            Cartographer
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            認識を可視化し、合意形成を促進するワークショップツール
-          </p>
-        </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      <AppHeader rightSlot={<AboutCartographerButton />} />
+      <main className="flex-1">
+        <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+          {/* Header with CTA */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              セッション
+            </h2>
+            <Link href="/sessions/new">
+              <Button>
+                <Plus className="h-4 w-4" />
+                新しいセッションを作成
+              </Button>
+            </Link>
+          </div>
 
-        {/* Header with CTA */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight">セッション</h2>
-          <Link href="/sessions/new">
-            <Button>
-              <Plus className="h-4 w-4" />
-              新しいセッションを作成
-            </Button>
-          </Link>
-        </div>
+          {error && (
+            <Card className="mb-6 border-destructive">
+              <CardContent className="pt-6">
+                <p className="text-sm text-destructive">{error}</p>
+              </CardContent>
+            </Card>
+          )}
 
-        {error && (
-          <Card className="mb-6 border-destructive">
-            <CardContent className="pt-6">
-              <p className="text-sm text-destructive">{error}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Sessions List */}
-        {sessions.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6 pb-6 text-center">
-              <div className="flex flex-col items-center gap-3 py-12">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                  <FileText className="h-8 w-8 text-primary" />
+          {/* Sessions List */}
+          {sessions.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 pb-6 text-center">
+                <div className="flex flex-col items-center gap-3 py-12">
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                    <FileText className="h-8 w-8 text-primary" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-base font-semibold">
+                      セッションがありません
+                    </p>
+                    <p className="text-sm text-muted-foreground max-w-sm">
+                      新しいセッションを作成して、チームとの対話を始めましょう
+                    </p>
+                  </div>
+                  <Link href="/sessions/new" className="mt-2">
+                    <Button>
+                      <Plus className="h-4 w-4" />
+                      最初のセッションを作成
+                    </Button>
+                  </Link>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-base font-semibold">
-                    セッションがありません
-                  </p>
-                  <p className="text-sm text-muted-foreground max-w-sm">
-                    新しいセッションを作成して、チームとの対話を始めましょう
-                  </p>
-                </div>
-                <Link href="/sessions/new" className="mt-2">
-                  <Button>
-                    <Plus className="h-4 w-4" />
-                    最初のセッションを作成
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <SessionSections sessions={sessions} />
-        )}
-      </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <SessionSections sessions={sessions} />
+          )}
+        </div>
+      </main>
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex w-full px-4 py-4 text-sm font-medium text-slate-600 sm:px-6 lg:px-8">
+          <span>合同会社 多元現実</span>
+        </div>
+      </footer>
     </div>
   );
 }
@@ -155,6 +155,10 @@ function SessionSections({ sessions }: SessionSectionsProps) {
     const participatingSessions = sessions.filter(
       (session) => !session.isHost && session.isParticipant,
     );
+    const otherSessions = sessions.filter(
+      (session) =>
+        !session.isHost && !session.isParticipant && session.isPublic,
+    );
 
     return [
       {
@@ -164,6 +168,10 @@ function SessionSections({ sessions }: SessionSectionsProps) {
       {
         title: "参加中のセッション",
         sessions: participatingSessions,
+      },
+      {
+        title: "未参加の公開セッション",
+        sessions: otherSessions,
       },
     ].filter((category) => category.sessions.length > 0);
   }, [sessions]);

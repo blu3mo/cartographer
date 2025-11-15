@@ -105,14 +105,14 @@ export async function generateIndividualReport(
     .map((r) => {
       const valueLabel =
         r.value === 2
-          ? "Strong Yes"
+          ? "強く同意"
           : r.value === 1
-            ? "Yes"
+            ? "同意"
             : r.value === 0
-              ? "わからない"
+              ? "わからない・どちらとも言えない"
               : r.value === -1
-                ? "No"
-                : "Strong No";
+                ? "反対"
+                : "強く反対";
       return `- "${r.statementText}" → ${valueLabel}`;
     })
     .join("\n");

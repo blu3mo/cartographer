@@ -1,11 +1,13 @@
 "use client";
 
 import axios from "axios";
-import { FileText, Loader2 } from "lucide-react";
+import { ChevronDown, FileText, Loader2 } from "lucide-react";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { AboutCartographerButton } from "@/components/AboutCartographerButton";
+import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -48,6 +50,7 @@ type SessionInfo = {
   updatedAt: string;
   isHost: boolean;
   isParticipant: boolean;
+  totalStatements: number;
 };
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
@@ -82,6 +85,25 @@ type HistoryEntry =
       key: string;
     };
 
+type GoalSection = {
+  heading: string;
+  content: string;
+};
+
+function extractGoalSections(goal?: string | null): GoalSection[] {
+  if (!goal) return [];
+  const sections: GoalSection[] = [];
+  const pattern = /【([^】]+)】([\s\S]*?)(?=【[^】]+】|$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(goal)) !== null) {
+    const heading = match[1]?.trim();
+    const content = match[2]?.trim();
+    if (!heading || !content) continue;
+    sections.push({ heading, content });
+  }
+  return sections;
+}
+
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
   label: string;
@@ -91,7 +113,7 @@ const RESPONSE_CHOICES: Array<{
 }> = [
   {
     value: 2,
-    label: "Strong Yes",
+    label: "強く同意",
     emoji: "💯",
     idleClass:
       "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
@@ -100,7 +122,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: 1,
-    label: "Yes",
+    label: "同意",
     emoji: "✓",
     idleClass: "bg-green-50 text-green-700 border-green-200 hover:bg-green-100",
     activeClass:
@@ -108,7 +130,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: 0,
-    label: "わからない",
+    label: "わからない・どちらとも言えない",
     emoji: "🤔",
     idleClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
     activeClass:
@@ -116,7 +138,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: -1,
-    label: "No",
+    label: "反対",
     emoji: "✗",
     idleClass: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
     activeClass:
@@ -124,7 +146,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: -2,
-    label: "Strong No",
+    label: "強く反対",
     emoji: "👎",
     idleClass: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100",
     activeClass:
@@ -175,6 +197,9 @@ export default function SessionPage({
   const [reflectionSubmissionError, setReflectionSubmissionError] = useState<
     string | null
   >(null);
+  const [isGoalCollapsed, setIsGoalCollapsed] = useState(true);
+  const [hasAutoCollapsedAfterJoin, setHasAutoCollapsedAfterJoin] =
+    useState(false);
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const sessionInfoId = sessionInfo?.id;
@@ -212,6 +237,31 @@ export default function SessionPage({
       return a.key.localeCompare(b.key);
     });
   }, [participantResponses, participantReflections]);
+
+  const answeredStatementsCount = useMemo(() => {
+    const ids = new Set(
+      participantResponses.map((response) => response.statementId),
+    );
+    return ids.size;
+  }, [participantResponses]);
+
+  const totalStatementsCount = sessionInfo?.totalStatements ?? 0;
+
+  const questionProgress = useMemo(() => {
+    if (!currentStatement || totalStatementsCount === 0) {
+      return null;
+    }
+    const currentIndex = Math.min(
+      totalStatementsCount,
+      answeredStatementsCount + 1,
+    );
+    const remaining = Math.max(totalStatementsCount - currentIndex, 0);
+    return {
+      currentIndex,
+      remaining,
+      total: totalStatementsCount,
+    };
+  }, [currentStatement, totalStatementsCount, answeredStatementsCount]);
   const fetchParticipantResponses = useCallback(async () => {
     if (!userId) return;
     setIsLoadingResponses(true);
@@ -361,6 +411,23 @@ export default function SessionPage({
       return next;
     });
   }, []);
+  const goalSections = useMemo(
+    () => extractGoalSections(sessionInfo?.goal),
+    [sessionInfo?.goal],
+  );
+
+  useEffect(() => {
+    if (state === "NEEDS_NAME") {
+      setIsGoalCollapsed(false);
+      setHasAutoCollapsedAfterJoin(false);
+      return;
+    }
+
+    if (!hasAutoCollapsedAfterJoin) {
+      setIsGoalCollapsed(true);
+      setHasAutoCollapsedAfterJoin(true);
+    }
+  }, [state, hasAutoCollapsedAfterJoin]);
 
   const removeUpdatingResponseId = useCallback((statementId: string) => {
     setUpdatingResponseIds((prev) => {
@@ -1008,6 +1075,7 @@ export default function SessionPage({
   if (userLoading || isSessionInfoLoading || isCheckingParticipation) {
     return (
       <div className="min-h-screen bg-background">
+        <AppHeader rightSlot={<AboutCartographerButton />} />
         <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8 space-y-2">
             <Skeleton className="h-8 w-48" />
@@ -1034,6 +1102,7 @@ export default function SessionPage({
   if (sessionInfoError) {
     return (
       <div className="min-h-screen bg-background">
+        <AppHeader rightSlot={<AboutCartographerButton />} />
         <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold tracking-tight">セッション</h1>
@@ -1052,6 +1121,7 @@ export default function SessionPage({
 
   return (
     <div className="min-h-screen bg-background">
+      <AppHeader rightSlot={<AboutCartographerButton />} />
       <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8 space-y-6">
           <div>
@@ -1059,6 +1129,41 @@ export default function SessionPage({
               {sessionInfo?.title ?? "セッション"}
             </h1>
           </div>
+          {goalSections.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setIsGoalCollapsed((prev) => !prev)}
+                className="flex w-full items-center justify-between text-left"
+              >
+                <div>
+                  <p className="text-base font-semibold text-slate-900">
+                    このセッションの概要
+                  </p>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "h-5 w-5 text-slate-500 transition-transform",
+                    isGoalCollapsed ? "-rotate-90" : "rotate-0",
+                  )}
+                />
+              </button>
+              {!isGoalCollapsed && (
+                <div className="mt-4 space-y-4">
+                  {goalSections.map((section) => (
+                    <div key={section.heading} className="space-y-1.5">
+                      <p className="text-xs font-semibold text-slate-500">
+                        【{section.heading}】
+                      </p>
+                      <p className="text-sm text-slate-900 whitespace-pre-line">
+                        {section.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {state === "NEEDS_NAME" && (
@@ -1143,6 +1248,11 @@ export default function SessionPage({
         {state === "ANSWERING" && currentStatement && (
           <Card className={isLoading ? "opacity-50 pointer-events-none" : ""}>
             <CardContent className="pt-6">
+              {questionProgress && (
+                <div className="mb-6 text-sm font-semibold text-slate-700">
+                  {`あと${questionProgress.remaining}個の質問があります`}
+                </div>
+              )}
               <div className="mb-8">
                 <p className="text-xl font-medium leading-relaxed">
                   {currentStatement.text}
@@ -1157,7 +1267,7 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">👍</div>
-                  <span className="text-xs font-semibold">Strong Yes</span>
+                  <span className="text-xs font-semibold">強く同意</span>
                 </button>
                 <button
                   type="button"
@@ -1166,7 +1276,7 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">✓</div>
-                  <span className="text-xs font-semibold">Yes</span>
+                  <span className="text-xs font-semibold">同意</span>
                 </button>
                 <button
                   type="button"
@@ -1175,7 +1285,9 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">🤔</div>
-                  <span className="text-xs font-semibold">わからない</span>
+                  <span className="text-xs font-semibold">
+                    {"わからない・どちらとも言えない"}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -1184,7 +1296,7 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">✗</div>
-                  <span className="text-xs font-semibold">No</span>
+                  <span className="text-xs font-semibold">反対</span>
                 </button>
                 <button
                   type="button"
@@ -1193,7 +1305,7 @@ export default function SessionPage({
                   className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl">👎</div>
-                  <span className="text-xs font-semibold">Strong No</span>
+                  <span className="text-xs font-semibold">強く反対</span>
                 </button>
               </div>
 
@@ -1225,9 +1337,9 @@ export default function SessionPage({
           <>
             <Card className="mt-8">
               <CardHeader>
-                <CardTitle>これまでの記録</CardTitle>
+                <CardTitle>回答履歴</CardTitle>
                 <CardDescription>
-                  あなたの回答とふりかえりを時系列で確認できます
+                  それぞれの質問に対するあなたの回答を確認することができます。後から選択し直すことも可能です。
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1370,7 +1482,7 @@ export default function SessionPage({
                   </Button>
                 </div>
                 <CardDescription>
-                  あなたの回答から生成された個別分析レポート
+                  あなたの回答傾向を元に、どう考えているのかを分析しました
                 </CardDescription>
               </CardHeader>
               <CardContent>

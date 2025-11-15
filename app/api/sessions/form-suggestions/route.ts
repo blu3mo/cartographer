@@ -4,10 +4,17 @@ import { type NextRequest, NextResponse } from "next/server";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
 
+type FormFieldKey = "backgroundInfo" | "recognitionFocus" | "recognitionPurpose";
+
 interface FormSuggestionRequest {
   backgroundInfo: string;
   recognitionFocus: string;
   recognitionPurpose: string;
+}
+
+interface FormSuggestionResponse {
+  field: FormFieldKey;
+  message: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -47,14 +54,16 @@ ${recognitionPurpose.trim() || "（未入力）"}
 - 目的: 認識を洗い出して整理したいと思ったきっかけとなった出来事や感情や困りごとはなんなのか、認識を洗い出すことを通じて何をしたいのか、集団がどうなったらいいのか
 
 **出力形式:**
-もし情報が十分に書かれていて、特に追加で聞くべきことがない場合は、空の配列を返してください: []
+- 情報が十分で追加提案が不要な場合は空の配列 [] を返してください。
+- 追加提案が必要な場合は1〜2件まで、以下のオブジェクト形式のJSON配列を返してください（必ずダブルクォートを使用してください）:
+[
+  { "field": "backgroundInfo", "message": "..." },
+  { "field": "recognitionPurpose", "message": "..." }
+]
 
-もし情報が不足している場合は、具体的で読みやすい質問を1〜2個、JSON配列形式で出力してください:
-["質問1", "質問2"]
+field は必ず "backgroundInfo" / "recognitionFocus" / "recognitionPurpose" のいずれかを指定し、そのフィールドに何を書けばよいかを message に日本語で50〜100文字程度で書いてください。
 
-質問は「〜について教えてください」「〜はどうですか？」のような優しい口調で、具体的に何を書けばいいかイメージしやすい形にしてください。抽象的な質問は避けてください。
-
-質問はそれぞれ50〜100文字程度になるように調整してください。
+message は「〜について教えてください」「〜はどうですか？」のような優しい口調で、具体的に何を書けばいいかイメージしやすい形にしてください。抽象的な質問は避けてください。
 
 JSON配列のみを出力し、他の説明文は含めないでください。`;
 
@@ -93,7 +102,23 @@ JSON配列のみを出力し、他の説明文は含めないでください。`
       return NextResponse.json({ suggestions: [] });
     }
 
-    const suggestions = JSON.parse(jsonMatch[0]);
+    const parsedSuggestions = JSON.parse(jsonMatch[0]);
+    const allowedFields: FormFieldKey[] = [
+      "backgroundInfo",
+      "recognitionFocus",
+      "recognitionPurpose",
+    ];
+
+    const suggestions: FormSuggestionResponse[] = Array.isArray(parsedSuggestions)
+      ? parsedSuggestions.filter(
+          (item): item is FormSuggestionResponse =>
+            item &&
+            typeof item === "object" &&
+            allowedFields.includes(item.field) &&
+            typeof item.message === "string" &&
+            item.message.trim().length > 0,
+        )
+      : [];
 
     return NextResponse.json({ suggestions });
   } catch (error) {
