@@ -26,6 +26,7 @@ import {
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  type FormEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -156,6 +157,28 @@ type StatementHighlight = {
   positiveShare: number;
   negativeShare: number;
 };
+
+type SessionVisibility = "public" | "private";
+
+type AsideSectionKey =
+  | "shareLink"
+  | "monitoring"
+  | "statementHighlights"
+  | "progressLog"
+  | "sessionInfo";
+
+type SectionCollapsedState = Record<AsideSectionKey, boolean>;
+
+const getDefaultSectionState = (
+  hasSession: boolean,
+  participantCount: number,
+): SectionCollapsedState => ({
+  shareLink: !hasSession,
+  monitoring: hasSession ? participantCount === 0 : true,
+  statementHighlights: true,
+  progressLog: true,
+  sessionInfo: true,
+});
 
 const EVENT_TYPE_META: Record<
   ThreadEventType,
@@ -316,16 +339,11 @@ function ThreadEventBubble({
       ? EVENT_TYPE_META[event.type as ThreadEventType]
       : DEFAULT_EVENT_META;
   const payload = (event.payload ?? {}) as Record<string, unknown>;
-  const markdown =
-    typeof payload.markdown === "string" ? payload.markdown : "";
-  const statements =
-    event.type === "survey" ? event.statements ?? [] : [];
-  const showStatementToggle =
-    event.type === "survey" && statements.length > 3;
+  const markdown = typeof payload.markdown === "string" ? payload.markdown : "";
+  const statements = event.type === "survey" ? (event.statements ?? []) : [];
+  const showStatementToggle = event.type === "survey" && statements.length > 3;
   const visibleStatements =
-    expanded || !showStatementToggle
-      ? statements
-      : statements.slice(0, 3);
+    expanded || !showStatementToggle ? statements : statements.slice(0, 3);
 
   const statementContent =
     statements.length > 0 ? (
@@ -360,9 +378,7 @@ function ThreadEventBubble({
           shouldClampMarkdown && "max-h-40 overflow-hidden",
         )}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {markdown}
-        </ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
       </div>
       {shouldClampMarkdown && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background to-transparent" />
@@ -370,10 +386,9 @@ function ThreadEventBubble({
     </div>
   ) : null;
 
-  const content =
-    statementContent ?? markdownContent ?? (
-      <p className="text-xs text-muted-foreground">コンテンツを準備中です。</p>
-    );
+  const content = statementContent ?? markdownContent ?? (
+    <p className="text-xs text-muted-foreground">コンテンツを準備中です。</p>
+  );
 
   const showToggle = showStatementToggle || shouldClampMarkdown;
 
@@ -492,11 +507,28 @@ export function DashboardClient() {
   const [reportRequestControls, setReportRequestControls] =
     useState<ReactNode | null>(null);
   const [reportHeader, setReportHeader] = useState<ReactNode | null>(null);
+  const [isEditingSessionInfo, setIsEditingSessionInfo] = useState(false);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [editingGoal, setEditingGoal] = useState("");
+  const [editingContext, setEditingContext] = useState("");
+  const [editingVisibility, setEditingVisibility] =
+    useState<SessionVisibility>("public");
+  const [savingSessionInfo, setSavingSessionInfo] = useState(false);
+  const [sessionInfoMessage, setSessionInfoMessage] = useState<string | null>(
+    null,
+  );
+  const [sessionInfoError, setSessionInfoError] = useState<string | null>(null);
+  const [collapsedSections, setCollapsedSections] =
+    useState<SectionCollapsedState>(getDefaultSectionState(false, 0));
+  const [collapsedOverrides, setCollapsedOverrides] = useState<
+    Partial<Record<AsideSectionKey, boolean>>
+  >({});
   const [isShareQrFullscreen, setIsShareQrFullscreen] = useState(false);
   const [isShareQrErrored, setIsShareQrErrored] = useState(false);
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const latestThreadKeyRef = useRef<string>("");
   const threadFetchInFlightRef = useRef(false);
+  const previousSessionIdRef = useRef<string | null>(null);
 
   const syncSelectedSessionQuery = useCallback(
     (sessionId: string | null) => {
@@ -616,6 +648,111 @@ export function DashboardClient() {
     ? `${shareBaseUrl}/sessions/${selectedAdminSession.id}`
     : "";
 
+  const hasSelectedSession = Boolean(
+    selectedAdminSession && selectedAdminAccessToken,
+  );
+
+  const resetSessionInfoForm = useCallback(() => {
+    if (sessionDetail) {
+      setEditingTitle(sessionDetail.title ?? "");
+      setEditingGoal(sessionDetail.goal ?? "");
+      setEditingContext(sessionDetail.context ?? "");
+      setEditingVisibility(sessionDetail.isPublic ? "public" : "private");
+      return;
+    }
+    if (selectedAdminSession) {
+      setEditingTitle(selectedAdminSession.title ?? "");
+      setEditingGoal(selectedAdminSession.goal ?? "");
+      setEditingContext(selectedAdminSession.context ?? "");
+      setEditingVisibility(
+        selectedAdminSession.isPublic ? "public" : "private",
+      );
+      return;
+    }
+    setEditingTitle("");
+    setEditingGoal("");
+    setEditingContext("");
+    setEditingVisibility("public");
+  }, [selectedAdminSession, sessionDetail]);
+
+  const handleToggleSection = useCallback((key: AsideSectionKey) => {
+    setCollapsedSections((previous) => ({
+      ...previous,
+      [key]: !previous[key],
+    }));
+    setCollapsedOverrides((previous) => ({
+      ...previous,
+      [key]: true,
+    }));
+  }, []);
+
+  const ensureSectionOpen = useCallback((key: AsideSectionKey) => {
+    setCollapsedSections((previous) => {
+      if (!previous[key]) {
+        return previous;
+      }
+      return {
+        ...previous,
+        [key]: false,
+      };
+    });
+    setCollapsedOverrides((previous) => ({
+      ...previous,
+      [key]: true,
+    }));
+  }, []);
+
+  const participantCount =
+    sessionDetail?.totalParticipants ??
+    selectedAdminSession?._count.participants ??
+    0;
+
+  const initialParticipantCount = useMemo(
+    () => selectedAdminSession?._count.participants ?? 0,
+    [selectedAdminSession],
+  );
+
+  useEffect(() => {
+    if (isEditingSessionInfo) return;
+    resetSessionInfoForm();
+  }, [isEditingSessionInfo, resetSessionInfoForm]);
+
+  useEffect(() => {
+    if (previousSessionIdRef.current === selectedAdminSessionId) {
+      return;
+    }
+    previousSessionIdRef.current = selectedAdminSessionId;
+    const defaults = getDefaultSectionState(
+      hasSelectedSession,
+      initialParticipantCount,
+    );
+    setCollapsedSections(defaults);
+    setCollapsedOverrides({});
+    setIsEditingSessionInfo(false);
+    setSessionInfoMessage(null);
+    setSessionInfoError(null);
+  }, [hasSelectedSession, initialParticipantCount, selectedAdminSessionId]);
+
+  useEffect(() => {
+    if (!hasSelectedSession) return;
+    setCollapsedSections((previous) => {
+      let shouldUpdate = false;
+      const next = { ...previous };
+      if (!collapsedOverrides.shareLink && next.shareLink) {
+        next.shareLink = false;
+        shouldUpdate = true;
+      }
+      if (!collapsedOverrides.monitoring) {
+        const desired = participantCount === 0;
+        if (next.monitoring !== desired) {
+          next.monitoring = desired;
+          shouldUpdate = true;
+        }
+      }
+      return shouldUpdate ? next : previous;
+    });
+  }, [collapsedOverrides, hasSelectedSession, participantCount]);
+
   const openCreateModal = useCallback(() => {
     setPreviewSession(null);
     setIsCreateModalOpen(true);
@@ -691,6 +828,91 @@ export function DashboardClient() {
     syncSelectedSessionQuery,
     userId,
   ]);
+
+  const handleSaveSessionInfo = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (
+        !selectedAdminSessionId ||
+        !selectedAdminAccessToken ||
+        !userId ||
+        savingSessionInfo
+      ) {
+        return;
+      }
+      setSavingSessionInfo(true);
+      setSessionInfoMessage(null);
+      setSessionInfoError(null);
+      try {
+        const response = await axios.patch(
+          `/api/sessions/${selectedAdminSessionId}/${selectedAdminAccessToken}`,
+          {
+            title: editingTitle,
+            context: editingContext,
+            goal: editingGoal,
+            isPublic: editingVisibility === "public",
+          },
+          {
+            headers: createAuthorizationHeader(userId),
+          },
+        );
+        const updated = response.data.data as {
+          title: string;
+          context: string | null;
+          goal: string | null;
+          isPublic: boolean;
+        };
+        setSessionDetail((previous) =>
+          previous
+            ? {
+                ...previous,
+                title: updated.title ?? "",
+                context: updated.context ?? "",
+                goal: updated.goal ?? "",
+                isPublic: updated.isPublic,
+              }
+            : previous,
+        );
+        setSessions((previous) =>
+          previous.map((session) =>
+            session.id === selectedAdminSessionId
+              ? {
+                  ...session,
+                  title: updated.title ?? "",
+                  context: updated.context ?? "",
+                  goal: updated.goal ?? "",
+                  isPublic: updated.isPublic,
+                }
+              : session,
+          ),
+        );
+        setSessionInfoMessage("セッション情報を更新しました。");
+        setIsEditingSessionInfo(false);
+      } catch (err) {
+        console.error("Failed to update session info:", err);
+        setSessionInfoError("セッション情報の更新に失敗しました。");
+      } finally {
+        setSavingSessionInfo(false);
+      }
+    },
+    [
+      editingContext,
+      editingGoal,
+      editingTitle,
+      editingVisibility,
+      savingSessionInfo,
+      selectedAdminAccessToken,
+      selectedAdminSessionId,
+      userId,
+    ],
+  );
+
+  const handleCancelSessionInfoEdit = useCallback(() => {
+    setIsEditingSessionInfo(false);
+    setSessionInfoMessage(null);
+    setSessionInfoError(null);
+    resetSessionInfoForm();
+  }, [resetSessionInfoForm]);
 
   useEffect(() => {
     setCopyStatus("idle");
@@ -791,11 +1013,7 @@ export function DashboardClient() {
         }
       }
     },
-    [
-      selectedAdminAccessToken,
-      selectedAdminSessionId,
-      userId,
-    ],
+    [selectedAdminAccessToken, selectedAdminSessionId, userId],
   );
 
   useEffect(() => {
@@ -980,7 +1198,7 @@ export function DashboardClient() {
       {
         label: "作成",
         value: `${formatDate(selectedAdminSession.createdAt)}`,
-          icon: Calendar,
+        icon: Calendar,
       },
     ];
   }, [selectedAdminSession, sessionDetail]);
@@ -989,6 +1207,7 @@ export function DashboardClient() {
   const hasThread = Boolean(threadData?.thread);
   const threadShouldProceed = threadData?.thread?.shouldProceed ?? false;
   const canManageThread = Boolean(selectedAdminSession?.isHost);
+  const canEditSessionInfo = Boolean(selectedAdminSession?.isHost);
 
   if (userLoading || loading) {
     return (
@@ -997,10 +1216,6 @@ export function DashboardClient() {
       </div>
     );
   }
-
-  const hasSelectedSession = Boolean(
-    selectedAdminSession && selectedAdminAccessToken,
-  );
 
   return (
     <>
@@ -1145,10 +1360,8 @@ export function DashboardClient() {
               )}
             </div>
 
-
             <div className="flex flex-1 overflow-hidden">
               <div className="flex flex-1 flex-col overflow-hidden border-r">
-
                 <div className="bg-card px-6 py-7">
                   <div className="space-y-5">
                     <div className="space-y-1.5">
@@ -1248,174 +1461,254 @@ export function DashboardClient() {
                   <div className="space-y-4">
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold">
-                          参加用リンク
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          招待URLとQRコードをまとめて共有できます。
-                        </CardDescription>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-sm font-semibold">
+                              参加用リンク
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                              招待URLとQRコードをまとめて共有できます。
+                            </CardDescription>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSection("shareLink")}
+                            className="text-muted-foreground transition hover:text-foreground"
+                            aria-expanded={!collapsedSections.shareLink}
+                            aria-controls="aside-shareLink"
+                          >
+                            {collapsedSections.shareLink ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronUp className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">
+                              セクションを切り替え
+                            </span>
+                          </button>
+                        </div>
                       </CardHeader>
-                      <CardContent className="space-y-3">
-                        {selectedSessionShareLink ? (
-                          <>
-                            <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                              <span className="break-all">
-                                {selectedSessionShareLink}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  void handleCopyShareLink();
-                                }}
-                              >
-                                <Copy className="h-3.5 w-3.5" />
-                                {copyStatus === "copied"
-                                  ? "コピーしました"
-                                  : copyStatus === "error"
-                                    ? "コピーできません"
-                                    : "リンクをコピー"}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  window.open(
-                                    selectedSessionShareLink,
-                                    "_blank",
-                                    "noreferrer",
-                                  )
-                                }
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                新しいタブで開く
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setIsShareQrFullscreen(true)}
-                                disabled={!shareQrSrc || isShareQrErrored}
-                              >
-                                <Maximize2 className="h-3.5 w-3.5" />
-                                QRを拡大
-                              </Button>
-                            </div>
-                            {shareQrSrc && !isShareQrErrored ? (
-                              <div className="flex justify-center">
-                                <Image
-                                  src={shareQrSrc}
-                                  alt="参加用QRコード"
-                                  width={SHARE_QR_SIZE}
-                                  height={SHARE_QR_SIZE}
-                                  className="rounded-lg border border-border/60 bg-white p-2"
-                                  onError={() => setIsShareQrErrored(true)}
-                                  onLoadingComplete={() =>
-                                    setIsShareQrErrored(false)
+                      {!collapsedSections.shareLink && (
+                        <CardContent id="aside-shareLink" className="space-y-3">
+                          {selectedSessionShareLink ? (
+                            <>
+                              <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                                <span className="break-all">
+                                  {selectedSessionShareLink}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    void handleCopyShareLink();
+                                  }}
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                  {copyStatus === "copied"
+                                    ? "コピーしました"
+                                    : copyStatus === "error"
+                                      ? "コピーできません"
+                                      : "リンクをコピー"}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    window.open(
+                                      selectedSessionShareLink,
+                                      "_blank",
+                                      "noreferrer",
+                                    )
                                   }
-                                />
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  新しいタブで開く
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setIsShareQrFullscreen(true)}
+                                  disabled={!shareQrSrc || isShareQrErrored}
+                                >
+                                  <Maximize2 className="h-3.5 w-3.5" />
+                                  QRを拡大
+                                </Button>
                               </div>
-                            ) : shareQrSrc ? (
-                              <p className="text-[11px] text-muted-foreground">
-                                QRコードを生成できませんでした。
-                              </p>
-                            ) : null}
-                          </>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            管理権限のあるセッションを選択すると、共有リンクが表示されます。
-                          </p>
-                        )}
-                      </CardContent>
+                              {shareQrSrc && !isShareQrErrored ? (
+                                <div className="flex justify-center">
+                                  <Image
+                                    src={shareQrSrc}
+                                    alt="参加用QRコード"
+                                    width={SHARE_QR_SIZE}
+                                    height={SHARE_QR_SIZE}
+                                    className="rounded-lg border border-border/60 bg-white p-2"
+                                    onError={() => setIsShareQrErrored(true)}
+                                    onLoadingComplete={() =>
+                                      setIsShareQrErrored(false)
+                                    }
+                                  />
+                                </div>
+                              ) : shareQrSrc ? (
+                                <p className="text-[11px] text-muted-foreground">
+                                  QRコードを生成できませんでした。
+                                </p>
+                              ) : null}
+                            </>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              管理権限のあるセッションを選択すると、共有リンクが表示されます。
+                            </p>
+                          )}
+                        </CardContent>
+                      )}
                     </Card>
 
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold">
-                          モニタリング
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          参加者ごとの回答率をトラッキングできます。
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {detailLoading && hasSelectedSession ? (
-                          <div className="flex items-center justify-center py-6">
-                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-sm font-semibold">
+                              モニタリング
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                              参加者ごとの回答率をトラッキングできます。
+                            </CardDescription>
                           </div>
-                        ) : participantProgress.length > 0 ? (
-                          participantProgress.slice(0, 5).map((participant) => (
-                            <div
-                              key={participant.userId}
-                              className="rounded-md border border-border/50 bg-background px-3 py-3 text-xs"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-semibold text-foreground">
-                                  {participant.name || "匿名ユーザー"}
-                                </span>
-                                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                                  {formatPercent(participant.completionRate)}
-                                </span>
-                              </div>
-                              <div className="mt-2 text-[11px] text-muted-foreground">
-                                回答 {participant.answeredCount} /{" "}
-                                {participant.totalStatements} 件・更新{" "}
-                                {formatRelativeTime(participant.updatedAt)}
-                              </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSection("monitoring")}
+                            className="text-muted-foreground transition hover:text-foreground"
+                            aria-expanded={!collapsedSections.monitoring}
+                            aria-controls="aside-monitoring"
+                          >
+                            {collapsedSections.monitoring ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronUp className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">
+                              セクションを切り替え
+                            </span>
+                          </button>
+                        </div>
+                      </CardHeader>
+                      {!collapsedSections.monitoring && (
+                        <CardContent
+                          id="aside-monitoring"
+                          className="space-y-3"
+                        >
+                          {detailLoading && hasSelectedSession ? (
+                            <div className="flex items-center justify-center py-6">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                             </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            まだ参加者がいないか、回答が記録されていません。
-                          </p>
-                        )}
-                      </CardContent>
+                          ) : participantProgress.length > 0 ? (
+                            participantProgress
+                              .slice(0, 5)
+                              .map((participant) => (
+                                <div
+                                  key={participant.userId}
+                                  className="rounded-md border border-border/50 bg-background px-3 py-3 text-xs"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-foreground">
+                                      {participant.name || "匿名ユーザー"}
+                                    </span>
+                                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                      {formatPercent(
+                                        participant.completionRate,
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="mt-2 text-[11px] text-muted-foreground">
+                                    回答 {participant.answeredCount} /{" "}
+                                    {participant.totalStatements} 件・更新{" "}
+                                    {formatRelativeTime(participant.updatedAt)}
+                                  </div>
+                                </div>
+                              ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              まだ参加者がいないか、回答が記録されていません。
+                            </p>
+                          )}
+                        </CardContent>
+                      )}
                     </Card>
 
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold">
-                          ステートメントのハイライト
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          回答が集まっているテーマを把握し、次の打ち手を検討します。
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {detailLoading && hasSelectedSession ? (
-                          <div className="flex items-center justify-center py-6">
-                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-sm font-semibold">
+                              ステートメントのハイライト
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                              回答が集まっているテーマを把握し、次の打ち手を検討します。
+                            </CardDescription>
                           </div>
-                        ) : statementHighlights.length > 0 ? (
-                          statementHighlights.map((highlight) => (
-                            <div
-                              key={highlight.id}
-                              className="space-y-2 rounded-md border border-border/50 bg-background px-3 py-3"
-                            >
-                              <p className="text-xs font-semibold text-muted-foreground">
-                                回答 {highlight.totalResponses} 件 / スコア{" "}
-                                {highlight.agreementScore}
-                              </p>
-                              <p className="text-sm leading-relaxed text-foreground">
-                                {highlight.text}
-                              </p>
-                              <div className="flex items-center gap-2 text-[11px] font-semibold">
-                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
-                                  YES {formatPercent(highlight.positiveShare)}
-                                </span>
-                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">
-                                  NO {formatPercent(highlight.negativeShare)}
-                                </span>
-                              </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleToggleSection("statementHighlights")
+                            }
+                            className="text-muted-foreground transition hover:text-foreground"
+                            aria-expanded={
+                              !collapsedSections.statementHighlights
+                            }
+                            aria-controls="aside-statementHighlights"
+                          >
+                            {collapsedSections.statementHighlights ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronUp className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">
+                              セクションを切り替え
+                            </span>
+                          </button>
+                        </div>
+                      </CardHeader>
+                      {!collapsedSections.statementHighlights && (
+                        <CardContent
+                          id="aside-statementHighlights"
+                          className="space-y-3"
+                        >
+                          {detailLoading && hasSelectedSession ? (
+                            <div className="flex items-center justify-center py-6">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                             </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            十分な回答がまだ集まっていません。
-                          </p>
-                        )}
-                      </CardContent>
+                          ) : statementHighlights.length > 0 ? (
+                            statementHighlights.map((highlight) => (
+                              <div
+                                key={highlight.id}
+                                className="space-y-2 rounded-md border border-border/50 bg-background px-3 py-3"
+                              >
+                                <p className="text-xs font-semibold text-muted-foreground">
+                                  回答 {highlight.totalResponses} 件 / スコア{" "}
+                                  {highlight.agreementScore}
+                                </p>
+                                <p className="text-sm leading-relaxed text-foreground">
+                                  {highlight.text}
+                                </p>
+                                <div className="flex items-center gap-2 text-[11px] font-semibold">
+                                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
+                                    YES {formatPercent(highlight.positiveShare)}
+                                  </span>
+                                  <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">
+                                    NO {formatPercent(highlight.negativeShare)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              十分な回答がまだ集まっていません。
+                            </p>
+                          )}
+                        </CardContent>
+                      )}
                     </Card>
 
                     <Card>
@@ -1429,163 +1722,387 @@ export function DashboardClient() {
                               Cartographer エージェントの動作履歴を確認します。
                             </CardDescription>
                           </div>
-                          {hasSelectedSession && hasThread && (
-                            <ThreadStatusPill shouldProceed={threadShouldProceed} />
-                          )}
+                          <div className="flex items-center gap-2">
+                            {hasSelectedSession && hasThread && (
+                              <ThreadStatusPill
+                                shouldProceed={threadShouldProceed}
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSection("progressLog")}
+                              className="text-muted-foreground transition hover:text-foreground"
+                              aria-expanded={!collapsedSections.progressLog}
+                              aria-controls="aside-progressLog"
+                            >
+                              {collapsedSections.progressLog ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronUp className="h-4 w-4" />
+                              )}
+                              <span className="sr-only">
+                                セクションを切り替え
+                              </span>
+                            </button>
+                          </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-3">
-                        {!hasSelectedSession ? (
-                          <p className="text-xs text-muted-foreground">
-                            管理権限のあるセッションを選択すると、進行ログが表示されます。
-                          </p>
-                        ) : threadLoading ? (
-                          <div className="flex items-center justify-center py-6">
-                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                          </div>
-                        ) : threadError ? (
-                          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-xs text-amber-700">
-                            {threadError}
-                          </div>
-                        ) : (
-                          <>
-                            {canManageThread && hasThread && (
-                              <Button
-                                variant={
-                                  threadShouldProceed ? "ghost" : "outline"
-                                }
-                                size="sm"
-                                className="w-full justify-center gap-1 text-xs"
-                                onClick={() => {
-                                  void handleToggleThreadProceed();
-                                }}
-                                disabled={togglingThreadProceed}
-                              >
-                                {togglingThreadProceed ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : threadShouldProceed ? (
-                                  <Pause className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Play className="h-3.5 w-3.5" />
-                                )}
-                                {threadShouldProceed
-                                  ? "自動進行を一時停止"
-                                  : "自動進行を再開"}
-                              </Button>
-                            )}
-                            {threadEvents.length > 0 ? (
-                              <div
-                                ref={threadContainerRef}
-                                className="max-h-80 space-y-3 overflow-y-auto pr-1"
-                              >
-                                {threadEvents.map((event) => {
-                                  const isHostMessage =
-                                    event.type === "user_message";
-                                  const expanded =
-                                    Boolean(expandedEvents[event.id]);
-                                  return (
-                                    <ThreadEventBubble
-                                      key={event.id}
-                                      event={event}
-                                      isHostMessage={isHostMessage}
-                                      expanded={expanded}
-                                      onToggle={() =>
-                                        setExpandedEvents((previous) => ({
-                                          ...previous,
-                                          [event.id]: !previous[event.id],
-                                        }))
-                                      }
-                                    />
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">
-                                まだ記録されたイベントはありません。
-                              </p>
-                            )}
-                          </>
-                        )}
-                        {hasSelectedSession && canManageThread && (
-                          <div className="space-y-2 border-t border-dashed border-border/60 pt-3">
-                            <label
-                              htmlFor="threadMessage"
-                              className="text-[11px] font-semibold text-muted-foreground"
-                            >
-                              ファシリテーターAIへのメッセージ
-                            </label>
-                            <textarea
-                              id="threadMessage"
-                              value={messageDraft}
-                              onChange={(event) =>
-                                setMessageDraft(event.target.value)
-                              }
-                              rows={3}
-                              className="w-full rounded-md border border-border/60 bg-background px-2.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                              placeholder="進行の補足情報や指示があれば、ここに入力してください。"
-                            />
-                            <div className="flex justify-end">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => {
-                                  void handleSendThreadMessage();
-                                }}
-                                disabled={
-                                  sendingMessage ||
-                                  messageDraft.trim().length === 0
-                                }
-                                isLoading={sendingMessage}
-                                className="gap-1 text-xs"
-                              >
-                                <Send className="h-3.5 w-3.5" />
-                                送信
-                              </Button>
+                      {!collapsedSections.progressLog && (
+                        <CardContent
+                          id="aside-progressLog"
+                          className="space-y-3"
+                        >
+                          {!hasSelectedSession ? (
+                            <p className="text-xs text-muted-foreground">
+                              管理権限のあるセッションを選択すると、進行ログが表示されます。
+                            </p>
+                          ) : threadLoading ? (
+                            <div className="flex items-center justify-center py-6">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                             </div>
-                          </div>
-                        )}
-                      </CardContent>
+                          ) : threadError ? (
+                            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-xs text-amber-700">
+                              {threadError}
+                            </div>
+                          ) : (
+                            <>
+                              {canManageThread && hasThread && (
+                                <Button
+                                  variant={
+                                    threadShouldProceed ? "ghost" : "outline"
+                                  }
+                                  size="sm"
+                                  className="w-full justify-center gap-1 text-xs"
+                                  onClick={() => {
+                                    void handleToggleThreadProceed();
+                                  }}
+                                  disabled={togglingThreadProceed}
+                                >
+                                  {togglingThreadProceed ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : threadShouldProceed ? (
+                                    <Pause className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Play className="h-3.5 w-3.5" />
+                                  )}
+                                  {threadShouldProceed
+                                    ? "自動生成を一時停止"
+                                    : "自動生成を再開"}
+                                </Button>
+                              )}
+                              {threadEvents.length > 0 ? (
+                                <div
+                                  ref={threadContainerRef}
+                                  className="max-h-80 space-y-3 overflow-y-auto pr-1"
+                                >
+                                  {threadEvents.map((event) => {
+                                    const isHostMessage =
+                                      event.type === "user_message";
+                                    const expanded = Boolean(
+                                      expandedEvents[event.id],
+                                    );
+                                    return (
+                                      <ThreadEventBubble
+                                        key={event.id}
+                                        event={event}
+                                        isHostMessage={isHostMessage}
+                                        expanded={expanded}
+                                        onToggle={() =>
+                                          setExpandedEvents((previous) => ({
+                                            ...previous,
+                                            [event.id]: !previous[event.id],
+                                          }))
+                                        }
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  まだ記録されたイベントはありません。
+                                </p>
+                              )}
+                            </>
+                          )}
+                          {hasSelectedSession && canManageThread && (
+                            <div className="space-y-2 border-t border-dashed border-border/60 pt-3">
+                              <label
+                                htmlFor="threadMessage"
+                                className="text-[11px] font-semibold text-muted-foreground"
+                              >
+                                ファシリテーターAIへのメッセージ
+                              </label>
+                              <textarea
+                                id="threadMessage"
+                                value={messageDraft}
+                                onChange={(event) =>
+                                  setMessageDraft(event.target.value)
+                                }
+                                rows={3}
+                                className="w-full rounded-md border border-border/60 bg-background px-2.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                                placeholder="進行の補足情報や指示があれば、ここに入力してください。"
+                              />
+                              <div className="flex justify-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => {
+                                    void handleSendThreadMessage();
+                                  }}
+                                  disabled={
+                                    sendingMessage ||
+                                    messageDraft.trim().length === 0
+                                  }
+                                  isLoading={sendingMessage}
+                                  className="gap-1 text-xs"
+                                >
+                                  <Send className="h-3.5 w-3.5" />
+                                  送信
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      )}
                     </Card>
 
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold">
-                          セッション情報
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          目的や背景、公開設定を確認できます。
-                        </CardDescription>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-sm font-semibold">
+                              セッション情報
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                              {canEditSessionInfo
+                                ? "目的や公開設定を確認・編集できます。"
+                                : "目的や公開設定を確認できます。"}
+                            </CardDescription>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {hasSelectedSession &&
+                              canEditSessionInfo &&
+                              !isEditingSessionInfo && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs"
+                                  onClick={() => {
+                                    ensureSectionOpen("sessionInfo");
+                                    setSessionInfoMessage(null);
+                                    setSessionInfoError(null);
+                                    setIsEditingSessionInfo(true);
+                                  }}
+                                >
+                                  編集
+                                </Button>
+                              )}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSection("sessionInfo")}
+                              className="text-muted-foreground transition hover:text-foreground"
+                              aria-expanded={!collapsedSections.sessionInfo}
+                              aria-controls="aside-sessionInfo"
+                            >
+                              {collapsedSections.sessionInfo ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronUp className="h-4 w-4" />
+                              )}
+                              <span className="sr-only">
+                                セクションを切り替え
+                              </span>
+                            </button>
+                          </div>
+                        </div>
                       </CardHeader>
-                      <CardContent className="space-y-3 text-xs text-muted-foreground">
-                        {selectedAdminSession ? (
-                          <>
-                            <div className="flex items-center justify-between">
-                              <span>公開状態</span>
-                              <VisibilityBadge
-                                isPublic={selectedAdminSession.isPublic}
-                              />
+                      {!collapsedSections.sessionInfo && (
+                        <CardContent
+                          id="aside-sessionInfo"
+                          className="space-y-4 text-xs text-muted-foreground"
+                        >
+                          {!hasSelectedSession ? (
+                            <p>
+                              管理セッションを選択すると情報が表示されます。
+                            </p>
+                          ) : detailLoading ? (
+                            <div className="flex items-center justify-center py-6">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                             </div>
-                            <div>
-                              <p className="font-semibold text-foreground">
-                                ゴール
-                              </p>
-                              <p className="mt-1 whitespace-pre-wrap">
-                                {selectedAdminSession.goal || "未設定です。"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="font-semibold text-foreground">
-                                コンテキスト
-                              </p>
-                              <p className="mt-1 whitespace-pre-wrap">
-                                {selectedAdminSession.context || "未設定です。"}
-                              </p>
-                            </div>
-                          </>
-                        ) : (
-                          <p>管理セッションを選択すると情報が表示されます。</p>
-                        )}
-                      </CardContent>
+                          ) : isEditingSessionInfo ? (
+                            <form
+                              onSubmit={handleSaveSessionInfo}
+                              className="space-y-3 text-xs text-muted-foreground"
+                            >
+                              <div className="space-y-1.5">
+                                <label
+                                  htmlFor="sessionTitle"
+                                  className="text-[11px] font-semibold text-muted-foreground"
+                                >
+                                  タイトル
+                                </label>
+                                <Input
+                                  id="sessionTitle"
+                                  value={editingTitle}
+                                  onChange={(event) =>
+                                    setEditingTitle(event.target.value)
+                                  }
+                                  required
+                                  className="text-sm"
+                                />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <span className="text-[11px] font-semibold text-muted-foreground">
+                                  公開設定
+                                </span>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <label className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground">
+                                    <input
+                                      type="radio"
+                                      name="sessionVisibility"
+                                      value="public"
+                                      checked={editingVisibility === "public"}
+                                      onChange={() =>
+                                        setEditingVisibility("public")
+                                      }
+                                    />
+                                    <span>公開</span>
+                                  </label>
+                                  <label className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground">
+                                    <input
+                                      type="radio"
+                                      name="sessionVisibility"
+                                      value="private"
+                                      checked={editingVisibility === "private"}
+                                      onChange={() =>
+                                        setEditingVisibility("private")
+                                      }
+                                    />
+                                    <span>非公開</span>
+                                  </label>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label
+                                  htmlFor="sessionGoal"
+                                  className="text-[11px] font-semibold text-muted-foreground"
+                                >
+                                  ゴール
+                                </label>
+                                <textarea
+                                  id="sessionGoal"
+                                  value={editingGoal}
+                                  onChange={(event) =>
+                                    setEditingGoal(event.target.value)
+                                  }
+                                  rows={4}
+                                  className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                                />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label
+                                  htmlFor="sessionContext"
+                                  className="text-[11px] font-semibold text-muted-foreground"
+                                >
+                                  コンテキスト
+                                </label>
+                                <textarea
+                                  id="sessionContext"
+                                  value={editingContext}
+                                  onChange={(event) =>
+                                    setEditingContext(event.target.value)
+                                  }
+                                  rows={4}
+                                  className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                                />
+                              </div>
+
+                              {(sessionInfoMessage || sessionInfoError) && (
+                                <div
+                                  className={cn(
+                                    "rounded-md px-3 py-2 text-[11px]",
+                                    sessionInfoError
+                                      ? "border border-rose-200 bg-rose-50 text-rose-700"
+                                      : "border border-emerald-200 bg-emerald-50 text-emerald-700",
+                                  )}
+                                >
+                                  {sessionInfoError ?? sessionInfoMessage}
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="submit"
+                                  size="sm"
+                                  className="gap-1 text-xs"
+                                  disabled={savingSessionInfo}
+                                  isLoading={savingSessionInfo}
+                                >
+                                  保存
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs"
+                                  onClick={handleCancelSessionInfoEdit}
+                                >
+                                  キャンセル
+                                </Button>
+                              </div>
+                            </form>
+                          ) : (
+                            <>
+                              {sessionInfoMessage && (
+                                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+                                  {sessionInfoMessage}
+                                </div>
+                              )}
+                              <div className="space-y-3 text-xs text-muted-foreground">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[11px] font-semibold text-muted-foreground">
+                                    公開状態
+                                  </p>
+                                  <VisibilityBadge
+                                    isPublic={
+                                      sessionDetail?.isPublic ??
+                                      selectedAdminSession?.isPublic ??
+                                      false
+                                    }
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold text-muted-foreground">
+                                    ゴール
+                                  </p>
+                                  <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                                    {sessionDetail?.goal ||
+                                    selectedAdminSession?.goal
+                                      ? (sessionDetail?.goal ??
+                                        selectedAdminSession?.goal)
+                                      : "未設定です。"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold text-muted-foreground">
+                                    コンテキスト
+                                  </p>
+                                  <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                                    {sessionDetail?.context ||
+                                    selectedAdminSession?.context
+                                      ? (sessionDetail?.context ??
+                                        selectedAdminSession?.context)
+                                      : "未設定です。"}
+                                  </p>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </CardContent>
+                      )}
                     </Card>
 
                     <Card>
@@ -1594,31 +2111,86 @@ export function DashboardClient() {
                           進行設定
                         </CardTitle>
                         <CardDescription className="text-xs">
-                          セッション運営に関する操作を行えます。
+                          新規ステートメント生成とセッション管理を行えます。
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-3 text-xs text-muted-foreground">
+                      <CardContent className="space-y-4 text-xs text-muted-foreground">
                         {selectedAdminSession ? (
                           <>
-                            <p>
-                              セッションの詳細管理や削除などの操作を実行できます。
-                            </p>
-                            <div className="flex flex-col gap-2 pt-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  router.push(
-                                    `/sessions/${selectedAdminSession.id}`,
-                                  )
-                                }
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                管理ビューを開く
-                              </Button>
+                            <button
+                              type="button"
+                              onClick={
+                                canManageThread
+                                  ? () => {
+                                      void handleToggleThreadProceed();
+                                    }
+                                  : undefined
+                              }
+                              disabled={
+                                !canManageThread || togglingThreadProceed
+                              }
+                              aria-pressed={threadShouldProceed}
+                              className={cn(
+                                "w-full rounded-lg border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                                threadShouldProceed
+                                  ? "border-emerald-200 bg-emerald-50/80 hover:bg-emerald-50"
+                                  : "border-amber-200 bg-amber-50/70 hover:bg-amber-50",
+                                !canManageThread || togglingThreadProceed
+                                  ? "cursor-not-allowed opacity-75"
+                                  : "",
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-semibold text-foreground">
+                                    新規ステートメントの自動生成
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {threadShouldProceed
+                                      ? "全員の回答が揃うと、次のステートメントを自動で提示します。"
+                                      : "回答が揃っても、新しいステートメントは提示されません。"}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    aria-hidden="true"
+                                    className={cn(
+                                      "flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150",
+                                      threadShouldProceed
+                                        ? "justify-end border-emerald-300 bg-emerald-500/90"
+                                        : "justify-start border-amber-300 bg-amber-200/80",
+                                    )}
+                                  >
+                                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
+                                      {threadShouldProceed ? (
+                                        <Play className="h-3 w-3 text-emerald-500" />
+                                      ) : (
+                                        <Pause className="h-3 w-3 text-amber-500" />
+                                      )}
+                                    </div>
+                                  </div>
+                                  {togglingThreadProceed && (
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                            {!canManageThread && (
+                              <p className="text-[11px]">
+                                セッションホストのみが自動生成設定を変更できます。
+                              </p>
+                            )}
+                            <div className="rounded-lg border border-rose-200/70 bg-rose-50/70 px-4 py-3">
+                              <p className="text-sm font-semibold text-rose-700">
+                                セッションを削除
+                              </p>
+                              <p className="mt-1 text-[11px] leading-relaxed text-rose-600">
+                                この操作は取り消せません。セッションと関連するデータが全て削除されます。
+                              </p>
                               <Button
                                 variant="destructive"
                                 size="sm"
+                                className="mt-3 gap-1 text-xs"
                                 onClick={() => {
                                   void handleDeleteSession();
                                 }}
