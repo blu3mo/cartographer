@@ -311,14 +311,13 @@ export function SessionAdminDashboard({
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  const [messageDraft, setMessageDraft] = useState("");
-  const [sendingMessage, setSendingMessage] = useState(false);
   const [togglingProceed, setTogglingProceed] = useState(false);
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>(
     {},
   );
   const [isStatementHighlightCollapsed, setIsStatementHighlightCollapsed] =
     useState(true);
+  // biome-ignore lint/correctness/noUnusedVariables: 折りたたみ制御は現在無効化しているが将来的な復活に備えて保持
   const [isProgressLogCollapsed, setIsProgressLogCollapsed] = useState(true);
   const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(true);
   const [shareUrl, setShareUrl] = useState("");
@@ -643,27 +642,6 @@ export function SessionAdminDashboard({
       userId,
     ],
   );
-
-  const handleSendMessage = useCallback(async () => {
-    if (!userId || !canEdit || messageDraft.trim().length === 0) return;
-    setSendingMessage(true);
-    try {
-      await axios.post(
-        `/api/sessions/${sessionId}/event-thread/events/user-message`,
-        { markdown: messageDraft },
-        {
-          headers: { Authorization: `Bearer ${userId}` },
-        },
-      );
-      setMessageDraft("");
-      await fetchEventThread();
-    } catch (err) {
-      console.error("Failed to send message:", err);
-      alert("メッセージの送信に失敗しました。");
-    } finally {
-      setSendingMessage(false);
-    }
-  }, [userId, canEdit, messageDraft, sessionId, fetchEventThread]);
 
   const handleToggleShouldProceed = useCallback(async () => {
     if (!userId || !canEdit || !threadData?.thread) return;
@@ -1001,17 +979,43 @@ export function SessionAdminDashboard({
             </Button>
           </div>
         )}
+        {viewMode === "log" && canEdit && hasThread && (
+          <Button
+            type="button"
+            variant={threadShouldProceed ? "outline" : "ghost"}
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => {
+              void handleToggleShouldProceed();
+            }}
+            disabled={togglingProceed}
+          >
+            {togglingProceed ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : threadShouldProceed ? (
+              <Pause className="h-3.5 w-3.5" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            {threadShouldProceed ? "自動生成を停止" : "自動生成を再開"}
+          </Button>
+        )}
       </div>
     );
   }, [
     accessToken,
+    canEdit,
     hasReports,
     handleCopyReportMarkdown,
+    handleToggleShouldProceed,
     reportCopyStatus,
     reports,
     selectedReport,
     selectedReportId,
     sessionId,
+    hasThread,
+    threadShouldProceed,
+    togglingProceed,
     viewMode,
   ]);
 
@@ -1223,144 +1227,80 @@ export function SessionAdminDashboard({
                     </div>
                   )}
                   {viewMode === "report" ? (
-                    <>
-                      {selectedReport.status === "completed" &&
-                      selectedReport.contentMarkdown ? (
-                        <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {selectedReport.contentMarkdown}
-                          </ReactMarkdown>
-                        </div>
-                      ) : selectedReport.status === "failed" ? (
-                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
-                          <p className="font-semibold">レポート生成に失敗しました</p>
-                          <p className="mt-2">
-                            {selectedReport.errorMessage ??
-                              "詳細はログを確認してください。"}
+                    selectedReport.status === "completed" &&
+                    selectedReport.contentMarkdown ? (
+                      <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {selectedReport.contentMarkdown}
+                        </ReactMarkdown>
+                      </div>
+                    ) : selectedReport.status === "failed" ? (
+                      <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+                        <p className="font-semibold">レポート生成に失敗しました</p>
+                        <p className="mt-2">
+                          {selectedReport.errorMessage ??
+                            "詳細はログを確認してください。"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                        <div className="text-center">
+                          <p className="font-medium text-slate-700">
+                            レポートを生成しています…
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            完了まで数十秒ほどかかる場合があります
                           </p>
                         </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-12">
-                          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                          <div className="text-center">
-                            <p className="font-medium text-slate-700">レポートを生成しています…</p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              完了まで数十秒ほどかかる場合があります
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </>
+                      </div>
+                    )
                   ) : (
-                    <div className="space-y-4">
+                    <div className="flex flex-1 flex-col gap-4 overflow-hidden bg-white px-6 pb-6 pt-4">
                       {!data ? (
                         <p className="text-sm text-slate-500">
                           管理権限のあるセッションを選択すると、進行ログが表示されます。
                         </p>
                       ) : threadLoading ? (
-                        <div className="flex items-center justify-center py-12">
+                        <div className="flex flex-1 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 py-12">
                           <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                       ) : threadError ? (
                         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                           {threadError}
                         </div>
-                      ) : (
-                        <>
-                          {canEdit && hasThread && (
-                            <Button
-                              variant={
-                                threadShouldProceed ? "ghost" : "outline"
-                              }
-                              size="sm"
-                              className="w-full justify-center gap-2 text-sm"
-                              onClick={() => {
-                                void handleToggleShouldProceed();
-                              }}
-                              disabled={togglingProceed}
-                            >
-                              {togglingProceed ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : threadShouldProceed ? (
-                                <Pause className="h-4 w-4" />
-                              ) : (
-                                <Play className="h-4 w-4" />
-                              )}
-                              {threadShouldProceed
-                                ? "自動生成を一時停止"
-                                : "自動生成を再開"}
-                            </Button>
-                          )}
-                          {threadEvents.length > 0 ? (
-                            <div
-                              ref={threadContainerRef}
-                              className="max-h-96 space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4"
-                            >
-                              {threadEvents.map((event) => {
-                                const isHostMessage =
-                                  event.type === "user_message";
-                                const expanded = Boolean(
-                                  expandedEvents[event.id],
-                                );
-                                return (
-                                  <ThreadEventBubble
-                                    key={event.id}
-                                    event={event}
-                                    isHostMessage={isHostMessage}
-                                    expanded={expanded}
-                                    onToggle={() =>
-                                      setExpandedEvents((previous) => ({
-                                        ...previous,
-                                        [event.id]: !previous[event.id],
-                                      }))
-                                    }
-                                  />
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-slate-500">
-                              まだ記録されたイベントはありません。
-                            </p>
-                          )}
-                        </>
-                      )}
-                      {data && canEdit && (
-                        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-                          <label
-                            htmlFor="threadMessage"
-                            className="text-sm font-semibold text-slate-700"
+                      ) : threadEvents.length > 0 ? (
+                        <div className="flex-1 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                          <div
+                            ref={threadContainerRef}
+                            className="h-full min-h-[420px] space-y-3 overflow-y-auto px-4 py-4"
                           >
-                            ファシリテーターAIへのメッセージ
-                          </label>
-                          <textarea
-                            id="threadMessage"
-                            value={messageDraft}
-                            onChange={(event) =>
-                              setMessageDraft(event.target.value)
-                            }
-                            rows={3}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
-                            placeholder="進行の補足情報や指示があれば、ここに入力してください。"
-                          />
-                          <div className="flex justify-end">
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => {
-                                void handleSendMessage();
-                              }}
-                              disabled={
-                                sendingMessage ||
-                                messageDraft.trim().length === 0
-                              }
-                              isLoading={sendingMessage}
-                              className="gap-2 text-sm"
-                            >
-                              <Send className="h-4 w-4" />
-                              送信
-                            </Button>
+                            {threadEvents.map((event) => {
+                              const isHostMessage =
+                                event.type === "user_message";
+                              const expanded = Boolean(
+                                expandedEvents[event.id],
+                              );
+                              return (
+                                <ThreadEventBubble
+                                  key={event.id}
+                                  event={event}
+                                  isHostMessage={isHostMessage}
+                                  expanded={expanded}
+                                  onToggle={() =>
+                                    setExpandedEvents((previous) => ({
+                                      ...previous,
+                                      [event.id]: !previous[event.id],
+                                    }))
+                                  }
+                                />
+                              );
+                            })}
                           </div>
+                        </div>
+                      ) : (
+                        <div className="flex min-h-[420px] items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                          まだ記録されたイベントはありません。
                         </div>
                       )}
                     </div>
@@ -2115,14 +2055,12 @@ export function SessionAdminDashboard({
     handleCopyLink,
     handleDeleteSession,
     handleSaveSettings,
-    handleSendMessage,
     handleToggleShouldProceed,
     isEditingSettings,
     isProgressLogCollapsed,
     isSettingsCollapsed,
     isShareQrFullscreen,
     isStatementHighlightCollapsed,
-    messageDraft,
     participantList,
     participantStats,
     participants,
@@ -2141,7 +2079,6 @@ export function SessionAdminDashboard({
     editingGoal,
     editingTitle,
     editingVisibility,
-    sendingMessage,
     totalStatementsCount,
     totalParticipants,
   ]);
@@ -2381,6 +2318,7 @@ function StatementHighlightColumn({
   );
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: ローカルカード再利用時に使用予定のコンポーネント
 function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
   return (
     <div
