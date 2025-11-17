@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Session } from "@/dashboard/_components/types";
+import { cn } from "@/lib/utils";
 import { useUserId } from "@/lib/useUserId";
 
 type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
@@ -794,6 +795,9 @@ export function SessionAdminDashboard({
     data?.totalStatements ?? data?.statements?.length ?? 0;
   const statements = data?.statements ?? [];
   const hasReports = reports.length > 0;
+  const hasThread = Boolean(threadData?.thread);
+  const threadShouldProceed = threadData?.thread?.shouldProceed ?? false;
+  const threadEvents = threadData?.events ?? [];
 
   const reportRequestControlsNode = useMemo(() => {
     if (!hasReports) return null;
@@ -805,49 +809,49 @@ export function SessionAdminDashboard({
       );
     }
 
-    const showSuggestions = selectedReport?.status === "completed" && selectedReport?.contentMarkdown;
+    const showSuggestions = selectedReport?.status === "completed" && selectedReport?.contentMarkdown && !reportRequest;
 
     return (
       <div className="space-y-3">
         {showSuggestions && (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
             <button
               type="button"
               onClick={() => setReportRequest("合意点をより詳しく分析してください")}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
             >
-              <p className="font-semibold text-slate-900">合意点を深掘り</p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="text-sm font-semibold text-slate-900">合意点を深掘り</p>
+              <p className="mt-0.5 text-xs text-slate-600">
                 合意点をより詳しく分析
               </p>
             </button>
             <button
               type="button"
               onClick={() => setReportRequest("相違点の背景にある価値観の違いを分析してください")}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
             >
-              <p className="font-semibold text-slate-900">相違点を分析</p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="text-sm font-semibold text-slate-900">相違点を分析</p>
+              <p className="mt-0.5 text-xs text-slate-600">
                 価値観の違いを探る
               </p>
             </button>
             <button
               type="button"
               onClick={() => setReportRequest("次のアクションプランを提案してください")}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
             >
-              <p className="font-semibold text-slate-900">アクションプラン</p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="text-sm font-semibold text-slate-900">アクションプラン</p>
+              <p className="mt-0.5 text-xs text-slate-600">
                 次のステップを提案
               </p>
             </button>
             <button
               type="button"
               onClick={() => setReportRequest("より簡潔な要約を作成してください")}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
             >
-              <p className="font-semibold text-slate-900">要約版を作成</p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="text-sm font-semibold text-slate-900">要約版を作成</p>
+              <p className="mt-0.5 text-xs text-slate-600">
                 簡潔にまとめる
               </p>
             </button>
@@ -868,7 +872,7 @@ export function SessionAdminDashboard({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleCreateReportSubmit(e);
+                void startReportGeneration();
               }
             }}
           />
@@ -907,38 +911,56 @@ export function SessionAdminDashboard({
     reportRequestControlsNode,
   ]);
 
+  const [viewMode, setViewMode] = useState<"report" | "log">("report");
+
   const reportHeaderNode = useMemo(() => {
     if (!hasReports) return null;
     if (!selectedReport) return null;
 
     return (
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-2">
-          <label
-            htmlFor="reportVersionSelect"
-            className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => setViewMode("report")}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+              viewMode === "report"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            )}
           >
-            表示するバージョン
-          </label>
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              id="reportVersionSelect"
-              value={selectedReportId ?? ""}
-              onChange={(event) => setSelectedReportId(event.target.value)}
-              className="max-w-xs rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-            >
-              {reports.map((report) => {
-                const meta = REPORT_STATUS_META[report.status];
-                return (
-                  <option key={report.id} value={report.id}>
-                    v{String(report.version).padStart(2, "0")}・{meta.label}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+            レポート
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("log")}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+              viewMode === "log"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            進行ログ
+          </button>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <select
+            id="reportVersionSelect"
+            value={selectedReportId ?? ""}
+            onChange={(event) => setSelectedReportId(event.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+          >
+            {reports.map((report) => {
+              const meta = REPORT_STATUS_META[report.status];
+              return (
+                <option key={report.id} value={report.id}>
+                  v{String(report.version).padStart(2, "0")}・{meta.label}
+                </option>
+              );
+            })}
+          </select>
           <Button
             type="button"
             variant="outline"
@@ -988,6 +1010,7 @@ export function SessionAdminDashboard({
     selectedReport,
     selectedReportId,
     sessionId,
+    viewMode,
   ]);
 
   useEffect(() => {
@@ -1197,51 +1220,149 @@ export function SessionAdminDashboard({
                       </div>
                     </div>
                   )}
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900">
-                      <Bot className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="flex-1">
+                  {viewMode === "report" ? (
+                    <>
                       {selectedReport.status === "completed" &&
                       selectedReport.contentMarkdown ? (
-                        <div>
-                          <div className="mb-3 flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-blue-600" />
-                            <p className="text-sm font-semibold text-slate-900">
-                              セッションレポート
-                            </p>
-                            <span className="ml-auto text-xs text-slate-400">
-                              v{String(selectedReport.version).padStart(2, "0")}
-                            </span>
-                          </div>
-                          <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {selectedReport.contentMarkdown}
-                            </ReactMarkdown>
-                          </div>
+                        <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {selectedReport.contentMarkdown}
+                          </ReactMarkdown>
                         </div>
                       ) : selectedReport.status === "failed" ? (
-                        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
                           <p className="font-semibold">レポート生成に失敗しました</p>
-                          <p className="mt-1">
+                          <p className="mt-2">
                             {selectedReport.errorMessage ??
                               "詳細はログを確認してください。"}
                           </p>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                          <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-                          <div>
-                            <p className="font-medium">レポートを生成しています…</p>
-                            <p className="text-xs text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                          <div className="text-center">
+                            <p className="font-medium text-slate-700">レポートを生成しています…</p>
+                            <p className="mt-1 text-xs text-slate-500">
                               完了まで数十秒ほどかかる場合があります
                             </p>
                           </div>
                         </div>
                       )}
+                    </>
+                  ) : (
+                    <div className="space-y-4">
+                      {!data ? (
+                        <p className="text-sm text-slate-500">
+                          管理権限のあるセッションを選択すると、進行ログが表示されます。
+                        </p>
+                      ) : threadLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                        </div>
+                      ) : threadError ? (
+                        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                          {threadError}
+                        </div>
+                      ) : (
+                        <>
+                          {canEdit && hasThread && (
+                            <Button
+                              variant={
+                                threadShouldProceed ? "ghost" : "outline"
+                              }
+                              size="sm"
+                              className="w-full justify-center gap-2 text-sm"
+                              onClick={() => {
+                                void handleToggleShouldProceed();
+                              }}
+                              disabled={togglingProceed}
+                            >
+                              {togglingProceed ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : threadShouldProceed ? (
+                                <Pause className="h-4 w-4" />
+                              ) : (
+                                <Play className="h-4 w-4" />
+                              )}
+                              {threadShouldProceed
+                                ? "自動生成を一時停止"
+                                : "自動生成を再開"}
+                            </Button>
+                          )}
+                          {threadEvents.length > 0 ? (
+                            <div
+                              ref={threadContainerRef}
+                              className="max-h-96 space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4"
+                            >
+                              {threadEvents.map((event) => {
+                                const isHostMessage =
+                                  event.type === "user_message";
+                                const expanded = Boolean(
+                                  expandedEvents[event.id],
+                                );
+                                return (
+                                  <ThreadEventBubble
+                                    key={event.id}
+                                    event={event}
+                                    isHostMessage={isHostMessage}
+                                    expanded={expanded}
+                                    onToggle={() =>
+                                      setExpandedEvents((previous) => ({
+                                        ...previous,
+                                        [event.id]: !previous[event.id],
+                                      }))
+                                    }
+                                  />
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-slate-500">
+                              まだ記録されたイベントはありません。
+                            </p>
+                          )}
+                        </>
+                      )}
+                      {data && canEdit && (
+                        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+                          <label
+                            htmlFor="threadMessage"
+                            className="text-sm font-semibold text-slate-700"
+                          >
+                            ファシリテーターAIへのメッセージ
+                          </label>
+                          <textarea
+                            id="threadMessage"
+                            value={messageDraft}
+                            onChange={(event) =>
+                              setMessageDraft(event.target.value)
+                            }
+                            rows={3}
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
+                            placeholder="進行の補足情報や指示があれば、ここに入力してください。"
+                          />
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                void handleSendMessage();
+                              }}
+                              disabled={
+                                sendingMessage ||
+                                messageDraft.trim().length === 0
+                              }
+                              isLoading={sendingMessage}
+                              className="gap-2 text-sm"
+                            >
+                              <Send className="h-4 w-4" />
+                              送信
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-
+                  )}
 
                   <div className="mt-4 flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-slate-400">
                     <span>
