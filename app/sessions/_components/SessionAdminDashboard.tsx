@@ -1206,12 +1206,21 @@ export function SessionAdminDashboard({
                       {selectedReport.status === "completed" &&
                       selectedReport.contentMarkdown ? (
                         <>
-                          <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {selectedReport.contentMarkdown}
-                            </ReactMarkdown>
-                          </div>
-                          <div className="mt-6 flex justify-end">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleCopyReportMarkdown}
+                              className="gap-1.5 text-xs"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              {reportCopyStatus === "copied"
+                                ? "コピー済み"
+                                : reportCopyStatus === "error"
+                                  ? "コピー失敗"
+                                  : "Markdownをコピー"}
+                            </Button>
                             <Button
                               type="button"
                               variant="outline"
@@ -1227,6 +1236,11 @@ export function SessionAdminDashboard({
                               <ExternalLink className="h-3.5 w-3.5" />
                               公開用ページを開く
                             </Button>
+                          </div>
+                          <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {selectedReport.contentMarkdown}
+                            </ReactMarkdown>
                           </div>
                         </>
                       ) : selectedReport.status === "failed" ? (
