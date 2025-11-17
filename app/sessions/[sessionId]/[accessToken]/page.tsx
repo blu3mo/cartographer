@@ -45,6 +45,10 @@ import { useUserId } from "@/lib/useUserId";
 import { URLShareCard } from "./URLShareCard";
 import { toAbsoluteUrl } from "@/lib/utils";
 import { AnswerProgress } from "./AnswerProgress";
+import { SessionReportCard } from "./SessionReport";
+import { SessionInfo } from "./SessionInfo";
+import { SessionLog } from "./SessionLog";
+
 
 type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
 
@@ -75,7 +79,7 @@ export interface ParticipantProgress {
   updatedAt: string;
 }
 
-interface SessionAdminData {
+export interface SessionAdminData {
   id: string;
   title: string;
   context: string;
@@ -114,7 +118,7 @@ interface EventThreadSummary {
   updatedAt: string;
 }
 
-interface EventThreadResponse {
+export interface EventThreadResponse {
   session: {
     id: string;
     title: string;
@@ -1106,290 +1110,41 @@ export default function AdminPage({
                 )}
               </CardContent>
             </Card>
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">セッション情報</CardTitle>
-                    <CardDescription>
-                      {canEdit
-                        ? "基本情報を編集してアップデートできます"
-                        : "セッションの基本情報"}
-                    </CardDescription>
-                  </div>
-                  {!isEditingSettings && canEdit && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsEditingSettings(true)}
-                      className="gap-1.5 text-xs"
-                    >
-                      編集
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {!isEditingSettings ? (
-                  <div className="space-y-4 text-sm text-slate-600">
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        公開設定
-                      </p>
-                      <p className="mt-1 text-slate-800 font-medium">
-                        {data.isPublic ? "公開" : "非公開"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        ゴール
-                      </p>
-                      <p
-                        className="mt-1 leading-relaxed"
-                        title={data.goal ?? undefined}
-                      >
-                        {data.goal ? truncateText(data.goal, 160) : "未設定"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        背景情報
-                      </p>
-                      <p
-                        className="mt-1 leading-relaxed whitespace-pre-wrap"
-                        title={data.context ?? undefined}
-                      >
-                        {data.context
-                          ? truncateText(data.context, 160)
-                          : "未設定"}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSaveSettings} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="sessionTitle"
-                        className="text-xs font-medium text-slate-600"
-                      >
-                        タイトル
-                      </label>
-                      <Input
-                        id="sessionTitle"
-                        type="text"
-                        value={editingTitle}
-                        onChange={(event) =>
-                          setEditingTitle(event.target.value)
-                        }
-                        required
-                        className="text-sm"
-                      />
-                    </div>
+            <SessionInfo
+              data={data}
+              canEdit={canEdit}
+              isEditingSettings={isEditingSettings}
+              editingTitle={editingTitle}
+              editingContext={editingContext}
+              editingGoal={editingGoal}
+              editingVisibility={editingVisibility}
+              isSavingSettings={isSavingSettings}
+              settingsMessage={settingsMessage}
+              settingsError={settingsError}
+              setIsEditingSettings={setIsEditingSettings}
+              setSettingsMessage={setSettingsMessage}
+              setSettingsError={setSettingsError}
+              setEditingTitle={setEditingTitle}
+              setEditingContext={setEditingContext}
+              setEditingGoal={setEditingGoal}
+              setEditingVisibility={setEditingVisibility}
+              handleSaveSettings={handleSaveSettings}
+              truncateText={truncateText}
+            />
 
-                    <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-slate-600">
-                        公開設定
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-700 shadow-sm">
-                          <input
-                            type="radio"
-                            name="sessionVisibility"
-                            value="public"
-                            checked={editingVisibility === "public"}
-                            onChange={() => setEditingVisibility("public")}
-                          />
-                          <span>公開</span>
-                        </label>
-                        <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-700 shadow-sm">
-                          <input
-                            type="radio"
-                            name="sessionVisibility"
-                            value="private"
-                            checked={editingVisibility === "private"}
-                            onChange={() => setEditingVisibility("private")}
-                          />
-                          <span>非公開</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="sessionGoal"
-                        className="text-xs font-medium text-slate-600"
-                      >
-                        ゴール
-                      </label>
-                      <textarea
-                        id="sessionGoal"
-                        value={editingGoal}
-                        onChange={(event) => setEditingGoal(event.target.value)}
-                        required
-                        rows={5}
-                        className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="sessionContext"
-                        className="text-xs font-medium text-slate-600"
-                      >
-                        背景情報
-                      </label>
-                      <textarea
-                        id="sessionContext"
-                        value={editingContext}
-                        onChange={(event) =>
-                          setEditingContext(event.target.value)
-                        }
-                        rows={5}
-                        className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      />
-                    </div>
-
-                    {(settingsMessage || settingsError) && (
-                      <div
-                        className={`rounded-xl px-3 py-2 text-xs ${settingsError
-                          ? "bg-red-50 text-red-600"
-                          : "bg-emerald-50 text-emerald-700"
-                          }`}
-                      >
-                        {settingsError ?? settingsMessage}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="submit"
-                        disabled={isSavingSettings}
-                        isLoading={isSavingSettings}
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                      >
-                        保存
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setIsEditingSettings(false);
-                          setSettingsMessage(null);
-                          setSettingsError(null);
-                          if (data) {
-                            setEditingTitle(data.title);
-                            setEditingContext(data.context);
-                            setEditingGoal(data.goal);
-                            setEditingVisibility(
-                              data.isPublic ? "public" : "private",
-                            );
-                          }
-                        }}
-                        className="gap-1.5 text-xs"
-                      >
-                        キャンセル
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-none bg-white/80 shadow-lg">
-              <CardHeader className="pb-4">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">進行ログ</CardTitle>
-                    <CardDescription>
-                      ファシリテーターAIの進行状況をここから確認できます
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <ThreadStatusPill
-                      shouldProceed={threadData?.thread?.shouldProceed ?? false}
-                    />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-inner">
-                  {threadLoading && (
-                    <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-white/90 to-white/30 py-2 text-center text-xs text-slate-500">
-                      更新中…
-                    </div>
-                  )}
-                  <div
-                    ref={threadContainerRef}
-                    className="h-[620px] overflow-y-auto px-6 py-6 space-y-5"
-                  >
-                    {threadError ? (
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                        {threadError}
-                      </div>
-                    ) : threadData?.events.length ? (
-                      threadData.events.map((event) => {
-                        const isHostMessage = event.type === "user_message";
-                        const expanded = Boolean(expandedEvents[event.id]);
-                        return (
-                          <ThreadEventBubble
-                            key={event.id}
-                            event={event}
-                            isHostMessage={isHostMessage}
-                            expanded={expanded}
-                            onToggle={() =>
-                              setExpandedEvents((prev) => ({
-                                ...prev,
-                                [event.id]: !prev[event.id],
-                              }))
-                            }
-                          />
-                        );
-                      })
-                    ) : (
-                      <p className="text-sm text-slate-500">
-                        まだイベントはありません。Agentとの会話はここに表示されます。
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {canEdit && (
-                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                    <label
-                      htmlFor="adminMessage"
-                      className="text-xs font-medium text-slate-600"
-                    >
-                      ファシリテーターAIへのメッセージ
-                    </label>
-                    <textarea
-                      id="adminMessage"
-                      value={messageDraft}
-                      onChange={(event) => setMessageDraft(event.target.value)}
-                      rows={3}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
-                    />
-                    <div className="flex items-center justify-between">
-                      <Button
-                        type="button"
-                        onClick={handleSendMessage}
-                        disabled={
-                          sendingMessage || messageDraft.trim().length === 0
-                        }
-                        isLoading={sendingMessage}
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        送信
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <SessionLog
+              threadData={threadData}
+              threadLoading={threadLoading}
+              threadError={threadError}
+              threadContainerRef={threadContainerRef}
+              expandedEvents={expandedEvents}
+              setExpandedEvents={setExpandedEvents}
+              canEdit={canEdit}
+              messageDraft={messageDraft}
+              setMessageDraft={setMessageDraft}
+              sendingMessage={sendingMessage}
+              handleSendMessage={handleSendMessage}
+            />
 
 
             <Card className="border-none bg-white/80 shadow-sm">
@@ -1689,14 +1444,14 @@ function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
   );
 }
 
-interface ThreadEventBubbleProps {
+export interface ThreadEventBubbleProps {
   event: TimelineEvent;
   isHostMessage: boolean;
   expanded: boolean;
   onToggle: () => void;
 }
 
-function ThreadEventBubble({
+export function ThreadEventBubble({
   event,
   isHostMessage,
   expanded,
