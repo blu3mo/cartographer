@@ -13,6 +13,7 @@ import {
   Loader2,
   Lock,
   Maximize2,
+  Pencil,
   PanelLeft,
   PanelLeftClose,
   Pause,
@@ -506,7 +507,7 @@ export function DashboardClient() {
   const [reportRequestControls, setReportRequestControls] =
     useState<ReactNode | null>(null);
   const [reportHeader, setReportHeader] = useState<ReactNode | null>(null);
-  const [isEditingSessionInfo, setIsEditingSessionInfo] = useState(false);
+  const [isSessionInfoModalOpen, setIsSessionInfoModalOpen] = useState(false);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingGoal, setEditingGoal] = useState("");
   const [editingContext, setEditingContext] = useState("");
@@ -712,9 +713,9 @@ export function DashboardClient() {
   );
 
   useEffect(() => {
-    if (isEditingSessionInfo) return;
+    if (isSessionInfoModalOpen) return;
     resetSessionInfoForm();
-  }, [isEditingSessionInfo, resetSessionInfoForm]);
+  }, [isSessionInfoModalOpen, resetSessionInfoForm]);
 
   useEffect(() => {
     if (previousSessionIdRef.current === selectedAdminSessionId) {
@@ -727,7 +728,7 @@ export function DashboardClient() {
     );
     setCollapsedSections(defaults);
     setCollapsedOverrides({});
-    setIsEditingSessionInfo(false);
+    setIsSessionInfoModalOpen(false);
     setSessionInfoMessage(null);
     setSessionInfoError(null);
   }, [hasSelectedSession, initialParticipantCount, selectedAdminSessionId]);
@@ -886,7 +887,7 @@ export function DashboardClient() {
           ),
         );
         setSessionInfoMessage("セッション情報を更新しました。");
-        setIsEditingSessionInfo(false);
+        setIsSessionInfoModalOpen(false);
       } catch (err) {
         console.error("Failed to update session info:", err);
         setSessionInfoError("セッション情報の更新に失敗しました。");
@@ -907,9 +908,8 @@ export function DashboardClient() {
   );
 
   const handleCancelSessionInfoEdit = useCallback(() => {
-    setIsEditingSessionInfo(false);
-    setSessionInfoMessage(null);
     setSessionInfoError(null);
+    setIsSessionInfoModalOpen(false);
     resetSessionInfoForm();
   }, [resetSessionInfoForm]);
 
@@ -1207,6 +1207,20 @@ export function DashboardClient() {
   const threadShouldProceed = threadData?.thread?.shouldProceed ?? false;
   const canManageThread = Boolean(selectedAdminSession?.isHost);
   const canEditSessionInfo = Boolean(selectedAdminSession?.isHost);
+
+  const openSessionInfoModal = useCallback(() => {
+    if (!canEditSessionInfo || !hasSelectedSession) return;
+    ensureSectionOpen("sessionInfo");
+    setSessionInfoMessage(null);
+    setSessionInfoError(null);
+    resetSessionInfoForm();
+    setIsSessionInfoModalOpen(true);
+  }, [
+    canEditSessionInfo,
+    ensureSectionOpen,
+    hasSelectedSession,
+    resetSessionInfoForm,
+  ]);
 
   if (userLoading || loading) {
     return (
@@ -1850,20 +1864,13 @@ export function DashboardClient() {
                                 : "目的や公開設定を確認できます。"}
                             </CardDescription>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {hasSelectedSession &&
-                              canEditSessionInfo &&
-                              !isEditingSessionInfo && (
+                            <div className="flex items-center gap-2">
+                              {hasSelectedSession && canEditSessionInfo && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="gap-1 text-xs"
-                                  onClick={() => {
-                                    ensureSectionOpen("sessionInfo");
-                                    setSessionInfoMessage(null);
-                                    setSessionInfoError(null);
-                                    setIsEditingSessionInfo(true);
-                                  }}
+                                  onClick={openSessionInfoModal}
                                 >
                                   編集
                                 </Button>
@@ -1900,131 +1907,6 @@ export function DashboardClient() {
                             <div className="flex items-center justify-center py-6">
                               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                             </div>
-                          ) : isEditingSessionInfo ? (
-                            <form
-                              onSubmit={handleSaveSessionInfo}
-                              className="space-y-3 text-xs text-muted-foreground"
-                            >
-                              <div className="space-y-1.5">
-                                <label
-                                  htmlFor="sessionTitle"
-                                  className="text-[11px] font-semibold text-muted-foreground"
-                                >
-                                  タイトル
-                                </label>
-                                <Input
-                                  id="sessionTitle"
-                                  value={editingTitle}
-                                  onChange={(event) =>
-                                    setEditingTitle(event.target.value)
-                                  }
-                                  required
-                                  className="text-sm"
-                                />
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <span className="text-[11px] font-semibold text-muted-foreground">
-                                  公開設定
-                                </span>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <label className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground">
-                                    <input
-                                      type="radio"
-                                      name="sessionVisibility"
-                                      value="public"
-                                      checked={editingVisibility === "public"}
-                                      onChange={() =>
-                                        setEditingVisibility("public")
-                                      }
-                                    />
-                                    <span>公開</span>
-                                  </label>
-                                  <label className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground">
-                                    <input
-                                      type="radio"
-                                      name="sessionVisibility"
-                                      value="private"
-                                      checked={editingVisibility === "private"}
-                                      onChange={() =>
-                                        setEditingVisibility("private")
-                                      }
-                                    />
-                                    <span>非公開</span>
-                                  </label>
-                                </div>
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <label
-                                  htmlFor="sessionGoal"
-                                  className="text-[11px] font-semibold text-muted-foreground"
-                                >
-                                  ゴール
-                                </label>
-                                <textarea
-                                  id="sessionGoal"
-                                  value={editingGoal}
-                                  onChange={(event) =>
-                                    setEditingGoal(event.target.value)
-                                  }
-                                  rows={4}
-                                  className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                                />
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <label
-                                  htmlFor="sessionContext"
-                                  className="text-[11px] font-semibold text-muted-foreground"
-                                >
-                                  コンテキスト
-                                </label>
-                                <textarea
-                                  id="sessionContext"
-                                  value={editingContext}
-                                  onChange={(event) =>
-                                    setEditingContext(event.target.value)
-                                  }
-                                  rows={4}
-                                  className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                                />
-                              </div>
-
-                              {(sessionInfoMessage || sessionInfoError) && (
-                                <div
-                                  className={cn(
-                                    "rounded-md px-3 py-2 text-[11px]",
-                                    sessionInfoError
-                                      ? "border border-rose-200 bg-rose-50 text-rose-700"
-                                      : "border border-emerald-200 bg-emerald-50 text-emerald-700",
-                                  )}
-                                >
-                                  {sessionInfoError ?? sessionInfoMessage}
-                                </div>
-                              )}
-
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  type="submit"
-                                  size="sm"
-                                  className="gap-1 text-xs"
-                                  disabled={savingSessionInfo}
-                                  isLoading={savingSessionInfo}
-                                >
-                                  保存
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="gap-1 text-xs"
-                                  onClick={handleCancelSessionInfoEdit}
-                                >
-                                  キャンセル
-                                </Button>
-                              </div>
-                            </form>
                           ) : (
                             <>
                               {sessionInfoMessage && (
@@ -2191,6 +2073,151 @@ export function DashboardClient() {
           </main>
         </div>
       </div>
+
+      {isSessionInfoModalOpen && (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label="セッション情報の編集を閉じる"
+            tabIndex={-1}
+            className="absolute inset-0 h-full w-full bg-slate-950/60"
+            onClick={handleCancelSessionInfoEdit}
+          />
+          <div className="relative z-10 flex h-full w-full items-center justify-center px-4 py-8">
+            <div
+              className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    セッション情報
+                  </p>
+                  <h2 className="text-xl font-bold text-slate-900">
+                    セッションを編集
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelSessionInfoEdit}
+                  aria-label="閉じる"
+                  className="rounded-full border border-slate-200 p-2 text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <form
+                onSubmit={handleSaveSessionInfo}
+                className="max-h-[70vh] overflow-y-auto px-6 py-6 space-y-4 text-xs text-muted-foreground"
+              >
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="sessionInfoModalTitle"
+                    className="text-[11px] font-semibold text-muted-foreground"
+                  >
+                    タイトル
+                  </label>
+                  <Input
+                    id="sessionInfoModalTitle"
+                    value={editingTitle}
+                    onChange={(event) => setEditingTitle(event.target.value)}
+                    required
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-semibold text-muted-foreground">
+                    公開設定
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground">
+                      <input
+                        type="radio"
+                        name="sessionInfoModalVisibility"
+                        value="public"
+                        checked={editingVisibility === "public"}
+                        onChange={() => setEditingVisibility("public")}
+                      />
+                      <span>公開</span>
+                    </label>
+                    <label className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground">
+                      <input
+                        type="radio"
+                        name="sessionInfoModalVisibility"
+                        value="private"
+                        checked={editingVisibility === "private"}
+                        onChange={() => setEditingVisibility("private")}
+                      />
+                      <span>非公開</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="sessionInfoModalGoal"
+                    className="text-[11px] font-semibold text-muted-foreground"
+                  >
+                    ゴール
+                  </label>
+                  <textarea
+                    id="sessionInfoModalGoal"
+                    value={editingGoal}
+                    onChange={(event) => setEditingGoal(event.target.value)}
+                    rows={4}
+                    className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="sessionInfoModalContext"
+                    className="text-[11px] font-semibold text-muted-foreground"
+                  >
+                    コンテキスト
+                  </label>
+                  <textarea
+                    id="sessionInfoModalContext"
+                    value={editingContext}
+                    onChange={(event) => setEditingContext(event.target.value)}
+                    rows={4}
+                    className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  />
+                </div>
+
+                {sessionInfoError && (
+                  <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+                    {sessionInfoError}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    onClick={handleCancelSessionInfoEdit}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    disabled={savingSessionInfo}
+                    isLoading={savingSessionInfo}
+                  >
+                    保存
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isShareQrFullscreen && shareQrFullscreenSrc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
