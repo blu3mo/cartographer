@@ -1667,7 +1667,7 @@ export function DashboardClient() {
                       )}
                     </Card>
 
-                    <Card>
+                    {/* <Card>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -1739,9 +1739,9 @@ export function DashboardClient() {
                           )}
                         </CardContent>
                       )}
-                    </Card>
+                    </Card> */}
 
-                    <Card>
+                    {/* <Card>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -1894,9 +1894,9 @@ export function DashboardClient() {
                           )}
                         </CardContent>
                       )}
-                    </Card>
+                    </Card> */}
 
-                    <Card>
+                    {/* <Card>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -2001,7 +2001,7 @@ export function DashboardClient() {
                           )}
                         </CardContent>
                       )}
-                    </Card>
+                    </Card> */}
 
                     <Card>
                       <CardHeader className="pb-2">
