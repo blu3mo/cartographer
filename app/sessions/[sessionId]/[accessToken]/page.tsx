@@ -514,13 +514,13 @@ export default function AdminPage({
 
   const shareQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
   const fullscreenQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${FULLSCREEN_QR_SIZE}x${FULLSCREEN_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
 
   const handleSaveSettings = async (event: React.FormEvent) => {
@@ -555,12 +555,12 @@ export default function AdminPage({
       setData((prev) =>
         prev
           ? {
-              ...prev,
-              title: updated.title,
-              context: updated.context,
-              goal: updated.goal,
-              isPublic: updated.isPublic,
-            }
+            ...prev,
+            title: updated.title,
+            context: updated.context,
+            goal: updated.goal,
+            isPublic: updated.isPublic,
+          }
           : prev,
       );
       setSettingsMessage("セッション情報を更新しました。");
@@ -614,9 +614,9 @@ export default function AdminPage({
       setThreadData((prev) =>
         prev
           ? {
-              ...prev,
-              thread: updatedThread,
-            }
+            ...prev,
+            thread: updatedThread,
+          }
           : prev,
       );
     } catch (err) {
@@ -775,8 +775,8 @@ export default function AdminPage({
       const responseRate =
         totalParticipants > 0
           ? Math.round(
-              (statement.responses.totalCount / totalParticipants) * 100 * 10,
-            ) / 10
+            (statement.responses.totalCount / totalParticipants) * 100 * 10,
+          ) / 10
           : 0;
       return {
         statement,
@@ -877,6 +877,124 @@ export default function AdminPage({
           <div className="space-y-8">
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
+                <CardTitle className="text-lg">参加用リンク</CardTitle>
+                <CardDescription>
+                  共有リンクやQRコードから参加者を招待できます
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="shareLink"
+                    className="text-xs font-medium text-slate-600"
+                  >
+                    コピー用URL
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="shareLink"
+                      readOnly
+                      value={shareUrl}
+                      className="text-sm"
+                      onFocus={(event) => event.currentTarget.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyLink}
+                      className="gap-1.5 text-xs"
+                    >
+                      {copyStatus === "copied" ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      {copyStatus === "copied"
+                        ? "コピー済み"
+                        : copyStatus === "error"
+                          ? "コピー失敗"
+                          : "コピー"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="relative rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
+                  {shareQrUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsShareQrFullscreen(true)}
+                      className="absolute right-4 top-4 gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 text-xs text-slate-700 shadow-sm hover:bg-white"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {shareQrUrl ? (
+                    <Image
+                      src={shareQrUrl}
+                      alt="参加用QRコード"
+                      width={SHARE_QR_SIZE}
+                      height={SHARE_QR_SIZE}
+                      className="mx-auto h-[176px] w-[176px] rounded-xl border border-slate-200 bg-white object-contain p-2 shadow-sm"
+                    />
+                  ) : (
+                    <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-xs text-slate-400">
+                      QRコードを生成できませんでした
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            {isShareQrFullscreen && fullscreenQrUrl && (
+              <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm relative">
+                <button
+                  type="button"
+                  aria-label="全画面表示を閉じる"
+                  className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
+                  onClick={() => setIsShareQrFullscreen(false)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setIsShareQrFullscreen(false);
+                    }
+                  }}
+                />
+                <div
+                  className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 text-center"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="参加用QRコードの全画面表示"
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsShareQrFullscreen(false)}
+                    className="absolute right-0 top-0 text-white hover:bg-white/10 focus-visible:ring-white"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
+                    <Image
+                      src={fullscreenQrUrl}
+                      alt="参加用QRコード"
+                      width={FULLSCREEN_QR_SIZE}
+                      height={FULLSCREEN_QR_SIZE}
+                      className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-3xl font-semibold text-white">
+                      QRコードを携帯でスキャン
+                    </h2>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Card className="border-none bg-white/80 shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-lg">モニタリング</CardTitle>
                 <CardDescription>
                   参加状況・回答状況をリアルタイムに確認できます
@@ -901,10 +1019,9 @@ export default function AdminPage({
                   />
                   <MonitoringMetric
                     label="回答進行中"
-                    value={`${
-                      participantSummary.inProgressCount +
+                    value={`${participantSummary.inProgressCount +
                       participantSummary.notStartedCount
-                    }人`}
+                      }人`}
                   />
                 </div>
 
@@ -965,20 +1082,20 @@ export default function AdminPage({
                       新しいレポートを生成
                     </Button>
                     <label
-                        htmlFor="reportRequest"
-                        className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                      >
-                        レポートに対するリクエスト（任意）
-                      </label>
-                      <textarea
-                        id="reportRequest"
-                        value={reportRequest}
-                        onChange={(event) => setReportRequest(event.target.value)}
-                        rows={3}
-                        maxLength={1200}
-                        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                        placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                      />
+                      htmlFor="reportRequest"
+                      className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                    >
+                      レポートに対するリクエスト（任意）
+                    </label>
+                    <textarea
+                      id="reportRequest"
+                      value={reportRequest}
+                      onChange={(event) => setReportRequest(event.target.value)}
+                      rows={3}
+                      maxLength={1200}
+                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                    />
                   </form>
                 ) : (
                   <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
@@ -1120,7 +1237,7 @@ export default function AdminPage({
 
                         <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
                           {selectedReport.status === "completed" &&
-                          selectedReport.contentMarkdown ? (
+                            selectedReport.contentMarkdown ? (
                             <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                 {selectedReport.contentMarkdown}
@@ -1165,268 +1282,6 @@ export default function AdminPage({
 
               </CardContent>
             </Card>
-
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">
-                  ステートメントのハイライト
-                </CardTitle>
-                <CardDescription>
-                  合意・対立・迷いが大きいテーマを把握できます
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-6 lg:grid-cols-3">
-                  <StatementHighlightColumn
-                    title="合意度トップ3"
-                    tone="emerald"
-                    items={statementHighlights.agreement}
-                  />
-                  <StatementHighlightColumn
-                    title="対立度トップ3"
-                    tone="amber"
-                    items={statementHighlights.conflict}
-                  />
-                  <StatementHighlightColumn
-                    title="わからない度トップ3"
-                    tone="slate"
-                    items={statementHighlights.dontKnow}
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      window.open(
-                        `/sessions/${sessionId}/admin/statements`,
-                        "_blank",
-                      )
-                    }
-                    className="gap-1.5 text-xs"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    ステートメント一覧へ
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none bg-white/80 shadow-lg">
-              <CardHeader className="pb-4">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">進行ログ</CardTitle>
-                    <CardDescription>
-                      ファシリテーターAIの進行状況をここから確認できます
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <ThreadStatusPill
-                      shouldProceed={threadData?.thread?.shouldProceed ?? false}
-                    />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-inner">
-                  {threadLoading && (
-                    <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-white/90 to-white/30 py-2 text-center text-xs text-slate-500">
-                      更新中…
-                    </div>
-                  )}
-                  <div
-                    ref={threadContainerRef}
-                    className="h-[620px] overflow-y-auto px-6 py-6 space-y-5"
-                  >
-                    {threadError ? (
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                        {threadError}
-                      </div>
-                    ) : threadData?.events.length ? (
-                      threadData.events.map((event) => {
-                        const isHostMessage = event.type === "user_message";
-                        const expanded = Boolean(expandedEvents[event.id]);
-                        return (
-                          <ThreadEventBubble
-                            key={event.id}
-                            event={event}
-                            isHostMessage={isHostMessage}
-                            expanded={expanded}
-                            onToggle={() =>
-                              setExpandedEvents((prev) => ({
-                                ...prev,
-                                [event.id]: !prev[event.id],
-                              }))
-                            }
-                          />
-                        );
-                      })
-                    ) : (
-                      <p className="text-sm text-slate-500">
-                        まだイベントはありません。Agentとの会話はここに表示されます。
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {canEdit && (
-                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                    <label
-                      htmlFor="adminMessage"
-                      className="text-xs font-medium text-slate-600"
-                    >
-                      ファシリテーターAIへのメッセージ
-                    </label>
-                    <textarea
-                      id="adminMessage"
-                      value={messageDraft}
-                      onChange={(event) => setMessageDraft(event.target.value)}
-                      rows={3}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
-                    />
-                    <div className="flex items-center justify-between">
-                      <Button
-                        type="button"
-                        onClick={handleSendMessage}
-                        disabled={
-                          sendingMessage || messageDraft.trim().length === 0
-                        }
-                        isLoading={sendingMessage}
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        送信
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-          </div>
-
-          <div className="space-y-8">
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">参加用リンク</CardTitle>
-                <CardDescription>
-                  共有リンクやQRコードから参加者を招待できます
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="space-y-2">
-                  <label
-                    htmlFor="shareLink"
-                    className="text-xs font-medium text-slate-600"
-                  >
-                    コピー用URL
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="shareLink"
-                      readOnly
-                      value={shareUrl}
-                      className="text-sm"
-                      onFocus={(event) => event.currentTarget.select()}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyLink}
-                      className="gap-1.5 text-xs"
-                    >
-                      {copyStatus === "copied" ? (
-                        <Check className="h-3.5 w-3.5 text-emerald-600" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                      {copyStatus === "copied"
-                        ? "コピー済み"
-                        : copyStatus === "error"
-                          ? "コピー失敗"
-                          : "コピー"}
-                    </Button>
-                  </div>
-                </div>
-                <div className="relative rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
-                  {shareQrUrl && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsShareQrFullscreen(true)}
-                      className="absolute right-4 top-4 gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 text-xs text-slate-700 shadow-sm hover:bg-white"
-                    >
-                      <Maximize2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {shareQrUrl ? (
-                    <Image
-                      src={shareQrUrl}
-                      alt="参加用QRコード"
-                      width={SHARE_QR_SIZE}
-                      height={SHARE_QR_SIZE}
-                      className="mx-auto h-[176px] w-[176px] rounded-xl border border-slate-200 bg-white object-contain p-2 shadow-sm"
-                    />
-                  ) : (
-                    <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-xs text-slate-400">
-                      QRコードを生成できませんでした
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-            {isShareQrFullscreen && fullscreenQrUrl && (
-              <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm relative">
-                <button
-                  type="button"
-                  aria-label="全画面表示を閉じる"
-                  className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
-                  onClick={() => setIsShareQrFullscreen(false)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      setIsShareQrFullscreen(false);
-                    }
-                  }}
-                />
-                <div
-                  className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 text-center"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="参加用QRコードの全画面表示"
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsShareQrFullscreen(false)}
-                    className="absolute right-0 top-0 text-white hover:bg-white/10 focus-visible:ring-white"
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
-                    <Image
-                      src={fullscreenQrUrl}
-                      alt="参加用QRコード"
-                      width={FULLSCREEN_QR_SIZE}
-                      height={FULLSCREEN_QR_SIZE}
-                      className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <h2 className="text-3xl font-semibold text-white">
-                      QRコードを携帯でスキャン
-                    </h2>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between gap-4">
@@ -1572,11 +1427,10 @@ export default function AdminPage({
 
                     {(settingsMessage || settingsError) && (
                       <div
-                        className={`rounded-xl px-3 py-2 text-xs ${
-                          settingsError
-                            ? "bg-red-50 text-red-600"
-                            : "bg-emerald-50 text-emerald-700"
-                        }`}
+                        className={`rounded-xl px-3 py-2 text-xs ${settingsError
+                          ? "bg-red-50 text-red-600"
+                          : "bg-emerald-50 text-emerald-700"
+                          }`}
                       >
                         {settingsError ?? settingsMessage}
                       </div>
@@ -1619,6 +1473,101 @@ export default function AdminPage({
               </CardContent>
             </Card>
 
+            <Card className="border-none bg-white/80 shadow-lg">
+              <CardHeader className="pb-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-lg">進行ログ</CardTitle>
+                    <CardDescription>
+                      ファシリテーターAIの進行状況をここから確認できます
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <ThreadStatusPill
+                      shouldProceed={threadData?.thread?.shouldProceed ?? false}
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-inner">
+                  {threadLoading && (
+                    <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-white/90 to-white/30 py-2 text-center text-xs text-slate-500">
+                      更新中…
+                    </div>
+                  )}
+                  <div
+                    ref={threadContainerRef}
+                    className="h-[620px] overflow-y-auto px-6 py-6 space-y-5"
+                  >
+                    {threadError ? (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                        {threadError}
+                      </div>
+                    ) : threadData?.events.length ? (
+                      threadData.events.map((event) => {
+                        const isHostMessage = event.type === "user_message";
+                        const expanded = Boolean(expandedEvents[event.id]);
+                        return (
+                          <ThreadEventBubble
+                            key={event.id}
+                            event={event}
+                            isHostMessage={isHostMessage}
+                            expanded={expanded}
+                            onToggle={() =>
+                              setExpandedEvents((prev) => ({
+                                ...prev,
+                                [event.id]: !prev[event.id],
+                              }))
+                            }
+                          />
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        まだイベントはありません。Agentとの会話はここに表示されます。
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {canEdit && (
+                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+                    <label
+                      htmlFor="adminMessage"
+                      className="text-xs font-medium text-slate-600"
+                    >
+                      ファシリテーターAIへのメッセージ
+                    </label>
+                    <textarea
+                      id="adminMessage"
+                      value={messageDraft}
+                      onChange={(event) => setMessageDraft(event.target.value)}
+                      rows={3}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
+                      placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
+                    />
+                    <div className="flex items-center justify-between">
+                      <Button
+                        type="button"
+                        onClick={handleSendMessage}
+                        disabled={
+                          sendingMessage || messageDraft.trim().length === 0
+                        }
+                        isLoading={sendingMessage}
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        送信
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg">進行設定</CardTitle>
@@ -1632,11 +1581,10 @@ export default function AdminPage({
                   onClick={canEdit ? handleToggleShouldProceed : undefined}
                   disabled={togglingProceed || !canEdit}
                   aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                    threadData?.thread?.shouldProceed
-                      ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
-                      : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                  } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
+                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${threadData?.thread?.shouldProceed
+                    ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
+                    : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
+                    } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -1652,11 +1600,10 @@ export default function AdminPage({
                     <div className="flex items-center gap-3">
                       <div
                         aria-hidden="true"
-                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${
-                          threadData?.thread?.shouldProceed
-                            ? "border-emerald-300 bg-emerald-500/90 justify-end"
-                            : "border-amber-300 bg-amber-200/90 justify-start"
-                        }`}
+                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${threadData?.thread?.shouldProceed
+                          ? "border-emerald-300 bg-emerald-500/90 justify-end"
+                          : "border-amber-300 bg-amber-200/90 justify-start"
+                          }`}
                       >
                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
                           {threadData?.thread?.shouldProceed ? (
@@ -1697,7 +1644,51 @@ export default function AdminPage({
                 )}
               </CardContent>
             </Card>
-
+            <Card className="border-none bg-white/80 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">
+                  ステートメントのハイライト
+                </CardTitle>
+                <CardDescription>
+                  合意・対立・迷いが大きいテーマを把握できます
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <StatementHighlightColumn
+                    title="合意度トップ3"
+                    tone="emerald"
+                    items={statementHighlights.agreement}
+                  />
+                  <StatementHighlightColumn
+                    title="対立度トップ3"
+                    tone="amber"
+                    items={statementHighlights.conflict}
+                  />
+                  <StatementHighlightColumn
+                    title="わからない度トップ3"
+                    tone="slate"
+                    items={statementHighlights.dontKnow}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      window.open(
+                        `/sessions/${sessionId}/admin/statements`,
+                        "_blank",
+                      )
+                    }
+                    className="gap-1.5 text-xs"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    ステートメント一覧へ
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
@@ -1743,11 +1734,11 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
   const progressRatio =
     participant.totalStatements > 0
       ? Math.min(
-          100,
-          Math.round(
-            (participant.answeredCount / participant.totalStatements) * 100,
-          ),
-        )
+        100,
+        Math.round(
+          (participant.answeredCount / participant.totalStatements) * 100,
+        ),
+      )
       : 0;
 
   return (
@@ -1859,11 +1850,10 @@ function StatementHighlightColumn({
 function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-        shouldProceed
-          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-          : "bg-amber-50 text-amber-600 border border-amber-200"
-      }`}
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${shouldProceed
+        ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+        : "bg-amber-50 text-amber-600 border border-amber-200"
+        }`}
     >
       {shouldProceed ? (
         <>
@@ -2029,9 +2019,8 @@ function ThreadEventBubble({
 
   return (
     <div
-      className={`flex gap-3 ${
-        isHostMessage ? "justify-end" : "justify-start"
-      }`}
+      className={`flex gap-3 ${isHostMessage ? "justify-end" : "justify-start"
+        }`}
     >
       {!isHostMessage && (
         <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
@@ -2039,9 +2028,8 @@ function ThreadEventBubble({
         </div>
       )}
       <div
-        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${
-          isHostMessage ? "items-end" : "items-start"
-        }`}
+        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${isHostMessage ? "items-end" : "items-start"
+          }`}
       >
         <div
           className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
@@ -2053,19 +2041,17 @@ function ThreadEventBubble({
           </span>
         </div>
         <div
-          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${
-            isHostMessage
-              ? "border-indigo-100 bg-indigo-50/80"
-              : "border-slate-200 bg-white/90"
-          }`}
+          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${isHostMessage
+            ? "border-indigo-100 bg-indigo-50/80"
+            : "border-slate-200 bg-white/90"
+            }`}
         >
           <div className="flex flex-col gap-0">
             {content.content}
             {toggleButton && (
               <div
-                className={`flex ${
-                  isHostMessage ? "justify-end" : "justify-start"
-                } ${content.hasFade ? "-mt-1" : "mt-2"}`}
+                className={`flex ${isHostMessage ? "justify-end" : "justify-start"
+                  } ${content.hasFade ? "-mt-1" : "mt-2"}`}
               >
                 {toggleButton}
               </div>
