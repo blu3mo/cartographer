@@ -855,6 +855,19 @@ export default function AdminPage({
                 {data.title}
               </h1>
             </div>
+            {canEdit && (
+              <Button
+                onClick={handleDeleteSession}
+                disabled={deleting}
+                isLoading={deleting}
+                variant="destructive"
+                size="sm"
+                className="mt-3 gap-1.5 text-xs"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                セッションを削除
+              </Button>
+            )}
           </div>
         </header>
 
@@ -1200,27 +1213,6 @@ export default function AdminPage({
                   </div>
                 </button>
 
-                {canEdit && (
-                  <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
-                    <p className="text-sm font-medium text-red-700">
-                      セッションを削除
-                    </p>
-                    <p className="mt-1 text-xs text-red-600">
-                      この操作は取り消せません。全てのデータが削除されます。
-                    </p>
-                    <Button
-                      onClick={handleDeleteSession}
-                      disabled={deleting}
-                      isLoading={deleting}
-                      variant="destructive"
-                      size="sm"
-                      className="mt-3 gap-1.5 text-xs"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      セッションを削除
-                    </Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
             <Card className="border-none bg-white/80 shadow-sm">
