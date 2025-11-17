@@ -1602,7 +1602,7 @@ export function SessionAdminDashboard({
             </CardContent>
           )}
         </Card>
-        <Card className="border-none bg-white/80 shadow-lg">
+        {/* <Card className="border-none bg-white/80 shadow-lg">
           <CardHeader className="pb-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -1718,7 +1718,7 @@ export function SessionAdminDashboard({
               )}
             </CardContent>
           )}
-        </Card>
+        </Card> */}
         <Card className="border-none bg-white/80 shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-start justify-between gap-4">
