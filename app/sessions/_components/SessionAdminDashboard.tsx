@@ -945,41 +945,62 @@ export function SessionAdminDashboard({
             進行ログ
           </button>
         </div>
-        <div className="flex items-center gap-2">
-          <select
-            id="reportVersionSelect"
-            value={selectedReportId ?? ""}
-            onChange={(event) => setSelectedReportId(event.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-          >
-            {reports.map((report) => {
-              const meta = REPORT_STATUS_META[report.status];
-              return (
-                <option key={report.id} value={report.id}>
-                  v{String(report.version).padStart(2, "0")}・{meta.label}
-                </option>
-              );
-            })}
-          </select>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={
-              selectedReport.status !== "completed" ||
-              !selectedReport.contentMarkdown
-            }
-            onClick={handleCopyReportMarkdown}
-            className="gap-1.5 text-xs"
-          >
-            <Copy className="h-3.5 w-3.5" />
-            {reportCopyStatus === "copied"
-              ? "コピー済み"
-              : reportCopyStatus === "error"
-                ? "コピー失敗"
-                : "Markdownをコピー"}
-          </Button>
-        </div>
+        {viewMode === "report" && (
+          <div className="flex items-center gap-2">
+            <select
+              id="reportVersionSelect"
+              value={selectedReportId ?? ""}
+              onChange={(event) => setSelectedReportId(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+            >
+              {reports.map((report) => {
+                const meta = REPORT_STATUS_META[report.status];
+                return (
+                  <option key={report.id} value={report.id}>
+                    v{String(report.version).padStart(2, "0")}・{meta.label}
+                  </option>
+                );
+              })}
+            </select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                selectedReport.status !== "completed" ||
+                !selectedReport.contentMarkdown
+              }
+              onClick={handleCopyReportMarkdown}
+              className="gap-1.5 text-xs"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              {reportCopyStatus === "copied"
+                ? "コピー済み"
+                : reportCopyStatus === "error"
+                  ? "コピー失敗"
+                  : "Markdownをコピー"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                selectedReport.status !== "completed" ||
+                !selectedReport.contentMarkdown
+              }
+              onClick={() =>
+                window.open(
+                  `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
+                  "_blank",
+                )
+              }
+              className="gap-1.5 text-xs"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              公開用ページを開く
+            </Button>
+          </div>
+        )}
       </div>
     );
   }, [
@@ -1205,44 +1226,11 @@ export function SessionAdminDashboard({
                     <>
                       {selectedReport.status === "completed" &&
                       selectedReport.contentMarkdown ? (
-                        <>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleCopyReportMarkdown}
-                              className="gap-1.5 text-xs"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                              {reportCopyStatus === "copied"
-                                ? "コピー済み"
-                                : reportCopyStatus === "error"
-                                  ? "コピー失敗"
-                                  : "Markdownをコピー"}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                window.open(
-                                  `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
-                                  "_blank",
-                                )
-                              }
-                              className="gap-1.5 text-xs"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              公開用ページを開く
-                            </Button>
-                          </div>
-                          <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {selectedReport.contentMarkdown}
-                            </ReactMarkdown>
-                          </div>
-                        </>
+                        <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {selectedReport.contentMarkdown}
+                          </ReactMarkdown>
+                        </div>
                       ) : selectedReport.status === "failed" ? (
                         <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
                           <p className="font-semibold">レポート生成に失敗しました</p>
