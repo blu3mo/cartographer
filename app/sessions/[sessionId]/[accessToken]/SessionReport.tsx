@@ -32,6 +32,7 @@ type SessionReportProps = {
 	selectedReport: SessionReport | null;
 	isViewingLatestReport: boolean;
 	formatDateTime: (value: string) => string;
+	reportPrintPageURL: string;
 };
 
 const REPORT_STATUS_META: Record<
@@ -76,6 +77,7 @@ export const SessionReportCard: FC<SessionReportProps> = ({
 	selectedReport,
 	isViewingLatestReport,
 	formatDateTime,
+	reportPrintPageURL,
 }) => {
 	return (
 		<Card className="border-none bg-white/80 shadow-sm">
@@ -167,10 +169,8 @@ export const SessionReportCard: FC<SessionReportProps> = ({
 											}
 											onClick={() => {
 												if (!selectedReport) return;
-												// URL 構築は呼び出し側で行うのが理想だが、
-												// 既存のロジックでは window.open に直接書かれていたのでここでも同様に扱う
-												const url = `/sessions/${selectedReport.sessionId}/${selectedReport.accessToken}/reports/${selectedReport.id}/print`;
-												window.open(url, "_blank");
+												if (!reportPrintPageURL) return;
+												window.open(reportPrintPageURL, "_blank");
 											}}
 										>
 											<Share className="h-3.5 w-3.5" />

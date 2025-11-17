@@ -292,8 +292,6 @@ export default function AdminPage({
     "idle" | "copied" | "error"
   >("idle");
 
-  const reportPrintPageURL = toAbsoluteUrl(`/sessions/${sessionId}/${accessToken}/reports/${selectedReportId}/print`);
-
   const fetchAdminData = useCallback(async () => {
     if (!userId) return;
 
@@ -443,6 +441,10 @@ export default function AdminPage({
     selectedReport !== null &&
     latestReport !== null &&
     selectedReport.id === latestReport.id;
+  const reportPrintPageURL = useMemo(() => {
+    if (!selectedReport) return "";
+    return `/sessions/${selectedReport.sessionId}/${accessToken}/reports/${selectedReport.id}/print`;
+  }, [selectedReport, accessToken]);
 
   useEffect(() => {
     if (data) {
@@ -912,6 +914,7 @@ export default function AdminPage({
               selectedReport={selectedReport}
               isViewingLatestReport={isViewingLatestReport}
               formatDateTime={formatDateTime}
+              reportPrintPageURL={reportPrintPageURL}
             />
           </div>
           <SessionInfo
