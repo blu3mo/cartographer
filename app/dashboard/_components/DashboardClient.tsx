@@ -1218,19 +1218,19 @@ export function DashboardClient() {
 
   return (
     <>
-      <div className="flex h-screen flex-col bg-background">
+      <div className="flex h-screen flex-col bg-gradient-to-b from-slate-50 to-white">
         <AppHeader />
 
         <div className="flex flex-1 overflow-hidden">
           <aside
             className={cn(
-              "flex flex-col border-r bg-muted/30 transition-all duration-300",
+              "flex flex-col border-r border-slate-200 bg-white transition-all duration-300",
               isSidebarCollapsed ? "w-0" : "w-80",
             )}
           >
             {!isSidebarCollapsed && (
               <>
-                <div className="flex h-16 items-center gap-2 border-b px-4">
+                <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-4">
                   <Input
                     placeholder="セッションを検索..."
                     value={searchTerm}
@@ -1259,8 +1259,8 @@ export function DashboardClient() {
                             className={cn(
                               "w-full rounded-xl border px-4 py-3 text-left transition-all",
                               isSelected
-                                ? "border-primary bg-primary/10 shadow-sm"
-                                : "border-transparent bg-card hover:border-border hover:bg-muted/40",
+                                ? "border-blue-300 bg-blue-50 shadow-sm"
+                                : "border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm",
                             )}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -1295,7 +1295,7 @@ export function DashboardClient() {
                       })}
                     </div>
                   ) : (
-                    <div className="flex min-h-[200px] items-center justify-center rounded-xl border border-dashed border-muted-foreground/40 bg-muted/20 px-4 text-center text-xs text-muted-foreground">
+                    <div className="flex min-h-[200px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-xs text-slate-600">
                       管理中のセッションがありません。新規作成してチームの対話を始めましょう。
                     </div>
                   )}
@@ -1305,7 +1305,7 @@ export function DashboardClient() {
           </aside>
 
           <main className="flex flex-1 flex-col overflow-hidden">
-            <div className="flex h-16 items-center justify-between border-b bg-card px-6">
+            <div className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
               <div className="flex items-center gap-4">
                 <Button
                   variant="ghost"
@@ -1345,10 +1345,10 @@ export function DashboardClient() {
                     return (
                       <div
                         key={stat.label}
-                        className="flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground"
+                        className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600"
                       >
-                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="font-semibold text-foreground">
+                        <Icon className="h-3.5 w-3.5 text-slate-500" />
+                        <span className="font-semibold text-slate-900">
                           {stat.value}
                         </span>
                         <span>{stat.label}</span>
@@ -1360,102 +1360,74 @@ export function DashboardClient() {
             </div>
 
             <div className="flex flex-1 overflow-hidden">
-              <div className="flex flex-1 flex-col overflow-hidden border-r">
-                <div className="bg-card px-6 py-7">
-                  <div className="space-y-5">
-                    <div className="space-y-1.5">
-                      <h3 className="text-lg font-semibold text-card-foreground">
-                        分析レポート
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        参加者の回答結果や、セッション情報をもとに、現状把握レポートを生成します。
-                      </p>
-                    </div>
-                    {reportHeader && <div>{reportHeader}</div>}
+              <div className="flex flex-1 flex-col overflow-hidden border-r border-slate-200">
+                {reportHeader && (
+                  <div className="border-b border-slate-200 bg-white px-6 py-4">
+                    {reportHeader}
                   </div>
-                </div>
+                )}
 
-                <div className="flex-1 overflow-hidden bg-muted/30 p-6">
-                  <div className="flex h-full flex-col gap-4">
-                    {error && (
-                      <Card className="border-destructive/40 bg-destructive/10 text-destructive">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-semibold">
-                            データの取得に失敗しました
-                          </CardTitle>
-                          <CardDescription className="text-xs text-destructive">
-                            {error}
-                          </CardDescription>
-                        </CardHeader>
-                      </Card>
-                    )}
-                    <Card className="flex h-full flex-col border-border/60">
-                      <CardContent className="flex-1 overflow-hidden p-4">
-                        {detailLoading && hasSelectedSession ? (
-                          <div className="flex h-full items-center justify-center">
-                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                          </div>
-                        ) : hasSelectedSession && selectedAdminAccessToken ? (
-                          <SessionAdminDashboard
-                            key={selectedAdminSession?.id}
-                            sessionId={selectedAdminSession?.id ?? ""}
-                            accessToken={selectedAdminAccessToken}
-                            embedded
-                            showHeader={false}
-                            disableLocalSidebar
-                            externalizeReportRequestControls
-                            onReportRequestControlsRender={
-                              setReportRequestControls
-                            }
-                            externalizeReportHeader
-                            onReportHeaderRender={setReportHeader}
-                          />
-                        ) : (
-                          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-                            {sessions.length === 0 ? (
-                              <>
-                                <p>セッションがありません。</p>
-                                <Button onClick={openCreateModal}>
-                                  <Plus className="h-4 w-4" />
-                                  新規セッションを作成
-                                </Button>
-                              </>
-                            ) : (
-                              <p>
-                                管理権限のあるセッションを選択してください。
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        {detailError && hasSelectedSession && (
-                          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                            {detailError}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-                <div className="border-t bg-card px-6 py-4">
-                  {reportRequestControls ? (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-semibold text-card-foreground">
-                        レポートへのリクエスト
-                      </h4>
-                      <p className="text-xs text-muted-foreground">
-                        追加で伝えたい条件があれば、ここに入力してください。
+                <div className="flex h-full flex-1 flex-col overflow-hidden bg-white">
+                  {error && (
+                    <div className="mx-6 mt-6 rounded-xl border border-rose-200 bg-rose-50 px-6 py-3">
+                      <p className="text-sm font-semibold text-rose-700">
+                        データの取得に失敗しました
                       </p>
+                      <p className="text-xs text-rose-600">{error}</p>
+                    </div>
+                  )}
+                  <div className="flex-1 overflow-hidden">
+                    {detailLoading && hasSelectedSession ? (
+                      <div className="flex h-full items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                      </div>
+                    ) : hasSelectedSession && selectedAdminAccessToken ? (
+                      <SessionAdminDashboard
+                        key={selectedAdminSession?.id}
+                        sessionId={selectedAdminSession?.id ?? ""}
+                        accessToken={selectedAdminAccessToken}
+                        embedded
+                        showHeader={false}
+                        disableLocalSidebar
+                        externalizeReportRequestControls
+                        onReportRequestControlsRender={
+                          setReportRequestControls
+                        }
+                        externalizeReportHeader
+                        onReportHeaderRender={setReportHeader}
+                      />
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-slate-500">
+                        {sessions.length === 0 ? (
+                          <>
+                            <p>セッションがありません。</p>
+                            <Button onClick={openCreateModal}>
+                              <Plus className="h-4 w-4" />
+                              新規セッションを作成
+                            </Button>
+                          </>
+                        ) : (
+                          <p>
+                            管理権限のあるセッションを選択してください。
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {detailError && hasSelectedSession && (
+                      <div className="mx-6 mb-6 rounded-xl border border-amber-300 bg-amber-50 px-6 py-3">
+                        <p className="text-sm text-amber-700">{detailError}</p>
+                      </div>
+                    )}
+                  </div>
+                  {reportRequestControls && (
+                    <div className="px-6 pb-6">
                       {reportRequestControls}
                     </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      レポートが生成されると、ここから追記リクエストを入力できます。
-                    </p>
                   )}
                 </div>
               </div>
 
-              <aside className="w-80 bg-muted/20">
+              <aside className="w-80 bg-slate-50">
                 <div className="flex h-full flex-col overflow-y-auto px-6 py-6">
                   <div className="space-y-4">
                     <Card>
