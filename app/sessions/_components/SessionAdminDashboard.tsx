@@ -979,25 +979,6 @@ export function SessionAdminDashboard({
                 ? "コピー失敗"
                 : "Markdownをコピー"}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={
-              selectedReport.status !== "completed" ||
-              !selectedReport.contentMarkdown
-            }
-            onClick={() =>
-              window.open(
-                `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
-                "_blank",
-              )
-            }
-            className="gap-1.5 text-xs"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            公開用ページを開く
-          </Button>
         </div>
       </div>
     );
@@ -1224,11 +1205,30 @@ export function SessionAdminDashboard({
                     <>
                       {selectedReport.status === "completed" &&
                       selectedReport.contentMarkdown ? (
-                        <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {selectedReport.contentMarkdown}
-                          </ReactMarkdown>
-                        </div>
+                        <>
+                          <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {selectedReport.contentMarkdown}
+                            </ReactMarkdown>
+                          </div>
+                          <div className="mt-6 flex justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                window.open(
+                                  `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
+                                  "_blank",
+                                )
+                              }
+                              className="gap-1.5 text-xs"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              公開用ページを開く
+                            </Button>
+                          </div>
+                        </>
                       ) : selectedReport.status === "failed" ? (
                         <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
                           <p className="font-semibold">レポート生成に失敗しました</p>
