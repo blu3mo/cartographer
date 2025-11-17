@@ -804,31 +804,85 @@ export function SessionAdminDashboard({
         </div>
       );
     }
+
+    const showSuggestions = selectedReport?.status === "completed" && selectedReport?.contentMarkdown;
+
     return (
-      <form
-        onSubmit={handleCreateReportSubmit}
-        className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-inner"
-      >
-        <textarea
-          id="reportRequest"
-          value={reportRequest}
-          onChange={(event) => setReportRequest(event.target.value)}
-          rows={3}
-          maxLength={1200}
-          className="flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-          placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-        />
-        <Button
-          type="submit"
-          size="sm"
-          disabled={creatingReport}
-          isLoading={creatingReport}
-          className="gap-1.5 text-xs"
+      <div className="space-y-3">
+        {showSuggestions && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setReportRequest("合意点をより詳しく分析してください")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
+            >
+              <p className="font-semibold text-slate-900">合意点を深掘り</p>
+              <p className="mt-1 text-sm text-slate-600">
+                合意点をより詳しく分析
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setReportRequest("相違点の背景にある価値観の違いを分析してください")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
+            >
+              <p className="font-semibold text-slate-900">相違点を分析</p>
+              <p className="mt-1 text-sm text-slate-600">
+                価値観の違いを探る
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setReportRequest("次のアクションプランを提案してください")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
+            >
+              <p className="font-semibold text-slate-900">アクションプラン</p>
+              <p className="mt-1 text-sm text-slate-600">
+                次のステップを提案
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setReportRequest("より簡潔な要約を作成してください")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50"
+            >
+              <p className="font-semibold text-slate-900">要約版を作成</p>
+              <p className="mt-1 text-sm text-slate-600">
+                簡潔にまとめる
+              </p>
+            </button>
+          </div>
+        )}
+        <form
+          onSubmit={handleCreateReportSubmit}
+          className="relative flex items-end gap-2 rounded-3xl border border-slate-200 bg-white p-2 shadow-sm transition-shadow hover:shadow-md focus-within:shadow-md"
         >
-          <FileText className="h-3.5 w-3.5" />
-          コメントを元に再度作成
-        </Button>
-      </form>
+          <textarea
+            id="reportRequest"
+            value={reportRequest}
+            onChange={(event) => setReportRequest(event.target.value)}
+            rows={1}
+            maxLength={1200}
+            className="max-h-32 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none"
+            placeholder="レポート生成のリクエストを入力..."
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleCreateReportSubmit(e);
+              }
+            }}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={creatingReport || !reportRequest.trim()}
+            isLoading={creatingReport}
+            className="h-9 w-9 flex-shrink-0 rounded-full p-0"
+          >
+            {!creatingReport && <Send className="h-4 w-4" />}
+          </Button>
+        </form>
+      </div>
     );
   }, [
     canEdit,
@@ -836,6 +890,7 @@ export function SessionAdminDashboard({
     handleCreateReportSubmit,
     hasReports,
     reportRequest,
+    selectedReport,
   ]);
 
   useEffect(() => {
@@ -1133,49 +1188,61 @@ export function SessionAdminDashboard({
                 <div className="h-[420px] animate-pulse rounded-3xl bg-slate-100/80" />
               </div>
             ) : hasReports && selectedReport ? (
-              <div className="flex flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white/80 shadow-inner">
-                <div className="flex flex-1 flex-col overflow-y-auto p-6">
-                  {/* <div className="flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.2em] text-slate-400">
-                    <span
-                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${REPORT_STATUS_META[selectedReport.status].badge}`}
-                    >
-                      {REPORT_STATUS_META[selectedReport.status].label}
-                    </span>
-                    <span>
-                      バージョン{" "}
-                      {String(selectedReport.version).padStart(2, "0")}
-                    </span>
-                    <span>
-                      トークン消費見込み:{" "}
-                      {selectedReport.estimatedTokenUsage?.toLocaleString() ??
-                        "N/A"}
-                    </span>
-                  </div> */}
-                  <div className="mt-4 flex-1">
-                    {selectedReport.status === "completed" &&
-                    selectedReport.contentMarkdown ? (
-                      <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {selectedReport.contentMarkdown}
-                        </ReactMarkdown>
+              <div className="flex flex-1 flex-col overflow-hidden bg-white">
+                <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6 pt-4">
+                  {selectedReport.requestMarkdown && (
+                    <div className="flex justify-end">
+                      <div className="max-w-[80%] rounded-3xl bg-blue-600 px-4 py-3 text-sm text-white">
+                        {selectedReport.requestMarkdown}
                       </div>
-                    ) : selectedReport.status === "failed" ? (
-                      <div className="text-sm text-rose-600">
-                        レポート生成に失敗しました。
-                        <br />
-                        {selectedReport.errorMessage ??
-                          "詳細はログを確認してください。"}
-                      </div>
-                    ) : (
-                      <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-slate-500">
-                        <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-                        <p>レポートを生成しています…</p>
-                        <p className="text-[11px] text-slate-400">
-                          完了まで数十秒ほどかかる場合があります。
-                        </p>
-                      </div>
-                    )}
+                    </div>
+                  )}
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900">
+                      <Bot className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      {selectedReport.status === "completed" &&
+                      selectedReport.contentMarkdown ? (
+                        <div>
+                          <div className="mb-3 flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-blue-600" />
+                            <p className="text-sm font-semibold text-slate-900">
+                              セッションレポート
+                            </p>
+                            <span className="ml-auto text-xs text-slate-400">
+                              v{String(selectedReport.version).padStart(2, "0")}
+                            </span>
+                          </div>
+                          <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {selectedReport.contentMarkdown}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      ) : selectedReport.status === "failed" ? (
+                        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                          <p className="font-semibold">レポート生成に失敗しました</p>
+                          <p className="mt-1">
+                            {selectedReport.errorMessage ??
+                              "詳細はログを確認してください。"}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                          <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                          <div>
+                            <p className="font-medium">レポートを生成しています…</p>
+                            <p className="text-xs text-slate-400">
+                              完了まで数十秒ほどかかる場合があります
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+
                   <div className="mt-4 flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-slate-400">
                     <span>
                       作成: {formatDateTime(selectedReport.createdAt)}
