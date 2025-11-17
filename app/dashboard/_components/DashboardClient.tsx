@@ -1334,22 +1334,48 @@ export function DashboardClient() {
                   )}
                 </Button>
                 <div className="space-y-1">
-                  <h2 className="text-lg font-semibold text-card-foreground">
-                    {selectedAdminSession
-                      ? selectedAdminSession.title || "名称未設定"
-                      : sessions.length === 0
-                        ? "まだセッションがありません"
-                        : "管理可能なセッションを選択してください"}
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedAdminSession
-                      ? selectedAdminSession.goal ||
-                        selectedAdminSession.context ||
-                        "セッションの目的や背景は未設定です。"
-                      : managedSessions.length > 0
-                        ? "左側の一覧からセッションを選ぶとレポートが表示されます。"
-                        : "まずは新しいセッションを作成して、対話を設計しましょう。"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-card-foreground">
+                      {selectedAdminSession
+                        ? selectedAdminSession.title || "名称未設定"
+                        : sessions.length === 0
+                          ? "まだセッションがありません"
+                          : "管理可能なセッションを選択してください"}
+                    </h2>
+                    {canEditSessionInfo && hasSelectedSession && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
+                        onClick={openSessionInfoModal}
+                        aria-label="セッション情報を編集"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-start gap-1 text-xs text-muted-foreground">
+                    <p className="flex-1">
+                      {selectedAdminSession
+                        ? selectedAdminSession.goal ||
+                          selectedAdminSession.context ||
+                          "セッションの目的や背景は未設定です。"
+                        : managedSessions.length > 0
+                          ? "左側の一覧からセッションを選ぶとレポートが表示されます。"
+                          : "まずは新しいセッションを作成して、対話を設計しましょう。"}
+                    </p>
+                    {canEditSessionInfo && hasSelectedSession && (
+                      <button
+                        type="button"
+                        onClick={openSessionInfoModal}
+                        className="mt-0.5 rounded-full p-1 text-muted-foreground transition hover:bg-slate-100 hover:text-foreground"
+                        aria-label="セッション概要を編集"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               {headerStats.length > 0 && (
