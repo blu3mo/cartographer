@@ -1354,6 +1354,25 @@ export function DashboardClient() {
               </div>
               {headerStats.length > 0 && (
                 <div className="hidden items-center gap-3 md:flex">
+                  {canEditSessionInfo && selectedAdminSession && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="gap-1 text-xs"
+                      onClick={() => {
+                        void handleDeleteSession();
+                      }}
+                      disabled={
+                        deletingSessionId === selectedAdminSession.id
+                      }
+                      isLoading={
+                        deletingSessionId === selectedAdminSession.id
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      セッションを削除
+                    </Button>
+                  )}
                   {headerStats.map((stat) => {
                     const Icon = stat.icon;
                     return (
