@@ -15,6 +15,7 @@ import {
   Play,
   Printer,
   Send,
+  Share,
   Trash2,
   X,
 } from "lucide-react";
@@ -41,6 +42,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useUserId } from "@/lib/useUserId";
+import { URLShareCard } from "./URLShareCard";
+import { toAbsoluteUrl } from "@/lib/utils";
+import { AnswerProgress } from "./AnswerProgress";
 
 type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
 
@@ -62,7 +66,7 @@ interface StatementWithStats {
   agreementScore: number;
 }
 
-interface ParticipantProgress {
+export interface ParticipantProgress {
   userId: string;
   name: string;
   answeredCount: number;
@@ -269,9 +273,6 @@ export default function AdminPage({
     {},
   );
   const [shareUrl, setShareUrl] = useState("");
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
-    "idle",
-  );
   const [isShareQrFullscreen, setIsShareQrFullscreen] = useState(false);
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const lastThreadEventIdRef = useRef<string | null>(null);
@@ -284,6 +285,8 @@ export default function AdminPage({
   const [reportCopyStatus, setReportCopyStatus] = useState<
     "idle" | "copied" | "error"
   >("idle");
+
+  const reportPrintPageURL = toAbsoluteUrl(`/sessions/${sessionId}/${accessToken}/reports/${selectedReportId}/print`);
 
   const fetchAdminData = useCallback(async () => {
     if (!userId) return;
@@ -512,17 +515,6 @@ export default function AdminPage({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isShareQrFullscreen]);
 
-  const shareQrUrl = shareUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
-      shareUrl,
-    )}`
-    : null;
-  const fullscreenQrUrl = shareUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=${FULLSCREEN_QR_SIZE}x${FULLSCREEN_QR_SIZE}&data=${encodeURIComponent(
-      shareUrl,
-    )}`
-    : null;
-
   const handleSaveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!userId || !canEdit) return;
@@ -651,18 +643,7 @@ export default function AdminPage({
     }
   };
 
-  const handleCopyLink = async () => {
-    if (!shareUrl) return;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopyStatus("copied");
-      window.setTimeout(() => setCopyStatus("idle"), 2000);
-    } catch (err) {
-      console.error("Failed to copy link:", err);
-      setCopyStatus("error");
-      window.setTimeout(() => setCopyStatus("idle"), 2000);
-    }
-  };
+
 
   const handleCreateReport = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -864,7 +845,7 @@ export default function AdminPage({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                Session Admin
+                セッション管理画面
               </div>
               <h1 className="text-3xl font-semibold text-slate-900">
                 {data.title}
@@ -883,164 +864,18 @@ export default function AdminPage({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="space-y-2">
-                  <label
-                    htmlFor="shareLink"
-                    className="text-xs font-medium text-slate-600"
-                  >
-                    コピー用URL
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="shareLink"
-                      readOnly
-                      value={shareUrl}
-                      className="text-sm"
-                      onFocus={(event) => event.currentTarget.select()}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyLink}
-                      className="gap-1.5 text-xs"
-                    >
-                      {copyStatus === "copied" ? (
-                        <Check className="h-3.5 w-3.5 text-emerald-600" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                      {copyStatus === "copied"
-                        ? "コピー済み"
-                        : copyStatus === "error"
-                          ? "コピー失敗"
-                          : "コピー"}
-                    </Button>
-                  </div>
-                </div>
-                <div className="relative rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
-                  {shareQrUrl && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsShareQrFullscreen(true)}
-                      className="absolute right-4 top-4 gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 text-xs text-slate-700 shadow-sm hover:bg-white"
-                    >
-                      <Maximize2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {shareQrUrl ? (
-                    <Image
-                      src={shareQrUrl}
-                      alt="参加用QRコード"
-                      width={SHARE_QR_SIZE}
-                      height={SHARE_QR_SIZE}
-                      className="mx-auto h-[176px] w-[176px] rounded-xl border border-slate-200 bg-white object-contain p-2 shadow-sm"
-                    />
-                  ) : (
-                    <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-xs text-slate-400">
-                      QRコードを生成できませんでした
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-            {isShareQrFullscreen && fullscreenQrUrl && (
-              <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm relative">
-                <button
-                  type="button"
-                  aria-label="全画面表示を閉じる"
-                  className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
-                  onClick={() => setIsShareQrFullscreen(false)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      setIsShareQrFullscreen(false);
-                    }
-                  }}
+                <URLShareCard
+                  shareUrl={shareUrl}
+                  alt="参加用QRコード"
                 />
-                <div
-                  className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 text-center"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="参加用QRコードの全画面表示"
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsShareQrFullscreen(false)}
-                    className="absolute right-0 top-0 text-white hover:bg-white/10 focus-visible:ring-white"
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
-                    <Image
-                      src={fullscreenQrUrl}
-                      alt="参加用QRコード"
-                      width={FULLSCREEN_QR_SIZE}
-                      height={FULLSCREEN_QR_SIZE}
-                      className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <h2 className="text-3xl font-semibold text-white">
-                      QRコードを携帯でスキャン
-                    </h2>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">モニタリング</CardTitle>
-                <CardDescription>
-                  参加状況・回答状況をリアルタイムに確認できます
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <MonitoringMetric
-                    label="参加者"
-                    value={`${totalParticipants}人`}
-                  />
-                  <MonitoringMetric
-                    label="平均回答率"
-                    value={formatPercentage(
-                      participantSummary.averageCompletion,
-                    )}
-                    tone="emerald"
-                  />
-                  <MonitoringMetric
-                    label="回答済み"
-                    value={`${participantSummary.completedCount}人`}
-                  />
-                  <MonitoringMetric
-                    label="回答進行中"
-                    value={`${participantSummary.inProgressCount +
-                      participantSummary.notStartedCount
-                      }人`}
-                  />
-                </div>
-
-                {participants.length === 0 ? (
-                  <p className="text-sm text-slate-500">
-                    まだ参加者はいません。リンクを共有して参加を促しましょう。
-                  </p>
-                ) : (
-                  <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-                    {rankedParticipants.map((participant) => (
-                      <ParticipantProgressRow
-                        key={participant.userId}
-                        participant={participant}
-                      />
-                    ))}
-                  </div>
-                )}
               </CardContent>
             </Card>
+
+            <AnswerProgress
+              participants={participants}
+              rankedParticipants={rankedParticipants}
+              ParticipantProgressRow={ParticipantProgressRow}
+            />
 
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
@@ -1050,58 +885,12 @@ export default function AdminPage({
                       セッションレポート
                     </CardTitle>
                     <CardDescription>
-                      参加者の回答やEvent Threadをもとに洞察レポートを生成します
+                      参加者の回答をもとに洞察レポートを生成します
                     </CardDescription>
                   </div>
-                  {selectedReport ? (
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                        最新の状態
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">
-                        v{String(selectedReport.version).padStart(2, "0")}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                {canEdit ? (
-                  <form
-                    onSubmit={handleCreateReport}
-                    className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-inner"
-                  >
-                    <Button
-                      type="submit"
-                      size="lg"
-                      disabled={creatingReport}
-                      isLoading={creatingReport}
-                      className="w-full justify-center gap-2 rounded-2xl py-6 text-base shadow-lg shadow-slate-900/10"
-                    >
-                      <FileText className="h-4 w-4" />
-                      新しいレポートを生成
-                    </Button>
-                    <label
-                      htmlFor="reportRequest"
-                      className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                    >
-                      レポートに対するリクエスト（任意）
-                    </label>
-                    <textarea
-                      id="reportRequest"
-                      value={reportRequest}
-                      onChange={(event) => setReportRequest(event.target.value)}
-                      rows={3}
-                      maxLength={1200}
-                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                    />
-                  </form>
-                ) : (
-                  <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
-                    レポート生成はセッションのホストのみ利用できます。
-                  </div>
-                )}
 
                 {reportsError && (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -1139,7 +928,9 @@ export default function AdminPage({
                               const meta = REPORT_STATUS_META[report.status];
                               return (
                                 <option key={report.id} value={report.id}>
-                                  v{String(report.version).padStart(2, "0")}・{meta.label}
+                                  v{String(report.version).padStart(2, "0")}({isViewingLatestReport
+                                    ? "最新バージョン"
+                                    : ""})
                                 </option>
                               );
                             })}
@@ -1150,53 +941,7 @@ export default function AdminPage({
                             />
                             {REPORT_STATUS_META[selectedReport.status].label}
                           </span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-500">
-                            {isViewingLatestReport
-                              ? "最新バージョンを表示中"
-                              : latestReport
-                                ? `最新: v${String(latestReport.version).padStart(2, "0")}`
-                                : "最新バージョン情報なし"}
-                          </span>
                         </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={
-                            selectedReport.status !== "completed" ||
-                            !selectedReport.contentMarkdown
-                          }
-                          onClick={handleCopyReportMarkdown}
-                          className="gap-1.5 text-xs"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          {reportCopyStatus === "copied"
-                            ? "コピー済み"
-                            : reportCopyStatus === "error"
-                              ? "コピー失敗"
-                              : "Markdownをコピー"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5 text-xs"
-                          disabled={
-                            selectedReport.status !== "completed" ||
-                            !selectedReport.contentMarkdown
-                          }
-                          onClick={() =>
-                            window.open(
-                              `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
-                              "_blank",
-                            )
-                          }
-                        >
-                          <Printer className="h-3.5 w-3.5" />
-                          印刷用ページ
-                        </Button>
                       </div>
                     </div>
 
@@ -1212,12 +957,33 @@ export default function AdminPage({
                     ) : null}
 
                     <div className="min-h-[360px] rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-inner">
-                      <div className="flex h-full flex-col gap-4">
+                      <div className="flex h-full flex-col gap-4"><div className="space-y-2">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-xs"
+                            disabled={
+                              selectedReport.status !== "completed" ||
+                              !selectedReport.contentMarkdown
+                            }
+                            onClick={() =>
+                              window.open(
+                                `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
+                                "_blank",
+                              )
+                            }
+                          >
+                            <Share className="h-3.5 w-3.5" />
+                            共有用ページ
+                          </Button>
+                        </div>
+                      </div>
+
                         <div className="flex flex-wrap items-center justify-between gap-3">
+
                           <div>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                              Version
-                            </p>
                             <p className="text-xl font-semibold text-slate-900">
                               v{String(selectedReport.version).padStart(2, "0")}
                             </p>
@@ -1235,7 +1001,28 @@ export default function AdminPage({
                           </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
+                        <div className="flex-1 overflow-y-auto 1 rounded-2xl border border-slate-200 bg-white/90 p-4 flex flex-col gap-4">
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={
+                                selectedReport.status !== "completed" ||
+                                !selectedReport.contentMarkdown
+                              }
+                              onClick={handleCopyReportMarkdown}
+                              className="gap-1.5 text-xs"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              {reportCopyStatus === "copied"
+                                ? "コピー済み"
+                                : reportCopyStatus === "error"
+                                  ? "コピー失敗"
+                                  : "Markdownをコピー"}
+                            </Button>
+                          </div>
+
                           {selectedReport.status === "completed" &&
                             selectedReport.contentMarkdown ? (
                             <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
@@ -1279,7 +1066,44 @@ export default function AdminPage({
                     レポートを選択するとここに表示されます。
                   </div>
                 )}
+                {canEdit ? (
+                  <form
+                    onSubmit={handleCreateReport}
+                    className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-inner"
+                  >
+                    <label
+                      htmlFor="reportRequest"
+                      className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                    >
+                      レポートに対するリクエスト（任意）
+                    </label>
+                    <textarea
+                      id="reportRequest"
+                      value={reportRequest}
+                      onChange={(event) => setReportRequest(event.target.value)}
+                      rows={3}
+                      maxLength={1200}
+                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                    />
+                    <Button
+                      type="submit"
+                      size="lg"
+                      disabled={creatingReport}
+                      isLoading={creatingReport}
+                      className="w-full justify-center gap-2 rounded-2xl py-6 text-base shadow-lg shadow-slate-900/10"
+                    >
+                      <FileText className="h-4 w-4" />
+                      新しいレポートを生成
+                    </Button>
 
+
+                  </form>
+                ) : (
+                  <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
+                    レポート生成はセッションのホストのみ利用できます。
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card className="border-none bg-white/80 shadow-sm">
@@ -1751,9 +1575,6 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
           <p className="text-[10px] text-slate-400">最終更新: {updatedLabel}</p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-slate-900">
-            {completionLabel}
-          </p>
           <p className="text-[10px] text-slate-500">
             {participant.answeredCount}/{participant.totalStatements}
           </p>
