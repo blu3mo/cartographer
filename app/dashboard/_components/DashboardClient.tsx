@@ -37,7 +37,6 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { AboutCartographerButton } from "@/components/AboutCartographerButton";
 import { AppHeader } from "@/components/AppHeader";
 import {
   type CreatedSession,
@@ -1220,7 +1219,7 @@ export function DashboardClient() {
   return (
     <>
       <div className="flex h-screen flex-col bg-background">
-        <AppHeader rightSlot={<AboutCartographerButton />} />
+        <AppHeader />
 
         <div className="flex flex-1 overflow-hidden">
           <aside
