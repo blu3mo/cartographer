@@ -134,13 +134,13 @@ export default async function LandingPage() {
               <div className="mt-8 flex flex-col justify-stater gap-4 sm:flex-row">
                 <Link href="/dashboard">
                   <Button size="lg" className="px-8 text-base">
-                    始める
+                    無料で始める
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
                 <Link href="/timeline">
                   <Button size="lg" variant="outline" className="px-8 text-base">
-                    公開議論を見る
+                    公開セッションを見る
                   </Button>
                 </Link>
               </div>
@@ -329,6 +329,51 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* Key Benefits */}
+      <section className="container mx-auto px-4 py-20 bg-slate-50">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              こんな課題を解決します
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="flex gap-3">
+              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold mb-1">会議が長引く</h4>
+                <p className="text-sm text-slate-600">事前に意見を収集し、データに基づいた議論で効率化</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold mb-1">声の大きい人の意見に偏る</h4>
+                <p className="text-sm text-slate-600">全員の意見を平等に可視化し、バランスのとれた決定</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold mb-1">意見の相違が見えない</h4>
+                <p className="text-sm text-slate-600">PCAマップで立場の違いを一目で理解</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold mb-1">合意形成に時間がかかる</h4>
+                <p className="text-sm text-slate-600">AI分析で共通点と相違点を明確にし、議論を加速</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials */}
       <section className="container mx-auto px-4 py-20 bg-white">
         <div className="max-w-5xl mx-auto">
@@ -434,7 +479,7 @@ export default async function LandingPage() {
             <div className="mt-12 text-center">
               <Link href="/timeline">
                 <Button size="lg" className="px-8 text-base">
-                  すべての公開セッションを見る
+                  公開セッションを見る
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -442,52 +487,6 @@ export default async function LandingPage() {
           </div>
         </section>
       )}
-
-
-      {/* Key Benefits */}
-      <section className="container mx-auto px-4 py-20 bg-slate-50">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              こんな課題を解決します
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="flex gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-semibold mb-1">会議が長引く</h4>
-                <p className="text-sm text-slate-600">事前に意見を収集し、データに基づいた議論で効率化</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-semibold mb-1">声の大きい人の意見に偏る</h4>
-                <p className="text-sm text-slate-600">全員の意見を平等に可視化し、バランスのとれた決定</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-semibold mb-1">意見の相違が見えない</h4>
-                <p className="text-sm text-slate-600">PCAマップで立場の違いを一目で理解</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-semibold mb-1">合意形成に時間がかかる</h4>
-                <p className="text-sm text-slate-600">AI分析で共通点と相違点を明確にし、議論を加速</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* CTA Section */}
       <section className="container mx-auto px-4 py-20">
@@ -500,7 +499,7 @@ export default async function LandingPage() {
           </p>
           <Link href="/dashboard">
             <Button size="lg" variant="secondary" className="text-base px-8">
-              ダッシュボードを開く
+              無料で始める
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
