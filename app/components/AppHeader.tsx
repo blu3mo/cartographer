@@ -15,7 +15,7 @@ export function AppHeader({ className, rightSlot, children }: AppHeaderProps) {
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white">
       <div
         className={cn(
-          "mx-auto flex items-center gap-4 px-4 py-3 sm:px-6 lg:px-8",
+          "mx-auto flex items-center gap-4 px-6 py-5 sm:px-8 lg:px-10",
           className,
         )}
       >
