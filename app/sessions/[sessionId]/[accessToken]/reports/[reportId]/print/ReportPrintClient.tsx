@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { AboutCartographerButton } from "@/components/AboutCartographerButton";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/Button";
 import {
@@ -142,7 +143,7 @@ export default function SessionReportPrintClient({
   if (loading) {
     return (
       <div className="min-h-screen bg-white text-slate-900 print:bg-white">
-        <AppHeader className="print:hidden" />
+        <AppHeader className="print:hidden" rightSlot={<AboutCartographerButton />} />
         <div className="mx-auto max-w-4xl px-6 py-6 print:hidden">
           <Breadcrumb className="mb-6">
             <BreadcrumbList>{breadcrumbItems}</BreadcrumbList>
@@ -158,7 +159,7 @@ export default function SessionReportPrintClient({
   if (error || !report) {
     return (
       <div className="min-h-screen bg-white text-slate-900 print:bg-white">
-        <AppHeader className="print:hidden" />
+        <AppHeader className="print:hidden" rightSlot={<AboutCartographerButton />} />
         <div className="mx-auto max-w-4xl px-6 py-6 space-y-6 print:hidden">
           <Breadcrumb className="mb-2">
             <BreadcrumbList>{breadcrumbItems}</BreadcrumbList>
@@ -184,7 +185,7 @@ export default function SessionReportPrintClient({
 
   return (
     <div className="min-h-screen bg-white text-slate-900 print:bg-white">
-      <AppHeader className="print:hidden" />
+      <AppHeader className="print:hidden" rightSlot={<AboutCartographerButton />} />
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-6 print:max-w-none print:px-0 print:py-0 print:space-y-6">
         <div className="print:hidden">
           <Breadcrumb className="mb-4">
