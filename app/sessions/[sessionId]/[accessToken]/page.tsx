@@ -29,8 +29,6 @@ import {
   useRef,
   useState,
 } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -49,7 +47,8 @@ import { SessionReportCard } from "./SessionReport";
 import { SessionInfo } from "./SessionInfo";
 import { SessionLog } from "./SessionLog";
 import { StatementHighlights } from "./StatementHighlights";
-import { Session } from "inspector/promises";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 
 type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
@@ -100,7 +99,7 @@ interface TimelineStatement {
   orderIndex: number;
 }
 
-interface TimelineEvent {
+export interface TimelineEvent {
   id: string;
   type: ThreadEventType;
   agentId: string | null;
@@ -1121,210 +1120,3 @@ function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
   );
 }
 
-export interface ThreadEventBubbleProps {
-  event: TimelineEvent;
-  isHostMessage: boolean;
-  expanded: boolean;
-  onToggle: () => void;
-}
-
-export function ThreadEventBubble({
-  event,
-  isHostMessage,
-  expanded,
-  onToggle,
-}: ThreadEventBubbleProps) {
-  const markdownProseClass =
-    "markdown-body prose prose-sm max-w-none text-slate-800 [&_ol]:list-decimal [&_ul]:list-disc";
-  const fadeGradientClass = isHostMessage
-    ? "from-indigo-50/95 via-indigo-50/50 to-transparent"
-    : "from-white/95 via-white/60 to-transparent";
-
-  const wrapWithFade = (node: ReactElement) => ({
-    content: (
-      <div className="relative pb-2">
-        {node}
-        <div
-          className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t ${fadeGradientClass}`}
-        />
-      </div>
-    ),
-    hasFade: true,
-  });
-
-  const plainContent = (node: ReactElement) => ({
-    content: node,
-    hasFade: false,
-  });
-
-  const meta = EVENT_TYPE_META[event.type] ?? {
-    label: event.type,
-    accent: "text-slate-500",
-    badge: "bg-slate-100 text-slate-600 border-slate-200",
-  };
-
-  const markdown =
-    typeof event.payload.markdown === "string"
-      ? (event.payload.markdown as string)
-      : "";
-
-  const showToggle =
-    event.type === "survey"
-      ? event.statements.length > 3
-      : markdown.length > 240;
-
-  const progressValue =
-    typeof event.progress === "number"
-      ? event.progress
-      : Number(event.progress ?? 0);
-  const _progressPercent = Math.max(
-    0,
-    Math.min(100, Math.round(progressValue * 100)),
-  );
-
-  const visibleStatements =
-    event.type === "survey" && !expanded && event.statements.length > 3
-      ? event.statements.slice(0, 3)
-      : event.statements;
-
-  const totalSurveyStatements =
-    event.type === "survey" ? event.statements.length : 0;
-
-  const statementsList = (
-    <div className="space-y-2">
-      {event.type === "survey" && totalSurveyStatements > 0 ? (
-        <p className="text-base text-slate-900">
-          新しく{totalSurveyStatements}
-          個の質問を作成しました。皆さんの回答をお待ちしています。
-        </p>
-      ) : null}
-      {visibleStatements.map((statement) => (
-        <div
-          key={statement.id}
-          className="rounded-2xl border border-slate-200/70 bg-white/90 px-3 py-2 text-sm text-slate-700 shadow-sm"
-        >
-          <span className="mr-2 text-[11px] font-medium text-slate-400">
-            #{statement.orderIndex + 1}
-          </span>
-          {statement.text}
-        </div>
-      ))}
-      {/* {!expanded && event.statements.length > visibleStatements.length && (
-        <p className="text-[11px] text-slate-500">
-          他{event.statements.length - visibleStatements.length}
-          件のステートメントがあります。
-        </p>
-      )} */}
-    </div>
-  );
-
-  const showFade = showToggle && !expanded;
-
-  const toggleButton = showToggle ? (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700"
-    >
-      {expanded ? (
-        <>
-          <ChevronUp className="h-3 w-3" />
-          閉じる
-        </>
-      ) : (
-        <>
-          <ChevronDown className="h-3 w-3" />
-          全文を見る
-        </>
-      )}
-    </button>
-  ) : null;
-
-  const content = (() => {
-    if (event.type === "survey" && visibleStatements.length > 0) {
-      return showFade
-        ? wrapWithFade(statementsList)
-        : plainContent(statementsList);
-    }
-
-    if (markdown) {
-      const markdownNode = (
-        <div className={markdownProseClass}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-        </div>
-      );
-
-      if (expanded || !showToggle) {
-        return plainContent(markdownNode);
-      }
-
-      return wrapWithFade(
-        <div className={`${markdownProseClass} max-h-48 overflow-hidden`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-        </div>,
-      );
-    }
-
-    return plainContent(
-      <p className="text-sm text-slate-600">内容を準備中です。</p>,
-    );
-  })();
-
-  return (
-    <div
-      className={`flex gap-3 ${isHostMessage ? "justify-end" : "justify-start"
-        }`}
-    >
-      {!isHostMessage && (
-        <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
-          <Bot className="h-4 w-4" />
-        </div>
-      )}
-      <div
-        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${isHostMessage ? "items-end" : "items-start"
-          }`}
-      >
-        <div
-          className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
-        >
-          <span>{meta.label}</span>
-          <span className="text-[10px] text-slate-400">
-            #{String(event.orderIndex).padStart(3, "0")}・
-            {formatDateTime(event.updatedAt)}
-          </span>
-        </div>
-        <div
-          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${isHostMessage
-            ? "border-indigo-100 bg-indigo-50/80"
-            : "border-slate-200 bg-white/90"
-            }`}
-        >
-          <div className="flex flex-col gap-0">
-            {content.content}
-            {toggleButton && (
-              <div
-                className={`flex ${isHostMessage ? "justify-end" : "justify-start"
-                  } ${content.hasFade ? "-mt-1" : "mt-2"}`}
-              >
-                {toggleButton}
-              </div>
-            )}
-          </div>
-        </div>
-        {/* {progressPercent > 0 && progressPercent < 100 && (
-          <div className="flex w-full items-center gap-3 text-[11px] text-slate-500">
-            <div className="h-1.5 w-full rounded-full bg-slate-200">
-              <div
-                className={`h-full rounded-full ${
-                  isHostMessage ? "bg-indigo-400" : "bg-slate-500"
-                }`}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <span>{progressPercent}%</span>
-          </div>
-        )} */}
-      </div>
-    </div>
-  );
-}
