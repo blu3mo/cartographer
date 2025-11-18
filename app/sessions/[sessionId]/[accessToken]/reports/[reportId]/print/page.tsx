@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/Button";
 import { useUserId } from "@/lib/useUserId";
+import { URLShareCard } from "@/sessions/[sessionId]/[accessToken]/URLShareCard";
 
 type SessionReportStatus = "pending" | "generating" | "completed" | "failed";
 
@@ -122,6 +123,10 @@ export default function SessionReportPrintPage({
             印刷する
           </Button>
         </div>
+        <URLShareCard
+          shareUrl={typeof window !== "undefined" ? window.location.href : ""}
+          alt="レポート共有用QRコード"
+        />
 
         <header className="space-y-2 text-center print:hidden">
           <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
