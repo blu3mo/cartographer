@@ -21,7 +21,9 @@ type Session = {
   id: string;
   title: string;
   context: string;
+  goal: string;
   hostUserId: string;
+  adminAccessToken: string;
   createdAt: string;
   isPublic: boolean;
   _count: {
@@ -143,10 +145,6 @@ function SessionSections({ sessions }: SessionSectionsProps) {
     const participatingSessions = sessions.filter(
       (session) => !session.isHost && session.isParticipant,
     );
-    const otherSessions = sessions.filter(
-      (session) =>
-        !session.isHost && !session.isParticipant && session.isPublic,
-    );
 
     return [
       {
@@ -156,10 +154,6 @@ function SessionSections({ sessions }: SessionSectionsProps) {
       {
         title: "参加中のセッション",
         sessions: participatingSessions,
-      },
-      {
-        title: "未参加の公開セッション",
-        sessions: otherSessions,
       },
     ].filter((category) => category.sessions.length > 0);
   }, [sessions]);
@@ -190,7 +184,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                     )}
                   </div>
                   <CardDescription className="line-clamp-2">
-                    {session.context}
+                    {session.goal || session.context}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -220,7 +214,9 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                           size="sm"
                           onClick={(event) => {
                             event.stopPropagation();
-                            router.push(`/sessions/${session.id}/admin`);
+                            router.push(
+                              `/sessions/${session.id}/${session.adminAccessToken}`,
+                            );
                           }}
                         >
                           管理

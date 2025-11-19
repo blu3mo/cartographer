@@ -1,15 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { generateInitialStatements } from "@/lib/llm";
+import { ensureEventThreadForSession } from "@/lib/server/event-threads";
 import { supabase } from "@/lib/supabase";
 
 type SessionRow = {
   id: string;
   title: string;
   context: string;
+  goal: string;
   is_public: boolean;
   host_user_id: string;
+  admin_access_token: string;
   created_at: string;
   updated_at: string;
   participants?: { user_id: string }[] | null;
@@ -21,6 +23,7 @@ function mapSession(row: SessionRow) {
     id: row.id,
     title: row.title,
     context: row.context,
+    goal: row.goal,
     isPublic: row.is_public,
     hostUserId: row.host_user_id,
     createdAt: row.created_at,
@@ -77,8 +80,10 @@ export async function GET(request: NextRequest) {
           id,
           title,
           context,
+          goal,
           is_public,
           host_user_id,
+          admin_access_token,
           created_at,
           updated_at,
           participants ( user_id ),
@@ -109,6 +114,7 @@ export async function GET(request: NextRequest) {
         ...mappedSession,
         isHost,
         isParticipant,
+        adminAccessToken: isHost ? session.admin_access_token : undefined,
         _count: {
           participants: participants.length,
           statements: statements.length,
@@ -137,25 +143,51 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, context, isPublic } = body;
+    const { title, context, goal, isPublic } = body as {
+      title?: unknown;
+      context?: unknown;
+      goal?: unknown;
+      isPublic?: unknown;
+    };
 
-    if (!title || !context) {
+    if (typeof title !== "string" || title.trim().length === 0) {
       return NextResponse.json(
-        { error: "Missing required fields: title and context" },
+        { error: "Missing required field: title" },
         { status: 400 },
       );
     }
 
+    if (typeof goal !== "string" || goal.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Missing required field: goal" },
+        { status: 400 },
+      );
+    }
+
+    if (typeof context !== "string") {
+      return NextResponse.json(
+        { error: "Invalid value for context" },
+        { status: 400 },
+      );
+    }
+
+    const trimmedTitle = title.trim();
+    const trimmedGoal = goal.trim();
+    const normalizedContext = context.trim();
+    const normalizedVisibility =
+      typeof isPublic === "boolean" ? isPublic : true;
+
     const { data: createdSessions, error: createSessionError } = await supabase
       .from("sessions")
       .insert({
-        title,
-        context,
-        is_public: typeof isPublic === "boolean" ? isPublic : true,
+        title: trimmedTitle,
+        context: normalizedContext,
+        goal: trimmedGoal,
+        is_public: normalizedVisibility,
         host_user_id: userId,
       })
       .select(
-        "id, title, context, is_public, host_user_id, created_at, updated_at",
+        "id, title, context, goal, is_public, host_user_id, admin_access_token, created_at, updated_at",
       )
       .single();
 
@@ -167,32 +199,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate initial statements using LLM (with fallback to defaults)
-    const statementTexts = await generateInitialStatements(title, context);
-
-    // Save statements to database
-    const statementsPayload = statementTexts.map((text, index) => ({
-      session_id: createdSessions.id,
-      text,
-      order_index: index,
-    }));
-
-    const { error: insertStatementsError } = await supabase
-      .from("statements")
-      .insert(statementsPayload);
-
-    if (insertStatementsError) {
-      console.error(
-        "Failed to insert initial statements:",
-        insertStatementsError,
-      );
+    try {
+      await ensureEventThreadForSession({
+        id: createdSessions.id,
+        context: normalizedContext,
+        goal: trimmedGoal,
+        host_user_id: userId,
+        title: trimmedTitle,
+      });
+    } catch (threadError) {
+      console.error("Failed to provision event thread:", threadError);
       return NextResponse.json(
-        { error: "Failed to create session" },
+        { error: "Failed to finalize session bootstrap" },
         { status: 500 },
       );
     }
 
-    return NextResponse.json({ session: mapSession(createdSessions) });
+    return NextResponse.json({
+      session: {
+        ...mapSession(createdSessions),
+        adminAccessToken: createdSessions.admin_access_token,
+      },
+    });
   } catch (error) {
     console.error("Session creation error:", error);
     return NextResponse.json(

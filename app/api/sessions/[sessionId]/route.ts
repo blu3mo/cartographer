@@ -6,6 +6,7 @@ type SessionRow = {
   id: string;
   title: string;
   context: string;
+  goal: string;
   is_public: boolean;
   host_user_id: string;
   created_at: string;
@@ -18,6 +19,7 @@ function mapSession(row: SessionRow) {
     id: row.id,
     title: row.title,
     context: row.context,
+    goal: row.goal,
     isPublic: row.is_public,
     hostUserId: row.host_user_id,
     createdAt: row.created_at,
@@ -47,6 +49,7 @@ export async function GET(
           id,
           title,
           context,
+          goal,
           is_public,
           host_user_id,
           created_at,

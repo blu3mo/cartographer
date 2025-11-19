@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { generateIndividualReport } from "@/lib/llm";
+import { buildSessionBrief, generateIndividualReport } from "@/lib/llm";
 import { supabase } from "@/lib/supabase";
 
 export async function GET(
@@ -127,7 +127,7 @@ export async function POST(
     // Get session context
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, title, context")
+      .select("id, title, context, goal")
       .eq("id", sessionId)
       .single();
 
@@ -201,9 +201,10 @@ export async function POST(
     }));
 
     // Generate individual report using LLM
+    const sessionBrief = buildSessionBrief(session.goal, session.context);
     const reportContent = await generateIndividualReport(
       session.title,
-      session.context,
+      sessionBrief,
       responsesWithStatement,
       participant.name,
     );

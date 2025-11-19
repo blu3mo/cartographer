@@ -23,12 +23,21 @@ interface StatementWithStats {
   agreementScore: number;
 }
 
+interface ParticipantProgress {
+  userId: string;
+  name: string;
+  answeredCount: number;
+  completionRate: number;
+  totalStatements: number;
+  updatedAt: string;
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> },
+  { params }: { params: Promise<{ sessionId: string; accessToken: string }> },
 ) {
   try {
-    const { sessionId } = await params;
+    const { sessionId, accessToken } = await params;
     const userId = getUserIdFromRequest(request);
 
     if (!userId) {
@@ -38,10 +47,11 @@ export async function GET(
       );
     }
 
-    // Verify that the user is the host of this session
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, title, context, is_public, created_at, host_user_id")
+      .select(
+        "id, title, context, goal, is_public, created_at, host_user_id, admin_access_token",
+      )
       .eq("id", sessionId)
       .single();
 
@@ -59,12 +69,14 @@ export async function GET(
       );
     }
 
-    if (session.host_user_id !== userId) {
+    if (session.admin_access_token !== accessToken) {
       return NextResponse.json(
-        { error: "Forbidden: You are not the host of this session" },
+        { error: "Forbidden: Invalid access token" },
         { status: 403 },
       );
     }
+
+    const isHost = session.host_user_id === userId;
 
     const { data: statements, error: statementsError } = await supabase
       .from("statements")
@@ -83,9 +95,9 @@ export async function GET(
       );
     }
 
-    const { data: responses, error: responsesError } = await supabase
+    const { data: responseRows, error: responsesError } = await supabase
       .from("responses")
-      .select("statement_id, value")
+      .select("statement_id, value, participant_user_id")
       .eq("session_id", sessionId);
 
     if (responsesError) {
@@ -99,14 +111,63 @@ export async function GET(
       );
     }
 
-    // Calculate statistics for each statement
-    const responseMap = new Map<string, { value: number }[]>();
+    const { data: participantRows, error: participantsError } = await supabase
+      .from("participants")
+      .select("user_id, name, updated_at")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
 
-    (responses ?? []).forEach((response) => {
+    if (participantsError) {
+      console.error(
+        "Failed to fetch participants for admin view:",
+        participantsError,
+      );
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+
+    const responseMap = new Map<string, { value: number }[]>();
+    const participantResponseCount = new Map<string, number>();
+
+    (responseRows ?? []).forEach((response) => {
       const list = responseMap.get(response.statement_id) ?? [];
       list.push({ value: response.value });
       responseMap.set(response.statement_id, list);
+
+      if (response.participant_user_id) {
+        const current = participantResponseCount.get(
+          response.participant_user_id,
+        );
+        participantResponseCount.set(
+          response.participant_user_id,
+          (current ?? 0) + 1,
+        );
+      }
     });
+
+    const totalStatements = statements?.length ?? 0;
+
+    const participants: ParticipantProgress[] = (participantRows ?? []).map(
+      (participant) => {
+        const answeredCount =
+          participantResponseCount.get(participant.user_id) ?? 0;
+        const completionRate =
+          totalStatements > 0
+            ? Math.round((answeredCount / totalStatements) * 1000) / 10
+            : 0;
+
+        return {
+          userId: participant.user_id,
+          name: participant.name,
+          answeredCount,
+          completionRate,
+          totalStatements,
+          updatedAt: participant.updated_at,
+        };
+      },
+    );
 
     const statementsWithStats: StatementWithStats[] = (statements ?? []).map(
       (statement) => {
@@ -149,7 +210,6 @@ export async function GET(
         const strongNoPercent =
           totalCount > 0 ? (strongNoCount / totalCount) * 100 : 0;
 
-        // Agreement score: absolute value of (yes+strongYes) - (no+strongNo)
         const positiveCount = strongYesCount + yesCount;
         const negativeCount = strongNoCount + noCount;
         const agreementScore = Math.abs(positiveCount - negativeCount);
@@ -172,42 +232,19 @@ export async function GET(
       },
     );
 
-    // Fetch the latest situation analysis report
-    const { data: latestReport, error: latestReportError } = await supabase
-      .from("situation_analysis_reports")
-      .select("id, session_id, content_markdown, created_at")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestReportError && latestReportError.code !== "PGRST116") {
-      console.error(
-        "Failed to fetch latest report for admin view:",
-        latestReportError,
-      );
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
-    }
-
     return NextResponse.json({
       data: {
         id: session.id,
         title: session.title,
         context: session.context,
+        goal: session.goal,
         isPublic: session.is_public,
         createdAt: session.created_at,
         statements: statementsWithStats,
-        latestSituationAnalysisReport: latestReport
-          ? {
-              id: latestReport.id,
-              sessionId: latestReport.session_id,
-              contentMarkdown: latestReport.content_markdown,
-              createdAt: latestReport.created_at,
-            }
-          : undefined,
+        participants,
+        totalStatements,
+        totalParticipants: participants.length,
+        canEdit: isHost,
       },
     });
   } catch (error) {
@@ -221,10 +258,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> },
+  { params }: { params: Promise<{ sessionId: string; accessToken: string }> },
 ) {
   try {
-    const { sessionId } = await params;
+    const { sessionId, accessToken } = await params;
     const userId = getUserIdFromRequest(request);
 
     if (!userId) {
@@ -236,7 +273,7 @@ export async function PATCH(
 
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, host_user_id")
+      .select("id, host_user_id, admin_access_token")
       .eq("id", sessionId)
       .single();
 
@@ -254,17 +291,25 @@ export async function PATCH(
       );
     }
 
+    if (session.admin_access_token !== accessToken) {
+      return NextResponse.json(
+        { error: "Forbidden: Invalid access token" },
+        { status: 403 },
+      );
+    }
+
     if (session.host_user_id !== userId) {
       return NextResponse.json(
-        { error: "Forbidden: You are not the host of this session" },
+        { error: "Forbidden: Only the host can edit this session" },
         { status: 403 },
       );
     }
 
     const body = await request.json();
-    const { title, context, isPublic } = body as {
+    const { title, context, goal, isPublic } = body as {
       title?: unknown;
       context?: unknown;
+      goal?: unknown;
       isPublic?: unknown;
     };
 
@@ -272,8 +317,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid title" }, { status: 400 });
     }
 
-    if (typeof context !== "string" || context.trim().length === 0) {
+    if (typeof context !== "string") {
       return NextResponse.json({ error: "Invalid context" }, { status: 400 });
+    }
+
+    if (typeof goal !== "string" || goal.trim().length === 0) {
+      return NextResponse.json({ error: "Invalid goal" }, { status: 400 });
     }
 
     if (typeof isPublic !== "boolean") {
@@ -288,10 +337,11 @@ export async function PATCH(
       .update({
         title: title.trim(),
         context: context.trim(),
+        goal: goal.trim(),
         is_public: isPublic,
       })
       .eq("id", sessionId)
-      .select("id, title, context, is_public, created_at")
+      .select("id, title, context, goal, is_public, created_at")
       .single();
 
     if (updateError || !updatedSession) {
@@ -307,6 +357,7 @@ export async function PATCH(
         id: updatedSession.id,
         title: updatedSession.title,
         context: updatedSession.context,
+        goal: updatedSession.goal,
         isPublic: updatedSession.is_public,
         createdAt: updatedSession.created_at,
       },
@@ -322,10 +373,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> },
+  { params }: { params: Promise<{ sessionId: string; accessToken: string }> },
 ) {
   try {
-    const { sessionId } = await params;
+    const { sessionId, accessToken } = await params;
     const userId = getUserIdFromRequest(request);
 
     if (!userId) {
@@ -337,7 +388,7 @@ export async function DELETE(
 
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, host_user_id")
+      .select("id, host_user_id, admin_access_token")
       .eq("id", sessionId)
       .single();
 
@@ -355,9 +406,16 @@ export async function DELETE(
       );
     }
 
+    if (session.admin_access_token !== accessToken) {
+      return NextResponse.json(
+        { error: "Forbidden: Invalid access token" },
+        { status: 403 },
+      );
+    }
+
     if (session.host_user_id !== userId) {
       return NextResponse.json(
-        { error: "Forbidden: You are not the host of this session" },
+        { error: "Forbidden: Only the host can delete this session" },
         { status: 403 },
       );
     }
