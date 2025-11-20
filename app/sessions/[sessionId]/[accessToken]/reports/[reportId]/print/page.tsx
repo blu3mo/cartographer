@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/Button";
 import { useUserId } from "@/lib/useUserId";
+import { createAuthorizationHeader } from "@/lib/auth";
 
 type SessionReportStatus = "pending" | "generating" | "completed" | "failed";
 
@@ -40,6 +41,8 @@ export default function SessionReportPrintPage({
   const [report, setReport] = useState<SessionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isViewerHost, setIsViewerHost] = useState<boolean | null>(null);
+  const [sessionTitle, setSessionTitle] = useState<string>("セッションレポート");
 
   useEffect(() => {
     if (isUserLoading || !userId) return;
@@ -65,6 +68,27 @@ export default function SessionReportPrintPage({
 
     void fetchReport();
   }, [sessionId, accessToken, reportId, userId, isUserLoading]);
+
+  useEffect(() => {
+    if (isUserLoading || !userId) return;
+
+    const fetchSessionInfo = async () => {
+      try {
+        const response = await axios.get(`/api/sessions/${sessionId}`, {
+          headers: createAuthorizationHeader(userId),
+        });
+        const session = response.data.session;
+        setIsViewerHost(session?.isHost ?? false);
+        if (session?.title) {
+          setSessionTitle(session.title);
+        }
+      } catch {
+        setIsViewerHost(false);
+      }
+    };
+
+    void fetchSessionInfo();
+  }, [sessionId, userId, isUserLoading]);
 
   const handlePrint = () => {
     window.print();
@@ -101,16 +125,11 @@ export default function SessionReportPrintPage({
     <div className="min-h-screen bg-white text-slate-900 print:bg-white">
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0 print:space-y-6">
         <div className="flex items-center justify-between gap-4 print:hidden">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => window.history.back()}
-            className="gap-1.5 text-xs"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            管理画面へ戻る
-          </Button>
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 px-4 py-2 text-sm font-medium text-indigo-900 shadow-sm">
+            {isViewerHost === false
+              ? "このレポートは管理者から共有されました。"
+              : "このURLを共有すると、誰でもこのレポートを閲覧できます。"}
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -125,11 +144,12 @@ export default function SessionReportPrintPage({
 
         <header className="space-y-2 text-center print:hidden">
           <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
-            Session Report
+            セッションレポート
           </p>
-          <h1 className="text-3xl font-semibold">
-            セッションレポート v{String(report.version).padStart(2, "0")}
-          </h1>
+          <h1 className="text-3xl font-semibold">{sessionTitle}</h1>
+          <p className="text-sm text-slate-500">
+            バージョン v{String(report.version).padStart(2, "0")}
+          </p>
           <div className="flex justify-center gap-4 text-xs text-slate-500">
             <span>Session ID: {sessionId}</span>
             <span>Report ID: {report.id}</span>

@@ -31,6 +31,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -268,6 +269,10 @@ export default function AdminPage({
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>(
     {},
   );
+  const [isStatementHighlightCollapsed, setIsStatementHighlightCollapsed] =
+    useState(true);
+  const [isProgressLogCollapsed, setIsProgressLogCollapsed] = useState(true);
+  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(true);
   const [shareUrl, setShareUrl] = useState("");
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
     "idle",
@@ -478,6 +483,18 @@ export default function AdminPage({
   }, [threadData?.events]);
 
   useEffect(() => {
+    if (isProgressLogCollapsed) return;
+    const container = threadContainerRef.current;
+    if (!container) return;
+    window.requestAnimationFrame(() => {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: "auto",
+      });
+    });
+  }, [isProgressLogCollapsed]);
+
+  useEffect(() => {
     if (data?.title) {
       document.title = `${data.title} - 管理画面 - Cartographer`;
     }
@@ -514,13 +531,13 @@ export default function AdminPage({
 
   const shareQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
   const fullscreenQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${FULLSCREEN_QR_SIZE}x${FULLSCREEN_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
 
   const handleSaveSettings = async (event: React.FormEvent) => {
@@ -555,12 +572,12 @@ export default function AdminPage({
       setData((prev) =>
         prev
           ? {
-              ...prev,
-              title: updated.title,
-              context: updated.context,
-              goal: updated.goal,
-              isPublic: updated.isPublic,
-            }
+            ...prev,
+            title: updated.title,
+            context: updated.context,
+            goal: updated.goal,
+            isPublic: updated.isPublic,
+          }
           : prev,
       );
       setSettingsMessage("セッション情報を更新しました。");
@@ -614,9 +631,9 @@ export default function AdminPage({
       setThreadData((prev) =>
         prev
           ? {
-              ...prev,
-              thread: updatedThread,
-            }
+            ...prev,
+            thread: updatedThread,
+          }
           : prev,
       );
     } catch (err) {
@@ -718,6 +735,7 @@ export default function AdminPage({
   const _totalStatements =
     data?.totalStatements ?? data?.statements?.length ?? 0;
   const statements = data?.statements ?? [];
+  const hasReports = reports.length > 0;
 
   const participantSummary = useMemo(() => {
     if (participants.length === 0) {
@@ -775,8 +793,8 @@ export default function AdminPage({
       const responseRate =
         totalParticipants > 0
           ? Math.round(
-              (statement.responses.totalCount / totalParticipants) * 100 * 10,
-            ) / 10
+            (statement.responses.totalCount / totalParticipants) * 100 * 10,
+          ) / 10
           : 0;
       return {
         statement,
@@ -859,12 +877,13 @@ export default function AdminPage({
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <AppHeader />
       <div className="max-w-[90rem] mx-auto px-6 py-10 space-y-10">
         <header className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                Session Admin
+                セッション管理画面
               </div>
               <h1 className="text-3xl font-semibold text-slate-900">
                 {data.title}
@@ -877,9 +896,9 @@ export default function AdminPage({
           <div className="space-y-8">
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg">モニタリング</CardTitle>
+                <CardTitle className="text-lg">各参加者の回答状況</CardTitle>
                 <CardDescription>
-                  参加状況・回答状況をリアルタイムに確認できます
+                  このセッションに参加しているメンバーの回答状況を確認できます。ページを再度読み込みして最新の状態を確認できます。
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -901,16 +920,15 @@ export default function AdminPage({
                   />
                   <MonitoringMetric
                     label="回答進行中"
-                    value={`${
-                      participantSummary.inProgressCount +
+                    value={`${participantSummary.inProgressCount +
                       participantSummary.notStartedCount
-                    }人`}
+                      }人`}
                   />
                 </div>
 
                 {participants.length === 0 ? (
                   <p className="text-sm text-slate-500">
-                    まだ参加者はいません。リンクを共有して参加を促しましょう。
+                    まだ参加者はいません。「参加用リンク」を共有して参加を促しましょう。
                   </p>
                 ) : (
                   <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
@@ -930,22 +948,12 @@ export default function AdminPage({
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="space-y-1.5">
                     <CardTitle className="text-lg">
-                      セッションレポート
+                      分析レポート
                     </CardTitle>
                     <CardDescription>
-                      参加者の回答やEvent Threadをもとに洞察レポートを生成します
+                      参加者の回答結果や、セッション情報をもとに、現状把握レポートを生成します。
                     </CardDescription>
                   </div>
-                  {selectedReport ? (
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                        最新の状態
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">
-                        v{String(selectedReport.version).padStart(2, "0")}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -964,21 +972,25 @@ export default function AdminPage({
                       <FileText className="h-4 w-4" />
                       新しいレポートを生成
                     </Button>
-                    <label
-                        htmlFor="reportRequest"
-                        className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                      >
-                        レポートに対するリクエスト（任意）
-                      </label>
-                      <textarea
-                        id="reportRequest"
-                        value={reportRequest}
-                        onChange={(event) => setReportRequest(event.target.value)}
-                        rows={3}
-                        maxLength={1200}
-                        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                        placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                      />
+                    {hasReports && (
+                      <>
+                        <label
+                          htmlFor="reportRequest"
+                          className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                        >
+                          レポートに対するリクエスト（任意）
+                        </label>
+                        <textarea
+                          id="reportRequest"
+                          value={reportRequest}
+                          onChange={(event) => setReportRequest(event.target.value)}
+                          rows={3}
+                          maxLength={1200}
+                          className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                          placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                        />
+                      </>
+                    )}
                   </form>
                 ) : (
                   <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
@@ -997,11 +1009,7 @@ export default function AdminPage({
                     <div className="h-12 animate-pulse rounded-2xl bg-slate-100/80" />
                     <div className="h-[420px] animate-pulse rounded-3xl bg-slate-100/80" />
                   </div>
-                ) : reports.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
-                    まだレポートはありません。上のフォームから生成してみましょう。
-                  </div>
-                ) : selectedReport ? (
+                ) : hasReports && selectedReport ? (
                   <div className="space-y-6">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div className="space-y-2">
@@ -1027,19 +1035,6 @@ export default function AdminPage({
                               );
                             })}
                           </select>
-                          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600">
-                            <span
-                              className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
-                            />
-                            {REPORT_STATUS_META[selectedReport.status].label}
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-500">
-                            {isViewingLatestReport
-                              ? "最新バージョンを表示中"
-                              : latestReport
-                                ? `最新: v${String(latestReport.version).padStart(2, "0")}`
-                                : "最新バージョン情報なし"}
-                          </span>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -1063,7 +1058,7 @@ export default function AdminPage({
                         </Button>
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           className="gap-1.5 text-xs"
                           disabled={
@@ -1077,8 +1072,8 @@ export default function AdminPage({
                             )
                           }
                         >
-                          <Printer className="h-3.5 w-3.5" />
-                          印刷用ページ
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          レポートURL
                         </Button>
                       </div>
                     </div>
@@ -1095,32 +1090,21 @@ export default function AdminPage({
                     ) : null}
 
                     <div className="min-h-[360px] rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-inner">
-                      <div className="flex h-full flex-col gap-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                              Version
-                            </p>
-                            <p className="text-xl font-semibold text-slate-900">
-                              v{String(selectedReport.version).padStart(2, "0")}
-                            </p>
-                          </div>
-                          <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                            <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                              {selectedReport.model}
-                            </div>
-                            <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
-                              <span
-                                className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
-                              />
-                              {REPORT_STATUS_META[selectedReport.status].label}
+                        <div className="flex h-full flex-col gap-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                                Version
+                              </p>
+                              <p className="text-xl font-semibold text-slate-900">
+                                v{String(selectedReport.version).padStart(2, "0")}
+                              </p>
                             </div>
                           </div>
-                        </div>
 
                         <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
                           {selectedReport.status === "completed" &&
-                          selectedReport.contentMarkdown ? (
+                            selectedReport.contentMarkdown ? (
                             <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                 {selectedReport.contentMarkdown}
@@ -1159,7 +1143,7 @@ export default function AdminPage({
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
-                    レポートを選択するとここに表示されます。
+                    レポートを生成するとここに表示されます。
                   </div>
                 )}
 
@@ -1168,48 +1152,76 @@ export default function AdminPage({
 
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg">
-                  ステートメントのハイライト
-                </CardTitle>
-                <CardDescription>
-                  合意・対立・迷いが大きいテーマを把握できます
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-6 lg:grid-cols-3">
-                  <StatementHighlightColumn
-                    title="合意度トップ3"
-                    tone="emerald"
-                    items={statementHighlights.agreement}
-                  />
-                  <StatementHighlightColumn
-                    title="対立度トップ3"
-                    tone="amber"
-                    items={statementHighlights.conflict}
-                  />
-                  <StatementHighlightColumn
-                    title="わからない度トップ3"
-                    tone="slate"
-                    items={statementHighlights.dontKnow}
-                  />
-                </div>
-                <div className="flex justify-end">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-lg">
+                      ステートメントのハイライト
+                    </CardTitle>
+                    <CardDescription>
+                      合意・対立・迷いが大きいテーマを把握できます
+                    </CardDescription>
+                  </div>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      window.open(
-                        `/sessions/${sessionId}/admin/statements`,
-                        "_blank",
-                      )
+                      setIsStatementHighlightCollapsed((prev) => !prev)
                     }
+                    aria-expanded={!isStatementHighlightCollapsed}
                     className="gap-1.5 text-xs"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    ステートメント一覧へ
+                    {isStatementHighlightCollapsed ? (
+                      <>
+                        <ChevronDown className="h-3.5 w-3.5" />
+                        開く
+                      </>
+                    ) : (
+                      <>
+                        <ChevronUp className="h-3.5 w-3.5" />
+                        閉じる
+                      </>
+                    )}
                   </Button>
                 </div>
-              </CardContent>
+              </CardHeader>
+              {!isStatementHighlightCollapsed && (
+                <CardContent className="space-y-6">
+                  <div className="grid gap-6 lg:grid-cols-3">
+                    <StatementHighlightColumn
+                      title="合意度トップ3"
+                      tone="emerald"
+                      items={statementHighlights.agreement}
+                    />
+                    <StatementHighlightColumn
+                      title="対立度トップ3"
+                      tone="amber"
+                      items={statementHighlights.conflict}
+                    />
+                    <StatementHighlightColumn
+                      title="わからない度トップ3"
+                      tone="slate"
+                      items={statementHighlights.dontKnow}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        window.open(
+                          `/sessions/${sessionId}/admin/statements`,
+                          "_blank",
+                        )
+                      }
+                      className="gap-1.5 text-xs"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      ステートメント一覧へ
+                    </Button>
+                  </div>
+                </CardContent>
+              )}
             </Card>
 
             <Card className="border-none bg-white/80 shadow-lg">
@@ -1225,85 +1237,112 @@ export default function AdminPage({
                     <ThreadStatusPill
                       shouldProceed={threadData?.thread?.shouldProceed ?? false}
                     />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setIsProgressLogCollapsed((prev) => !prev)
+                      }
+                      aria-expanded={!isProgressLogCollapsed}
+                      className="gap-1.5 text-xs"
+                    >
+                      {isProgressLogCollapsed ? (
+                        <>
+                          <ChevronDown className="h-3.5 w-3.5" />
+                          開く
+                        </>
+                      ) : (
+                        <>
+                          <ChevronUp className="h-3.5 w-3.5" />
+                          閉じる
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-inner">
-                  {threadLoading && (
-                    <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-white/90 to-white/30 py-2 text-center text-xs text-slate-500">
-                      更新中…
+              {!isProgressLogCollapsed && (
+                <CardContent className="space-y-6">
+                  <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-inner">
+                    {threadLoading && (
+                      <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-white/90 to-white/30 py-2 text-center text-xs text-slate-500">
+                        更新中…
+                      </div>
+                    )}
+                    <div
+                      ref={threadContainerRef}
+                      className="h-[620px] overflow-y-auto px-6 py-6 space-y-5"
+                    >
+                      {threadError ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                          {threadError}
+                        </div>
+                      ) : threadData?.events.length ? (
+                        threadData.events.map((event) => {
+                          const isHostMessage = event.type === "user_message";
+                          const expanded = Boolean(expandedEvents[event.id]);
+                          return (
+                            <ThreadEventBubble
+                              key={event.id}
+                              event={event}
+                              isHostMessage={isHostMessage}
+                              expanded={expanded}
+                              onToggle={() =>
+                                setExpandedEvents((prev) => ({
+                                  ...prev,
+                                  [event.id]: !prev[event.id],
+                                }))
+                              }
+                            />
+                          );
+                        })
+                      ) : (
+                        <p className="text-sm text-slate-500">
+                          まだイベントはありません。Agentとの会話はここに表示されます。
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {canEdit && (
+                    <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+                      <label
+                        htmlFor="adminMessage"
+                        className="text-xs font-medium text-slate-600"
+                      >
+                        ファシリテーターAIへのメッセージ
+                      </label>
+                      <textarea
+                        id="adminMessage"
+                        value={messageDraft}
+                        onChange={(event) => setMessageDraft(event.target.value)}
+                        rows={3}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
+                        placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
+                      />
+                      <div className="flex items-center justify-between">
+                        <Button
+                          type="button"
+                          onClick={handleSendMessage}
+                          disabled={
+                            sendingMessage || messageDraft.trim().length === 0
+                          }
+                          isLoading={sendingMessage}
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          送信
+                        </Button>
+                        <span className="text-xs text-slate-500">
+                          メッセージは進行ログに記録されます
+                        </span>
+                      </div>
                     </div>
                   )}
-                  <div
-                    ref={threadContainerRef}
-                    className="h-[620px] overflow-y-auto px-6 py-6 space-y-5"
-                  >
-                    {threadError ? (
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                        {threadError}
-                      </div>
-                    ) : threadData?.events.length ? (
-                      threadData.events.map((event) => {
-                        const isHostMessage = event.type === "user_message";
-                        const expanded = Boolean(expandedEvents[event.id]);
-                        return (
-                          <ThreadEventBubble
-                            key={event.id}
-                            event={event}
-                            isHostMessage={isHostMessage}
-                            expanded={expanded}
-                            onToggle={() =>
-                              setExpandedEvents((prev) => ({
-                                ...prev,
-                                [event.id]: !prev[event.id],
-                              }))
-                            }
-                          />
-                        );
-                      })
-                    ) : (
-                      <p className="text-sm text-slate-500">
-                        まだイベントはありません。Agentとの会話はここに表示されます。
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {canEdit && (
-                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                    <label
-                      htmlFor="adminMessage"
-                      className="text-xs font-medium text-slate-600"
-                    >
-                      ファシリテーターAIへのメッセージ
-                    </label>
-                    <textarea
-                      id="adminMessage"
-                      value={messageDraft}
-                      onChange={(event) => setMessageDraft(event.target.value)}
-                      rows={3}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
-                    />
-                    <div className="flex items-center justify-between">
-                      <Button
-                        type="button"
-                        onClick={handleSendMessage}
-                        disabled={
-                          sendingMessage || messageDraft.trim().length === 0
-                        }
-                        isLoading={sendingMessage}
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        送信
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
+                </CardContent>
+              )}
             </Card>
 
           </div>
@@ -1313,17 +1352,11 @@ export default function AdminPage({
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg">参加用リンク</CardTitle>
                 <CardDescription>
-                  共有リンクやQRコードから参加者を招待できます
+                  URLの共有・QRコードを読み取って参加してもらいましょう
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-2">
-                  <label
-                    htmlFor="shareLink"
-                    className="text-xs font-medium text-slate-600"
-                  >
-                    コピー用URL
-                  </label>
                   <div className="flex items-center gap-2">
                     <Input
                       id="shareLink"
@@ -1348,7 +1381,7 @@ export default function AdminPage({
                         ? "コピー済み"
                         : copyStatus === "error"
                           ? "コピー失敗"
-                          : "コピー"}
+                          : "クリックしてURLをコピー"}
                     </Button>
                   </div>
                 </div>
@@ -1434,7 +1467,7 @@ export default function AdminPage({
                     <CardTitle className="text-lg">セッション情報</CardTitle>
                     <CardDescription>
                       {canEdit
-                        ? "基本情報を編集してアップデートできます"
+                        ? "参加者への質問・レポート生成の元になる基本情報を編集することができます"
                         : "セッションの基本情報"}
                     </CardDescription>
                   </div>
@@ -1463,7 +1496,7 @@ export default function AdminPage({
                     </div>
                     <div>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        ゴール
+                        セッションのゴール
                       </p>
                       <p
                         className="mt-1 leading-relaxed"
@@ -1540,7 +1573,7 @@ export default function AdminPage({
                         htmlFor="sessionGoal"
                         className="text-xs font-medium text-slate-600"
                       >
-                        ゴール
+                        セッションのゴール
                       </label>
                       <textarea
                         id="sessionGoal"
@@ -1572,11 +1605,10 @@ export default function AdminPage({
 
                     {(settingsMessage || settingsError) && (
                       <div
-                        className={`rounded-xl px-3 py-2 text-xs ${
-                          settingsError
-                            ? "bg-red-50 text-red-600"
-                            : "bg-emerald-50 text-emerald-700"
-                        }`}
+                        className={`rounded-xl px-3 py-2 text-xs ${settingsError
+                          ? "bg-red-50 text-red-600"
+                          : "bg-emerald-50 text-emerald-700"
+                          }`}
                       >
                         {settingsError ?? settingsMessage}
                       </div>
@@ -1621,81 +1653,105 @@ export default function AdminPage({
 
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg">進行設定</CardTitle>
-                <CardDescription>
-                  自動質問生成の制御やセッションの管理を行えます
-                </CardDescription>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-lg">設定</CardTitle>
+                    <CardDescription>
+                      回答を集め終えた後の質問生成や、セッションの削除など
+                    </CardDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsSettingsCollapsed((prev) => !prev)}
+                    aria-expanded={!isSettingsCollapsed}
+                    className="gap-1.5 text-xs"
+                  >
+                    {isSettingsCollapsed ? (
+                      <>
+                        <ChevronDown className="h-3.5 w-3.5" />
+                        開く
+                      </>
+                    ) : (
+                      <>
+                        <ChevronUp className="h-3.5 w-3.5" />
+                        閉じる
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-5">
-                <button
-                  type="button"
-                  onClick={canEdit ? handleToggleShouldProceed : undefined}
-                  disabled={togglingProceed || !canEdit}
-                  aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                    threadData?.thread?.shouldProceed
+              {!isSettingsCollapsed && (
+                <CardContent className="space-y-5">
+                  <button
+                    type="button"
+                    onClick={canEdit ? handleToggleShouldProceed : undefined}
+                    disabled={togglingProceed || !canEdit}
+                    aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
+                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${threadData?.thread?.shouldProceed
                       ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
                       : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                  } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">
-                        新規Statementの自動生成
-                      </p>
-                      <p className="text-xs text-slate-600">
-                        {threadData?.thread?.shouldProceed
-                          ? "全員が回答を終えると、新しい質問が生成されます"
-                          : "全員が回答を終えても、新しい質問は生成されません"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div
-                        aria-hidden="true"
-                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${
-                          threadData?.thread?.shouldProceed
+                      } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          新しい質問を自動生成する
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          {threadData?.thread?.shouldProceed
+                            ? "全員が回答を終えると、新しい質問が生成されます"
+                            : "全員が回答を終えても、新しい質問は生成されません"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div
+                          aria-hidden="true"
+                          className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${threadData?.thread?.shouldProceed
                             ? "border-emerald-300 bg-emerald-500/90 justify-end"
                             : "border-amber-300 bg-amber-200/90 justify-start"
-                        }`}
-                      >
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
-                          {threadData?.thread?.shouldProceed ? (
-                            <Play className="h-3 w-3 text-emerald-500" />
-                          ) : (
-                            <Pause className="h-3 w-3 text-amber-500" />
-                          )}
+                            }`}
+                        >
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
+                            {threadData?.thread?.shouldProceed ? (
+                              <Play className="h-3 w-3 text-emerald-500" />
+                            ) : (
+                              <Pause className="h-3 w-3 text-amber-500" />
+                            )}
+                          </div>
                         </div>
+
+                        {togglingProceed && (
+                          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        )}
                       </div>
-
-                      {togglingProceed && (
-                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                      )}
                     </div>
-                  </div>
-                </button>
+                  </button>
 
-                {canEdit && (
-                  <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
-                    <p className="text-sm font-medium text-red-700">
-                      セッションを削除
-                    </p>
-                    <p className="mt-1 text-xs text-red-600">
-                      この操作は取り消せません。全てのデータが削除されます。
-                    </p>
-                    <Button
-                      onClick={handleDeleteSession}
-                      disabled={deleting}
-                      isLoading={deleting}
-                      variant="destructive"
-                      size="sm"
-                      className="mt-3 gap-1.5 text-xs"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      セッションを削除
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
+                  {canEdit && (
+                    <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
+                      <p className="text-sm font-medium text-red-700">
+                        現在表示しているセッションを削除
+                      </p>
+                      <p className="mt-1 text-xs text-red-600">
+                        この操作は取り消せません。このセッションに関連するテーマ・回答など全てのデータが削除されます。
+                      </p>
+                      <Button
+                        onClick={handleDeleteSession}
+                        disabled={deleting}
+                        isLoading={deleting}
+                        variant="destructive"
+                        size="sm"
+                        className="mt-3 gap-1.5 text-xs"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        セッションを削除
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              )}
             </Card>
 
           </div>
@@ -1743,11 +1799,11 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
   const progressRatio =
     participant.totalStatements > 0
       ? Math.min(
-          100,
-          Math.round(
-            (participant.answeredCount / participant.totalStatements) * 100,
-          ),
-        )
+        100,
+        Math.round(
+          (participant.answeredCount / participant.totalStatements) * 100,
+        ),
+      )
       : 0;
 
   return (
@@ -1757,7 +1813,7 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
           <p className="truncate text-sm font-medium text-slate-900">
             {participant.name || "名称未設定"}
           </p>
-          <p className="text-[10px] text-slate-400">最終更新: {updatedLabel}</p>
+          <p className="text-[10px] text-slate-400">参加時期: {updatedLabel}</p>
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold text-slate-900">
@@ -1859,11 +1915,10 @@ function StatementHighlightColumn({
 function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-        shouldProceed
-          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-          : "bg-amber-50 text-amber-600 border border-amber-200"
-      }`}
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${shouldProceed
+        ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+        : "bg-amber-50 text-amber-600 border border-amber-200"
+        }`}
     >
       {shouldProceed ? (
         <>
@@ -2029,9 +2084,8 @@ function ThreadEventBubble({
 
   return (
     <div
-      className={`flex gap-3 ${
-        isHostMessage ? "justify-end" : "justify-start"
-      }`}
+      className={`flex gap-3 ${isHostMessage ? "justify-end" : "justify-start"
+        }`}
     >
       {!isHostMessage && (
         <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
@@ -2039,9 +2093,8 @@ function ThreadEventBubble({
         </div>
       )}
       <div
-        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${
-          isHostMessage ? "items-end" : "items-start"
-        }`}
+        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${isHostMessage ? "items-end" : "items-start"
+          }`}
       >
         <div
           className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
@@ -2053,19 +2106,17 @@ function ThreadEventBubble({
           </span>
         </div>
         <div
-          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${
-            isHostMessage
-              ? "border-indigo-100 bg-indigo-50/80"
-              : "border-slate-200 bg-white/90"
-          }`}
+          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${isHostMessage
+            ? "border-indigo-100 bg-indigo-50/80"
+            : "border-slate-200 bg-white/90"
+            }`}
         >
           <div className="flex flex-col gap-0">
             {content.content}
             {toggleButton && (
               <div
-                className={`flex ${
-                  isHostMessage ? "justify-end" : "justify-start"
-                } ${content.hasFade ? "-mt-1" : "mt-2"}`}
+                className={`flex ${isHostMessage ? "justify-end" : "justify-start"
+                  } ${content.hasFade ? "-mt-1" : "mt-2"}`}
               >
                 {toggleButton}
               </div>
