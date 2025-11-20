@@ -275,6 +275,7 @@ export default function AdminPage({
   const [isShareQrFullscreen, setIsShareQrFullscreen] = useState(false);
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const lastThreadEventIdRef = useRef<string | null>(null);
+  const isFetchingAdminDataRef = useRef(false);
   const [reports, setReports] = useState<SessionReport[]>([]);
   const [reportsLoading, setReportsLoading] = useState(true);
   const [reportsError, setReportsError] = useState<string | null>(null);
@@ -285,48 +286,70 @@ export default function AdminPage({
     "idle" | "copied" | "error"
   >("idle");
 
-  const fetchAdminData = useCallback(async () => {
-    if (!userId) return;
+  const fetchAdminData = useCallback(
+    async (opts?: { background?: boolean }) => {
+      if (!userId) return;
 
-    try {
-      setLoading(true);
-      const response = await axios.get(
-        `/api/sessions/${sessionId}/${accessToken}`,
-        {
-          headers: { Authorization: `Bearer ${userId}` },
-        },
-      );
-      const responseData = response.data.data as SessionAdminData & {
-        canEdit?: boolean;
-      };
-      setData({
-        ...responseData,
-        goal: responseData.goal ?? "",
-        context: responseData.context ?? "",
-        statements: responseData.statements ?? [],
-        participants: responseData.participants ?? [],
-        totalStatements:
-          typeof responseData.totalStatements === "number"
-            ? responseData.totalStatements
-            : (responseData.statements?.length ?? 0),
-        totalParticipants:
-          typeof responseData.totalParticipants === "number"
-            ? responseData.totalParticipants
-            : (responseData.participants?.length ?? 0),
-      });
-      setCanEdit(responseData.canEdit ?? false);
-      setError(null);
-    } catch (err: unknown) {
-      console.error("Failed to fetch admin data:", err);
-      if (axios.isAxiosError(err) && err.response?.status === 403) {
-        setError("このセッションへのアクセス権限がありません。");
-      } else {
-        setError("データの取得に失敗しました。");
+      if (opts?.background && isFetchingAdminDataRef.current) {
+        return;
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionId, accessToken, userId]);
+
+      try {
+        if (opts?.background) {
+          isFetchingAdminDataRef.current = true;
+        } else {
+          setLoading(true);
+        }
+
+        const response = await axios.get(
+          `/api/sessions/${sessionId}/${accessToken}`,
+          {
+            headers: { Authorization: `Bearer ${userId}` },
+          },
+        );
+        const responseData = response.data.data as SessionAdminData & {
+          canEdit?: boolean;
+        };
+        setData({
+          ...responseData,
+          goal: responseData.goal ?? "",
+          context: responseData.context ?? "",
+          statements: responseData.statements ?? [],
+          participants: responseData.participants ?? [],
+          totalStatements:
+            typeof responseData.totalStatements === "number"
+              ? responseData.totalStatements
+              : (responseData.statements?.length ?? 0),
+          totalParticipants:
+            typeof responseData.totalParticipants === "number"
+              ? responseData.totalParticipants
+              : (responseData.participants?.length ?? 0),
+        });
+        setCanEdit(responseData.canEdit ?? false);
+
+        if (!opts?.background) {
+          setError(null);
+        }
+      } catch (err: unknown) {
+        console.error("Failed to fetch admin data:", err);
+
+        if (!opts?.background) {
+          if (axios.isAxiosError(err) && err.response?.status === 403) {
+            setError("このセッションへのアクセス権限がありません。");
+          } else {
+            setError("データの取得に失敗しました。");
+          }
+        }
+      } finally {
+        if (opts?.background) {
+          isFetchingAdminDataRef.current = false;
+        } else {
+          setLoading(false);
+        }
+      }
+    },
+    [sessionId, accessToken, userId],
+  );
 
   const fetchEventThread = useCallback(
     async (withSpinner = false) => {
@@ -401,6 +424,14 @@ export default function AdminPage({
     }, 6000);
     return () => window.clearInterval(intervalId);
   }, [fetchEventThread, isUserIdLoading, userId]);
+
+  useEffect(() => {
+    if (isUserIdLoading || !userId) return;
+    const intervalId = window.setInterval(() => {
+      void fetchAdminData({ background: true });
+    }, 6000);
+    return () => window.clearInterval(intervalId);
+  }, [fetchAdminData, isUserIdLoading, userId]);
 
   useEffect(() => {
     if (isUserIdLoading || !userId) return;
@@ -965,20 +996,20 @@ export default function AdminPage({
                       新しいレポートを生成
                     </Button>
                     <label
-                        htmlFor="reportRequest"
-                        className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                      >
-                        レポートに対するリクエスト（任意）
-                      </label>
-                      <textarea
-                        id="reportRequest"
-                        value={reportRequest}
-                        onChange={(event) => setReportRequest(event.target.value)}
-                        rows={3}
-                        maxLength={1200}
-                        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                        placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                      />
+                      htmlFor="reportRequest"
+                      className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                    >
+                      レポートに対するリクエスト（任意）
+                    </label>
+                    <textarea
+                      id="reportRequest"
+                      value={reportRequest}
+                      onChange={(event) => setReportRequest(event.target.value)}
+                      rows={3}
+                      maxLength={1200}
+                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                    />
                   </form>
                 ) : (
                   <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
@@ -1015,14 +1046,17 @@ export default function AdminPage({
                           <select
                             id="reportVersionSelect"
                             value={selectedReportId ?? ""}
-                            onChange={(event) => setSelectedReportId(event.target.value)}
+                            onChange={(event) =>
+                              setSelectedReportId(event.target.value)
+                            }
                             className="max-w-xs rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
                           >
                             {reports.map((report) => {
                               const meta = REPORT_STATUS_META[report.status];
                               return (
                                 <option key={report.id} value={report.id}>
-                                  v{String(report.version).padStart(2, "0")}・{meta.label}
+                                  v{String(report.version).padStart(2, "0")}・
+                                  {meta.label}
                                 </option>
                               );
                             })}
@@ -1150,7 +1184,8 @@ export default function AdminPage({
                           </span>
                           {selectedReport.completedAt ? (
                             <span>
-                              最終更新: {formatDateTime(selectedReport.completedAt)}
+                              最終更新:{" "}
+                              {formatDateTime(selectedReport.completedAt)}
                             </span>
                           ) : null}
                         </div>
@@ -1162,7 +1197,6 @@ export default function AdminPage({
                     レポートを選択するとここに表示されます。
                   </div>
                 )}
-
               </CardContent>
             </Card>
 
@@ -1305,7 +1339,6 @@ export default function AdminPage({
                 )}
               </CardContent>
             </Card>
-
           </div>
 
           <div className="space-y-8">
@@ -1697,7 +1730,6 @@ export default function AdminPage({
                 )}
               </CardContent>
             </Card>
-
           </div>
         </div>
       </div>
@@ -1738,7 +1770,6 @@ interface ParticipantProgressRowProps {
 }
 
 function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
-  const completionLabel = formatPercentage(participant.completionRate);
   const updatedLabel = formatDateTime(participant.updatedAt);
   const progressRatio =
     participant.totalStatements > 0
@@ -1761,9 +1792,6 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold text-slate-900">
-            {completionLabel}
-          </p>
-          <p className="text-[10px] text-slate-500">
             {participant.answeredCount}/{participant.totalStatements}
           </p>
         </div>
