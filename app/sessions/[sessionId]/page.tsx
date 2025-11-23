@@ -1378,7 +1378,7 @@ export default function SessionPage({
                   type="button"
                   onClick={() => setShowAlternatives(!showAlternatives)}
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-border/60 bg-muted/30 hover:bg-muted/50 text-sm font-medium text-muted-foreground hover:text-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-muted-foreground/30 bg-transparent hover:bg-muted/20 hover:border-muted-foreground/50 text-sm font-medium text-muted-foreground hover:text-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {showAlternatives ? (
                     <>
@@ -1397,10 +1397,7 @@ export default function SessionPage({
                   <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
                     <div className="space-y-2">
                       <p className="text-sm font-semibold text-foreground">
-                        おすすめの回答
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        あなたの過去の回答から、以下の選択肢をご提案します。
+                        その他の選択肢
                       </p>
                     </div>
 
@@ -1411,14 +1408,14 @@ export default function SessionPage({
                         <div className="h-10 bg-muted rounded-md animate-pulse" />
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {aiSuggestions.map((suggestion, index) => (
                           <button
                             key={index}
                             type="button"
                             onClick={() => handleSuggestionClick(suggestion)}
                             disabled={isLoading || isSubmittingFreeText}
-                            className="w-full px-4 py-3 text-left rounded-md border border-border bg-background hover:bg-accent hover:border-accent-foreground/20 text-sm text-foreground transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {suggestion}
                           </button>
