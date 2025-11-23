@@ -165,6 +165,9 @@ export default function SessionPage({
   const [showAlternatives, setShowAlternatives] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [prefetchedAiSuggestions, setPrefetchedAiSuggestions] = useState<
+    string[] | undefined
+  >(undefined);
   const [individualReport, setIndividualReport] =
     useState<IndividualReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -190,6 +193,7 @@ export default function SessionPage({
   >(null);
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
+  const prefetchedStatementIdRef = useRef<string | null>(null);
   const sessionInfoId = sessionInfo?.id;
   const sortResponsesByRecency = useCallback((items: ParticipantResponse[]) => {
     return [...items].sort((a, b) => {
@@ -462,6 +466,9 @@ export default function SessionPage({
     setPrefetchedStatement(undefined);
     setRemainingQuestions(0);
     setPrefetchedRemainingQuestions(null);
+    setAiSuggestions([]);
+    setIsLoadingSuggestions(false);
+    setPrefetchedAiSuggestions(undefined);
     hasJustCompletedRef.current = true;
     setState("REFLECTION");
   }, []);
@@ -473,6 +480,9 @@ export default function SessionPage({
     setPrefetchedStatement(undefined);
     setRemainingQuestions(0);
     setPrefetchedRemainingQuestions(null);
+    setAiSuggestions([]);
+    setIsLoadingSuggestions(false);
+    setPrefetchedAiSuggestions(undefined);
   }, []);
 
   useEffect(() => {
@@ -579,13 +589,53 @@ export default function SessionPage({
     if (state !== "ANSWERING") return;
     if (!currentStatement) return;
 
-    // Reset prefetch state to undefined (loading state)
+    // Check if this statement came from prefetch
+    const isFromPrefetch = prefetchedStatementIdRef.current === currentStatement.id;
+
+    if (isFromPrefetch) {
+      // This statement came from prefetch, suggestions are already set
+      // Reset the ref for next time
+      prefetchedStatementIdRef.current = null;
+    } else {
+      // This is a fresh statement (e.g., first load, or fallback path)
+      // Need to fetch suggestions for current statement
+      setAiSuggestions([]);
+      setIsLoadingSuggestions(true);
+
+      const prefetchCurrentSuggestions = async () => {
+        try {
+          const response = await axios.get(
+            `/api/sessions/${sessionId}/statements/${currentStatement.id}/suggestions`,
+            {
+              headers: createAuthorizationHeader(userId),
+            },
+          );
+
+          if (response.data.suggestions && Array.isArray(response.data.suggestions)) {
+            setAiSuggestions(response.data.suggestions);
+          }
+        } catch (err) {
+          console.error("Failed to fetch AI suggestions:", err);
+          // Set fallback suggestions
+          setAiSuggestions([
+            "状況によって賛成できる",
+            "一部には賛成だが全体には反対",
+            "今は判断できない",
+          ]);
+        } finally {
+          setIsLoadingSuggestions(false);
+        }
+      };
+
+      prefetchCurrentSuggestions();
+    }
+
+    // Always reset prefetch state and prefetch next statement
     setPrefetchedStatement(undefined);
     setPrefetchedRemainingQuestions(null);
-    setAiSuggestions([]);
-    setIsLoadingSuggestions(true);
+    setPrefetchedAiSuggestions(undefined);
 
-    const prefetchNextStatement = async () => {
+    const prefetchNextStatementAndSuggestions = async () => {
       try {
         const excludeQuery = buildExcludeQuery();
         const response = await axios.get(
@@ -596,48 +646,49 @@ export default function SessionPage({
         );
 
         if (response.data.statement) {
-          setPrefetchedStatement(response.data.statement);
+          const nextStatement = response.data.statement;
+          setPrefetchedStatement(nextStatement);
           setPrefetchedRemainingQuestions(response.data.remainingCount ?? null);
+
+          // Prefetch suggestions for the next statement
+          try {
+            const suggestionsResponse = await axios.get(
+              `/api/sessions/${sessionId}/statements/${nextStatement.id}/suggestions`,
+              {
+                headers: createAuthorizationHeader(userId),
+              },
+            );
+
+            if (suggestionsResponse.data.suggestions && Array.isArray(suggestionsResponse.data.suggestions)) {
+              setPrefetchedAiSuggestions(suggestionsResponse.data.suggestions);
+            } else {
+              setPrefetchedAiSuggestions([]);
+            }
+          } catch (err) {
+            console.error("Failed to prefetch AI suggestions for next statement:", err);
+            // Set fallback suggestions for next statement
+            setPrefetchedAiSuggestions([
+              "状況によって賛成できる",
+              "一部には賛成だが全体には反対",
+              "今は判断できない",
+            ]);
+          }
         } else {
           // null means this is the last question
           setPrefetchedStatement(null);
           setPrefetchedRemainingQuestions(0);
+          setPrefetchedAiSuggestions(undefined); // No next statement, so no suggestions needed
         }
       } catch (err) {
         // Silently fail prefetch - keep as undefined to trigger fallback
         console.error("Prefetch failed:", err);
         setPrefetchedStatement(undefined);
         setPrefetchedRemainingQuestions(null);
+        setPrefetchedAiSuggestions(undefined);
       }
     };
 
-    const prefetchAiSuggestions = async () => {
-      try {
-        const response = await axios.get(
-          `/api/sessions/${sessionId}/statements/${currentStatement.id}/suggestions`,
-          {
-            headers: createAuthorizationHeader(userId),
-          },
-        );
-
-        if (response.data.suggestions && Array.isArray(response.data.suggestions)) {
-          setAiSuggestions(response.data.suggestions);
-        }
-      } catch (err) {
-        console.error("Failed to fetch AI suggestions:", err);
-        // Set fallback suggestions
-        setAiSuggestions([
-          "状況によって賛成できる",
-          "一部には賛成だが全体には反対",
-          "今は判断できない",
-        ]);
-      } finally {
-        setIsLoadingSuggestions(false);
-      }
-    };
-
-    prefetchNextStatement();
-    prefetchAiSuggestions();
+    prefetchNextStatementAndSuggestions();
   }, [
     userId,
     userLoading,
@@ -868,6 +919,21 @@ export default function SessionPage({
         setRemainingQuestions(prefetchedRemainingQuestions ?? null);
         setPrefetchedRemainingQuestions(null);
 
+        // Use prefetched suggestions for the next statement
+        if (prefetchedAiSuggestions !== undefined) {
+          // Suggestions are ready - mark this as a prefetch transition
+          prefetchedStatementIdRef.current = cachedNextStatement.id;
+          setAiSuggestions(prefetchedAiSuggestions);
+          setIsLoadingSuggestions(false);
+          setPrefetchedAiSuggestions(undefined);
+        } else {
+          // Fallback: suggestions weren't prefetched yet
+          // Don't set ref - let useEffect fetch suggestions normally
+          setAiSuggestions([]);
+          setIsLoadingSuggestions(true);
+          setPrefetchedAiSuggestions(undefined);
+        }
+
         axios
           .post(
             `/api/sessions/${sessionId}/responses`,
@@ -935,6 +1001,10 @@ export default function SessionPage({
       if (nextStatement) {
         setCurrentStatement(nextStatement);
         setRemainingQuestions(remainingCount);
+        // Reset suggestions - will be fetched by useEffect
+        setAiSuggestions([]);
+        setIsLoadingSuggestions(true);
+        setPrefetchedAiSuggestions(undefined);
       } else {
         enterReflectionMode();
       }
@@ -1099,6 +1169,10 @@ export default function SessionPage({
           setPrefetchedStatement(undefined);
           setState("ANSWERING");
           setRemainingQuestions(nextRemainingCount);
+          // Reset suggestions - will be fetched by useEffect
+          setAiSuggestions([]);
+          setIsLoadingSuggestions(true);
+          setPrefetchedAiSuggestions(undefined);
         } else {
           enterCompletedState();
         }
