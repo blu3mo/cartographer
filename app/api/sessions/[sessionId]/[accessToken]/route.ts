@@ -12,6 +12,8 @@ interface ResponseStats {
   no: number;
   strongNo: number;
   totalCount: number;
+  freeTextCount: number;
+  freeTextSamples: Array<{ participantUserId: string | null; text: string }>;
 }
 
 interface StatementWithStats {
@@ -97,7 +99,9 @@ export async function GET(
 
     const { data: responseRows, error: responsesError } = await supabase
       .from("responses")
-      .select("statement_id, value, participant_user_id")
+      .select(
+        "statement_id, value, participant_user_id, response_type, text_response",
+      )
       .eq("session_id", sessionId);
 
     if (responsesError) {
@@ -128,12 +132,20 @@ export async function GET(
       );
     }
 
-    const responseMap = new Map<string, { value: number }[]>();
+    const responseMap = new Map<
+      string,
+      { value: number | null; responseType: string; text: string | null; participantId: string | null }[]
+    >();
     const participantResponseCount = new Map<string, number>();
 
     (responseRows ?? []).forEach((response) => {
       const list = responseMap.get(response.statement_id) ?? [];
-      list.push({ value: response.value });
+      list.push({
+        value: response.value,
+        responseType: response.response_type,
+        text: response.text_response,
+        participantId: response.participant_user_id ?? null,
+      });
       responseMap.set(response.statement_id, list);
 
       if (response.participant_user_id) {
@@ -172,7 +184,13 @@ export async function GET(
     const statementsWithStats: StatementWithStats[] = (statements ?? []).map(
       (statement) => {
         const statementResponses = responseMap.get(statement.id) ?? [];
-        const totalCount = statementResponses.length;
+        const scaleResponses = statementResponses.filter(
+          (response) => response.responseType === "scale",
+        );
+        const freeTextResponses = statementResponses.filter(
+          (response) => response.responseType === "free_text",
+        );
+        const totalCount = scaleResponses.length;
 
         let strongYesCount = 0;
         let yesCount = 0;
@@ -180,7 +198,7 @@ export async function GET(
         let noCount = 0;
         let strongNoCount = 0;
 
-        statementResponses.forEach((response) => {
+        scaleResponses.forEach((response) => {
           const value = response.value as ResponseValue;
           switch (value) {
             case 2:
@@ -226,6 +244,13 @@ export async function GET(
             no: Math.round(noPercent * 100) / 100,
             strongNo: Math.round(strongNoPercent * 100) / 100,
             totalCount,
+            freeTextCount: freeTextResponses.length,
+            freeTextSamples: freeTextResponses
+              .slice(0, 5)
+              .map((response) => ({
+                participantUserId: response.participantId,
+                text: response.text ?? "",
+              })),
           },
           agreementScore,
         };

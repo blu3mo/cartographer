@@ -13,7 +13,9 @@ type ResponseRow = {
   participant_user_id: string;
   session_id: string;
   statement_id: string;
-  value: number;
+  response_type: "scale" | "free_text";
+  value: number | null;
+  text_response: string | null;
   created_at: string;
   statement?: StatementRow | StatementRow[] | null;
 };
@@ -28,7 +30,9 @@ function mapResponse(row: ResponseRow) {
     statementId: row.statement_id,
     statementText: statement?.text ?? "",
     orderIndex: statement?.order_index ?? 0,
+    responseType: row.response_type,
     value: row.value,
+    textResponse: row.text_response,
     createdAt: row.created_at,
   };
 }
@@ -78,7 +82,9 @@ export async function GET(
           participant_user_id,
           session_id,
           statement_id,
+          response_type,
           value,
+          text_response,
           created_at,
           statement:statements (
             id,
@@ -135,21 +141,41 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { statementId, value } = body;
+    const { statementId, value, responseType, textResponse } = body;
 
-    if (!statementId || value === undefined) {
+    if (!statementId) {
       return NextResponse.json(
-        { error: "Missing required fields: statementId and value" },
+        { error: "Missing required field: statementId" },
         { status: 400 },
       );
     }
 
-    // Validate value is in range
-    if (![-2, -1, 0, 1, 2].includes(value)) {
-      return NextResponse.json(
-        { error: "Invalid value: must be -2, -1, 0, 1, or 2" },
-        { status: 400 },
-      );
+    const normalizedType =
+      responseType === "free_text" ? "free_text" : "scale";
+
+    if (normalizedType === "scale") {
+      if (value === undefined) {
+        return NextResponse.json(
+          { error: "Missing required field: value" },
+          { status: 400 },
+        );
+      }
+      if (![-2, -1, 0, 1, 2].includes(value)) {
+        return NextResponse.json(
+          { error: "Invalid value: must be -2, -1, 0, 1, or 2" },
+          { status: 400 },
+        );
+      }
+    } else {
+      if (
+        typeof textResponse !== "string" ||
+        textResponse.trim().length === 0
+      ) {
+        return NextResponse.json(
+          { error: "textResponse is required for free_text responses" },
+          { status: 400 },
+        );
+      }
     }
 
     const { data: statement, error: statementError } = await supabase
@@ -195,24 +221,39 @@ export async function POST(
       );
     }
 
+    const payload =
+      normalizedType === "scale"
+        ? {
+            participant_user_id: userId,
+            session_id: sessionId,
+            statement_id: statementId,
+            response_type: "scale",
+            value,
+            text_response: null,
+          }
+        : {
+            participant_user_id: userId,
+            session_id: sessionId,
+            statement_id: statementId,
+            response_type: "free_text",
+            value: null,
+            text_response: (textResponse as string).trim(),
+          };
+
     const { data: response, error: upsertError } = await supabase
       .from("responses")
-      .upsert(
-        {
-          participant_user_id: userId,
-          session_id: sessionId,
-          statement_id: statementId,
-          value,
-        },
-        { onConflict: "participant_user_id,session_id,statement_id" },
-      )
+      .upsert(payload, {
+        onConflict: "participant_user_id,session_id,statement_id",
+      })
       .select(
         `
           id,
           participant_user_id,
           session_id,
           statement_id,
+          response_type,
           value,
+          text_response,
           created_at,
           statement:statements (
             id,

@@ -191,3 +191,14 @@ alter table if exists public.sessions
 
 create unique index if not exists sessions_admin_access_token_idx 
   on public.sessions (admin_access_token);
+
+-- Migration: allow free-text responses alongside scale responses ----------
+alter table if exists public.responses
+  add column if not exists response_type text not null default 'scale'
+    check (response_type in ('scale', 'free_text'));
+
+alter table if exists public.responses
+  alter column value drop not null;
+
+alter table if exists public.responses
+  add column if not exists text_response text null;
