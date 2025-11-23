@@ -695,9 +695,6 @@ export default function SessionPage({
 
     setIsLoading(true);
     setError(null);
-    if (payload.responseType === "free_text") {
-      setIsSubmittingFreeText(true);
-    }
 
     try {
       await axios.post(
@@ -747,6 +744,9 @@ export default function SessionPage({
     ) {
       setError("自由記述を入力してください。");
       return;
+    }
+    if (payload.responseType === "free_text") {
+      setIsSubmittingFreeText(true);
     }
 
     const previousStatement = currentStatement;

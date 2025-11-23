@@ -751,7 +751,7 @@ export class PtolemyAgent {
         return {
           participantId: participantId ?? "unknown",
           participantName,
-          value: response.value,
+          value: response.value ?? 0,
         };
       });
 

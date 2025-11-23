@@ -4,6 +4,9 @@ import { getUserIdFromRequest } from "@/lib/auth";
 import { buildSessionBrief, generateIndividualReport } from "@/lib/llm";
 import { supabase } from "@/lib/supabase";
 
+type IndividualReportResponse =
+  Parameters<typeof generateIndividualReport>[0]["responses"][number];
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
@@ -195,12 +198,14 @@ export async function POST(
     );
 
     // Format responses for LLM
-    const responsesWithStatement = (responses ?? []).map((response) => ({
+    const responsesWithStatement: IndividualReportResponse[] = (
+      responses ?? []
+    ).map((response) => ({
       statementText: statementTextMap.get(response.statement_id) ?? "",
       responseType:
         response.response_type === "free_text" ? "free_text" : "scale",
-      value: response.value,
-      textResponse: response.text_response ?? "",
+      value: typeof response.value === "number" ? response.value : null,
+      textResponse: response.text_response ?? undefined,
     }));
 
     // Generate individual report using LLM
