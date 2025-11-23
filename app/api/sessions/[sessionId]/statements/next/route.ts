@@ -107,15 +107,20 @@ export async function GET(
       );
     }
 
+    const remainingCount = unansweredStatements.length;
+
     if (unansweredStatements.length === 0) {
-      return NextResponse.json({ statement: null });
+      return NextResponse.json({ statement: null, remainingCount });
     }
 
     // Return a random unanswered statement
     const randomIndex = Math.floor(Math.random() * unansweredStatements.length);
     const statement = unansweredStatements[randomIndex] as StatementRow;
 
-    return NextResponse.json({ statement: mapStatement(statement) });
+    return NextResponse.json({
+      statement: mapStatement(statement),
+      remainingCount,
+    });
   } catch (error) {
     console.error("Get next statement error:", error);
     return NextResponse.json(

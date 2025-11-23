@@ -94,7 +94,7 @@ const RESPONSE_CHOICES: Array<{
 }> = [
   {
     value: 2,
-    label: "Strong Yes",
+    label: "強く同意",
     emoji: "💯",
     idleClass:
       "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
@@ -103,7 +103,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: 1,
-    label: "Yes",
+    label: "同意",
     emoji: "✓",
     idleClass: "bg-green-50 text-green-700 border-green-200 hover:bg-green-100",
     activeClass:
@@ -119,7 +119,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: -1,
-    label: "No",
+    label: "反対",
     emoji: "✗",
     idleClass: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
     activeClass:
@@ -127,7 +127,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: -2,
-    label: "Strong No",
+    label: "強く反対",
     emoji: "👎",
     idleClass: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100",
     activeClass:
@@ -153,6 +153,11 @@ export default function SessionPage({
   const [prefetchedStatement, setPrefetchedStatement] = useState<
     Statement | null | undefined
   >(undefined);
+  const [remainingQuestions, setRemainingQuestions] = useState<number | null>(
+    null,
+  );
+  const [prefetchedRemainingQuestions, setPrefetchedRemainingQuestions] =
+    useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [freeTextInput, setFreeTextInput] = useState("");
@@ -455,6 +460,8 @@ export default function SessionPage({
     setReflectionText("");
     setCurrentStatement(null);
     setPrefetchedStatement(undefined);
+    setRemainingQuestions(0);
+    setPrefetchedRemainingQuestions(null);
     hasJustCompletedRef.current = true;
     setState("REFLECTION");
   }, []);
@@ -464,6 +471,8 @@ export default function SessionPage({
     setState("COMPLETED");
     setCurrentStatement(null);
     setPrefetchedStatement(undefined);
+    setRemainingQuestions(0);
+    setPrefetchedRemainingQuestions(null);
   }, []);
 
   useEffect(() => {
@@ -572,6 +581,7 @@ export default function SessionPage({
 
     // Reset prefetch state to undefined (loading state)
     setPrefetchedStatement(undefined);
+    setPrefetchedRemainingQuestions(null);
     setAiSuggestions([]);
     setIsLoadingSuggestions(true);
 
@@ -587,14 +597,17 @@ export default function SessionPage({
 
         if (response.data.statement) {
           setPrefetchedStatement(response.data.statement);
+          setPrefetchedRemainingQuestions(response.data.remainingCount ?? null);
         } else {
           // null means this is the last question
           setPrefetchedStatement(null);
+          setPrefetchedRemainingQuestions(0);
         }
       } catch (err) {
         // Silently fail prefetch - keep as undefined to trigger fallback
         console.error("Prefetch failed:", err);
         setPrefetchedStatement(undefined);
+        setPrefetchedRemainingQuestions(null);
       }
     };
 
@@ -751,10 +764,12 @@ export default function SessionPage({
       if (response.data.statement) {
         setCurrentStatement(response.data.statement);
         setState("ANSWERING");
+        setRemainingQuestions(response.data.remainingCount ?? null);
       } else {
         // Set flag to trigger auto-generation (edge case: no questions in session)
         hasJustCompletedRef.current = true;
         setState("COMPLETED");
+        setRemainingQuestions(0);
       }
       setSessionInfo((prev) =>
         prev ? { ...prev, isParticipant: true } : prev,
@@ -850,6 +865,8 @@ export default function SessionPage({
       if (cachedNextStatement) {
         setCurrentStatement(cachedNextStatement);
         setPrefetchedStatement(undefined);
+        setRemainingQuestions(prefetchedRemainingQuestions ?? null);
+        setPrefetchedRemainingQuestions(null);
 
         axios
           .post(
@@ -913,9 +930,11 @@ export default function SessionPage({
       }
 
       const nextStatement = nextResponse.data?.statement ?? null;
+      const remainingCount = nextResponse.data?.remainingCount ?? null;
 
       if (nextStatement) {
         setCurrentStatement(nextStatement);
+        setRemainingQuestions(remainingCount);
       } else {
         enterReflectionMode();
       }
@@ -1072,11 +1091,14 @@ export default function SessionPage({
           { headers: createAuthorizationHeader(userId) },
         );
         const statement = nextStatementResponse.data?.statement ?? null;
+        const nextRemainingCount =
+          nextStatementResponse.data?.remainingCount ?? null;
 
         if (statement) {
           setCurrentStatement(statement);
           setPrefetchedStatement(undefined);
           setState("ANSWERING");
+          setRemainingQuestions(nextRemainingCount);
         } else {
           enterCompletedState();
         }
@@ -1278,7 +1300,16 @@ export default function SessionPage({
         {state === "ANSWERING" && currentStatement && (
           <Card className={isLoading ? "opacity-50 pointer-events-none" : ""}>
             <CardContent className="pt-6">
-              <div className="mb-8">
+              <div
+                key={currentStatement.id}
+                className="mb-8 space-y-2 question-change"
+              >
+                {typeof remainingQuestions === "number" &&
+                  remainingQuestions > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      あと{remainingQuestions}個の質問があります
+                    </p>
+                  )}
                 <p className="text-xl font-medium leading-relaxed">
                   {currentStatement.text}
                 </p>
@@ -1293,7 +1324,7 @@ export default function SessionPage({
                 >
                   <div className="text-xl sm:text-3xl">👍</div>
                   <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    Strong Yes
+                    強く同意
                   </span>
                 </button>
                 <button
@@ -1304,7 +1335,7 @@ export default function SessionPage({
                 >
                   <div className="text-xl sm:text-3xl">✓</div>
                   <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    Yes
+                    同意
                   </span>
                 </button>
                 <button
@@ -1326,7 +1357,7 @@ export default function SessionPage({
                 >
                   <div className="text-xl sm:text-3xl">✗</div>
                   <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    No
+                    反対
                   </span>
                 </button>
                 <button
@@ -1337,7 +1368,7 @@ export default function SessionPage({
                 >
                   <div className="text-xl sm:text-3xl">👎</div>
                   <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    Strong No
+                    強く反対
                   </span>
                 </button>
               </div>
