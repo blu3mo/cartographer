@@ -156,24 +156,18 @@ ${contextText}
 
 **選択肢の生成ルール:**
 1. それぞれ40-50文字以内の文章にしてください
-2. ユーザーの過去の回答傾向を踏まえて、YesでもNoでもないならこう考えているだろうと推測して候補を作ってください。
-3. 抽象的すぎず、具体的で選びやすい表現にしてください
-4. パッと読んでスタンスが理解できるような、シンプルで読みやすい文章にしてください。
+2. ユーザーの過去の回答を踏まえて、YesでもNoでもない場合に考えていることを推測して候補を作ってください。（e.g. そもそも前提が間違っている、条件によって答えが変わる、などのパターンがありえる）
+3. パッと読んでスタンスが理解できるような、シンプルで読みやすい文章にしてください。
 
 **出力形式:**
 3つの選択肢のみを、1行につき1つずつ出力してください。番号や記号は不要です。
-
-例:
-状況によって賛成できる
-一部には賛成だが全体には反対
-今は判断できない
 
 では、3つの選択肢を生成してください:`;
 
   const messages = [{ role: "user" as const, content: prompt }];
 
   try {
-    const response = await callLLM(messages, "google/gemini-2.5-flash");
+    const response = await callLLM(messages, "anthropic/claude-sonnet-4.5");
     const suggestions = response
       .split("\n")
       .map((line) => line.trim())
