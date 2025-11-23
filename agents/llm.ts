@@ -115,18 +115,18 @@ export async function generatePlanMarkdown(input: {
     input.participantReflections && input.participantReflections.length > 0
       ? `<participant_reflections>
 ${input.participantReflections
-        .map((reflection) => {
-          const nameAttribute =
-            reflection.name && reflection.name.length > 0
-              ? ` name="${reflection.name}"`
-              : "";
-          const timestampAttribute =
-            reflection.submittedAt && reflection.submittedAt.length > 0
-              ? ` submitted_at="${reflection.submittedAt}"`
-              : "";
-          return `<reflection${nameAttribute}${timestampAttribute}>${reflection.text}</reflection>`;
-        })
-        .join("\n")}
+  .map((reflection) => {
+    const nameAttribute =
+      reflection.name && reflection.name.length > 0
+        ? ` name="${reflection.name}"`
+        : "";
+    const timestampAttribute =
+      reflection.submittedAt && reflection.submittedAt.length > 0
+        ? ` submitted_at="${reflection.submittedAt}"`
+        : "";
+    return `<reflection${nameAttribute}${timestampAttribute}>${reflection.text}</reflection>`;
+  })
+  .join("\n")}
 </participant_reflections>`
       : "";
 
@@ -248,15 +248,15 @@ export async function generateSurveyAnalysisMarkdown(input: {
   const formatValue = (value: number) => {
     switch (value) {
       case 2:
-        return "Strong Yes";
+        return "強く同意";
       case 1:
-        return "Yes";
+        return "同意";
       case 0:
         return "わからない";
       case -1:
-        return "No";
+        return "反対";
       case -2:
-        return "Strong No";
+        return "強く反対";
       default:
         return `Unknown (${value})`;
     }
@@ -266,11 +266,11 @@ export async function generateSurveyAnalysisMarkdown(input: {
     .map((statement, index) => {
       const dist = statement.distribution;
       return `${index + 1}. "${statement.text}" (回答人数: ${statement.totalCount}人)
-- Strong Yes: ${dist.strongYes}%
-- Yes: ${dist.yes}%
+- 強く同意: ${dist.strongYes}%
+- 同意: ${dist.yes}%
 - わからない: ${dist.dontKnow}%
-- No: ${dist.no}%
-- Strong No: ${dist.strongNo}%`;
+- 反対: ${dist.no}%
+- 強く反対: ${dist.strongNo}%`;
     })
     .join("\n\n");
 
@@ -302,12 +302,12 @@ export async function generateSurveyAnalysisMarkdown(input: {
   const participantDetailsText =
     participantMap.size > 0
       ? Array.from(participantMap.values())
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((entry) => {
-          const lines = entry.responses.map((response) => `  ${response}`);
-          return `${entry.name}:\n${lines.join("\n")}`;
-        })
-        .join("\n\n")
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((entry) => {
+            const lines = entry.responses.map((response) => `  ${response}`);
+            return `${entry.name}:\n${lines.join("\n")}`;
+          })
+          .join("\n\n")
       : "  (回答なし)";
 
   const surveyResultsText = `${statementsText}\n\n参加者別回答:\n${participantDetailsText}`;

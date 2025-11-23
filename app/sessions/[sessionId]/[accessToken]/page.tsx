@@ -965,20 +965,20 @@ export default function AdminPage({
                       新しいレポートを生成
                     </Button>
                     <label
-                        htmlFor="reportRequest"
-                        className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                      >
-                        レポートに対するリクエスト（任意）
-                      </label>
-                      <textarea
-                        id="reportRequest"
-                        value={reportRequest}
-                        onChange={(event) => setReportRequest(event.target.value)}
-                        rows={3}
-                        maxLength={1200}
-                        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                        placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                      />
+                      htmlFor="reportRequest"
+                      className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                    >
+                      レポートに対するリクエスト（任意）
+                    </label>
+                    <textarea
+                      id="reportRequest"
+                      value={reportRequest}
+                      onChange={(event) => setReportRequest(event.target.value)}
+                      rows={3}
+                      maxLength={1200}
+                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                    />
                   </form>
                 ) : (
                   <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
@@ -1015,14 +1015,17 @@ export default function AdminPage({
                           <select
                             id="reportVersionSelect"
                             value={selectedReportId ?? ""}
-                            onChange={(event) => setSelectedReportId(event.target.value)}
+                            onChange={(event) =>
+                              setSelectedReportId(event.target.value)
+                            }
                             className="max-w-xs rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
                           >
                             {reports.map((report) => {
                               const meta = REPORT_STATUS_META[report.status];
                               return (
                                 <option key={report.id} value={report.id}>
-                                  v{String(report.version).padStart(2, "0")}・{meta.label}
+                                  v{String(report.version).padStart(2, "0")}・
+                                  {meta.label}
                                 </option>
                               );
                             })}
@@ -1150,7 +1153,8 @@ export default function AdminPage({
                           </span>
                           {selectedReport.completedAt ? (
                             <span>
-                              最終更新: {formatDateTime(selectedReport.completedAt)}
+                              最終更新:{" "}
+                              {formatDateTime(selectedReport.completedAt)}
                             </span>
                           ) : null}
                         </div>
@@ -1162,7 +1166,6 @@ export default function AdminPage({
                     レポートを選択するとここに表示されます。
                   </div>
                 )}
-
               </CardContent>
             </Card>
 
@@ -1305,7 +1308,6 @@ export default function AdminPage({
                 )}
               </CardContent>
             </Card>
-
           </div>
 
           <div className="space-y-8">
@@ -1697,7 +1699,6 @@ export default function AdminPage({
                 )}
               </CardContent>
             </Card>
-
           </div>
         </div>
       </div>
