@@ -82,6 +82,11 @@ type HistoryEntry =
       key: string;
     };
 
+type ReflectionChatMessage = {
+  role: "assistant" | "user";
+  content: string;
+};
+
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
   label: string;
@@ -170,11 +175,29 @@ export default function SessionPage({
   >([]);
   const [isLoadingReflections, setIsLoadingReflections] = useState(false);
   const [reflectionsError, setReflectionsError] = useState<string | null>(null);
-  const [reflectionText, setReflectionText] = useState("");
   const [isSubmittingReflection, setIsSubmittingReflection] = useState(false);
   const [reflectionSubmissionError, setReflectionSubmissionError] = useState<
     string | null
   >(null);
+  const [reflectionChatMessages, setReflectionChatMessages] = useState<
+    ReflectionChatMessage[]
+  >([]);
+  const [reflectionChatOptions, setReflectionChatOptions] = useState<string[]>(
+    [],
+  );
+  const [activeReflectionId, setActiveReflectionId] = useState<string | null>(
+    null,
+  );
+  const [isStartingReflectionChat, setIsStartingReflectionChat] =
+    useState(false);
+  const [isSendingReflectionChat, setIsSendingReflectionChat] = useState(false);
+  const [reflectionChatError, setReflectionChatError] = useState<
+    string | null
+  >(null);
+  const [reflectionChatInput, setReflectionChatInput] = useState("");
+  const isReflectionChatBusy =
+    isStartingReflectionChat || isSendingReflectionChat;
+  const reflectionChatListRef = useRef<HTMLDivElement | null>(null);
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const sessionInfoId = sessionInfo?.id;
@@ -304,6 +327,22 @@ export default function SessionPage({
     }
   }, [sessionId, userId]);
 
+  const upsertReflectionInState = useCallback(
+    (reflection: ParticipantReflection) => {
+      setParticipantReflections((prev) =>
+        [
+          reflection,
+          ...prev.filter((item) => item.id !== reflection.id),
+        ].sort(
+          (a, b) =>
+            new Date(b.submittedAt).getTime() -
+            new Date(a.submittedAt).getTime(),
+        ),
+      );
+    },
+    [],
+  );
+
   const upsertParticipantResponse = useCallback(
     (statement: Statement, value: ResponseValue) => {
       setParticipantResponses((prev) => {
@@ -422,7 +461,13 @@ export default function SessionPage({
 
   const enterReflectionMode = useCallback(() => {
     setReflectionSubmissionError(null);
-    setReflectionText("");
+    setReflectionChatMessages([]);
+    setReflectionChatOptions([]);
+    setActiveReflectionId(null);
+    setReflectionChatInput("");
+    setReflectionChatError(null);
+    setIsStartingReflectionChat(false);
+    setIsSendingReflectionChat(false);
     setCurrentStatement(null);
     setPrefetchedStatement(undefined);
     hasJustCompletedRef.current = true;
@@ -886,21 +931,21 @@ export default function SessionPage({
     }
   };
 
-  const handleSubmitReflection = async (overrideText?: string) => {
-    if (!userId || isSubmittingReflection) return;
-
-    setIsSubmittingReflection(true);
-    setReflectionSubmissionError(null);
-
-    const submissionText = overrideText ?? reflectionText;
+  const startReflectionChat = useCallback(async () => {
+    if (!userId) return;
+    setIsStartingReflectionChat(true);
+    setReflectionChatError(null);
 
     try {
       const response = await axios.post(
-        `/api/sessions/${sessionId}/reflections`,
-        { text: submissionText },
+        `/api/sessions/${sessionId}/reflection-chat`,
+        { messages: [] },
         { headers: createAuthorizationHeader(userId) },
       );
 
+      const assistantMessage =
+        (response.data?.assistantMessage as string | undefined) ?? null;
+      const options = (response.data?.options as string[] | undefined) ?? [];
       const reflection = response.data?.reflection as
         | {
             id: string;
@@ -910,64 +955,223 @@ export default function SessionPage({
           }
         | undefined;
 
-      if (reflection) {
-        setParticipantReflections((prev) =>
-          [
-            {
-              id: reflection.id,
-              text: reflection.text,
-              createdAt: reflection.createdAt ?? new Date().toISOString(),
-              submittedAt: reflection.submittedAt ?? new Date().toISOString(),
-            },
-            ...prev,
-          ].sort(
-            (a, b) =>
-              new Date(b.submittedAt).getTime() -
-              new Date(a.submittedAt).getTime(),
-          ),
-        );
+      if (assistantMessage) {
+        setReflectionChatMessages([
+          { role: "assistant", content: assistantMessage },
+        ]);
       }
+      setReflectionChatOptions(options);
 
-      setReflectionText("");
-      setIsLoading(true);
-
-      try {
-        const nextStatementResponse = await axios.get(
-          `/api/sessions/${sessionId}/statements/next`,
-          { headers: createAuthorizationHeader(userId) },
-        );
-        const statement = nextStatementResponse.data?.statement ?? null;
-
-        if (statement) {
-          setCurrentStatement(statement);
-          setPrefetchedStatement(undefined);
-          setState("ANSWERING");
-        } else {
-          enterCompletedState();
-        }
-      } catch (err) {
-        console.error("Failed to fetch next statement after reflection:", err);
-        setError(
-          "次の質問を取得できませんでした。ページを更新して再度お試しください。",
-        );
-      } finally {
-        setIsLoading(false);
+      if (reflection) {
+        const mapped: ParticipantReflection = {
+          id: reflection.id,
+          text: reflection.text,
+          createdAt: reflection.createdAt ?? new Date().toISOString(),
+          submittedAt: reflection.submittedAt ?? new Date().toISOString(),
+        };
+        setActiveReflectionId(reflection.id);
+        upsertReflectionInState(mapped);
       }
     } catch (err) {
-      console.error("Failed to submit reflection:", err);
-      if (axios.isAxiosError(err) && err.response?.data?.error) {
-        setReflectionSubmissionError(
-          `ふりかえりの送信に失敗しました: ${err.response.data.error}`,
-        );
-      } else {
-        setReflectionSubmissionError(
-          "ふりかえりの送信に失敗しました。時間をおいて再度お試しください。",
-        );
-      }
+      console.error("Failed to start reflection chat:", err);
+      setReflectionChatError(
+        "会話を開始できませんでした。ページを更新して再度お試しください。",
+      );
     } finally {
-      setIsSubmittingReflection(false);
+      setIsStartingReflectionChat(false);
     }
-  };
+  }, [sessionId, upsertReflectionInState, userId]);
+
+  useEffect(() => {
+    if (!userId || userLoading) return;
+    if (state !== "REFLECTION") return;
+    if (isStartingReflectionChat) return;
+    if (reflectionChatMessages.length > 0) return;
+    if (reflectionChatError) return;
+
+    void startReflectionChat();
+  }, [
+    isStartingReflectionChat,
+    reflectionChatError,
+    reflectionChatMessages.length,
+    startReflectionChat,
+    state,
+    userId,
+    userLoading,
+  ]);
+
+  useEffect(() => {
+    if (!reflectionChatListRef.current) return;
+    reflectionChatListRef.current.scrollTop =
+      reflectionChatListRef.current.scrollHeight;
+  }, [reflectionChatMessages]);
+
+  const handleSendReflectionChatMessage = useCallback(
+    async (content: string) => {
+      if (!userId || isReflectionChatBusy) return;
+
+      const trimmed = content.trim();
+      if (trimmed.length === 0) return;
+
+      const nextMessages: ReflectionChatMessage[] = [
+        ...reflectionChatMessages,
+        { role: "user", content: trimmed },
+      ];
+
+      setReflectionChatMessages(nextMessages);
+      setReflectionChatInput("");
+      setReflectionChatError(null);
+      setIsSendingReflectionChat(true);
+
+      try {
+        const response = await axios.post(
+          `/api/sessions/${sessionId}/reflection-chat`,
+          {
+            messages: nextMessages,
+            reflectionId: activeReflectionId ?? undefined,
+          },
+          { headers: createAuthorizationHeader(userId) },
+        );
+
+        const assistantMessage =
+          (response.data?.assistantMessage as string | undefined) ?? null;
+        const options = (response.data?.options as string[] | undefined) ?? [];
+        const reflection = response.data?.reflection as
+          | {
+              id: string;
+              text: string;
+              createdAt?: string;
+              submittedAt?: string;
+            }
+          | undefined;
+
+        const updatedMessages = assistantMessage
+          ? [...nextMessages, { role: "assistant" as const, content: assistantMessage }]
+          : nextMessages;
+
+        setReflectionChatMessages(updatedMessages);
+        setReflectionChatOptions(options);
+
+        if (reflection) {
+          const mapped: ParticipantReflection = {
+            id: reflection.id,
+            text: reflection.text,
+            createdAt: reflection.createdAt ?? new Date().toISOString(),
+            submittedAt: reflection.submittedAt ?? new Date().toISOString(),
+          };
+          setActiveReflectionId(reflection.id);
+          upsertReflectionInState(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to continue reflection chat:", err);
+        setReflectionChatError(
+          "チャットの送信に失敗しました。時間をおいて再度お試しください。",
+        );
+      } finally {
+        setIsSendingReflectionChat(false);
+      }
+    },
+    [
+      activeReflectionId,
+      isReflectionChatBusy,
+      reflectionChatMessages,
+      sessionId,
+      upsertReflectionInState,
+      userId,
+    ],
+  );
+
+  const handleSubmitReflection = useCallback(
+    async (options?: { skip?: boolean }) => {
+      if (!userId || isSubmittingReflection) return;
+
+      setIsSubmittingReflection(true);
+      setReflectionSubmissionError(null);
+
+      const messagesForSubmit: ReflectionChatMessage[] = options?.skip
+        ? []
+        : reflectionChatMessages;
+
+      try {
+        const response = await axios.post(
+          `/api/sessions/${sessionId}/reflection-chat`,
+          {
+            messages: messagesForSubmit,
+            reflectionId: options?.skip ? null : activeReflectionId ?? null,
+            finalize: true,
+          },
+          { headers: createAuthorizationHeader(userId) },
+        );
+
+        const reflection = response.data?.reflection as
+          | {
+              id: string;
+              text: string;
+              createdAt?: string;
+              submittedAt?: string;
+            }
+          | undefined;
+
+        if (reflection) {
+          const mapped: ParticipantReflection = {
+            id: reflection.id,
+            text: reflection.text,
+            createdAt: reflection.createdAt ?? new Date().toISOString(),
+            submittedAt: reflection.submittedAt ?? new Date().toISOString(),
+          };
+          setActiveReflectionId(reflection.id);
+          upsertReflectionInState(mapped);
+        }
+
+        setIsLoading(true);
+
+        try {
+          const nextStatementResponse = await axios.get(
+            `/api/sessions/${sessionId}/statements/next`,
+            { headers: createAuthorizationHeader(userId) },
+          );
+          const statement = nextStatementResponse.data?.statement ?? null;
+
+          if (statement) {
+            setCurrentStatement(statement);
+            setPrefetchedStatement(undefined);
+            setState("ANSWERING");
+          } else {
+            enterCompletedState();
+          }
+        } catch (err) {
+          console.error("Failed to fetch next statement after reflection:", err);
+          setError(
+            "次の質問を取得できませんでした。ページを更新して再度お試しください。",
+          );
+        } finally {
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error("Failed to submit reflection:", err);
+        if (axios.isAxiosError(err) && err.response?.data?.error) {
+          setReflectionSubmissionError(
+            `ふりかえりの送信に失敗しました: ${err.response.data.error}`,
+          );
+        } else {
+          setReflectionSubmissionError(
+            "ふりかえりの送信に失敗しました。時間をおいて再度お試しください。",
+          );
+        }
+      } finally {
+        setIsSubmittingReflection(false);
+      }
+    },
+    [
+      activeReflectionId,
+      enterCompletedState,
+      isSubmittingReflection,
+      reflectionChatMessages,
+      sessionId,
+      upsertReflectionInState,
+      userId,
+    ],
+  );
 
   const handleGenerateReport = async () => {
     if (!userId) return;
@@ -1101,40 +1305,133 @@ export default function SessionPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <textarea
-                value={reflectionText}
-                onChange={(event) => setReflectionText(event.target.value)}
-                rows={6}
-                className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                placeholder="例）「○○についてもっと掘り下げたい」「まだ○○に関する視点が足りていないと思う」"
-                disabled={isSubmittingReflection}
-              />
+              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">
+                    AIとのミニ対話で、追加の論点を一緒に探ります
+                  </p>
+                  {isReflectionChatBusy && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>考え中…</span>
+                    </div>
+                  )}
+                </div>
+                <div
+                  ref={reflectionChatListRef}
+                  className="max-h-80 space-y-3 overflow-y-auto rounded-md border border-border/40 bg-background p-3"
+                >
+                  {isStartingReflectionChat && reflectionChatMessages.length === 0 ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </div>
+                  ) : reflectionChatMessages.length > 0 ? (
+                    reflectionChatMessages.map((message, index) => (
+                      <div
+                        key={`${message.role}-${index}`}
+                        className={cn(
+                          "flex items-start gap-3 rounded-md border px-3 py-2 text-sm",
+                          message.role === "assistant"
+                            ? "border-blue-100 bg-blue-50 text-blue-900"
+                            : "border-emerald-100 bg-emerald-50 text-emerald-900",
+                        )}
+                      >
+                        <span className="mt-0.5 inline-block rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-foreground shadow-sm">
+                          {message.role === "assistant" ? "AI" : "You"}
+                        </span>
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      少し待つとAIから問いかけが届きます。自由入力や選択肢で応答してください。
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {reflectionChatOptions.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {reflectionChatOptions.map((option) => (
+                    <Button
+                      key={option}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={isReflectionChatBusy || isSubmittingReflection}
+                      onClick={() => {
+                        void handleSendReflectionChatMessage(option);
+                      }}
+                    >
+                      {option}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Input
+                  value={reflectionChatInput}
+                  onChange={(event) => setReflectionChatInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void handleSendReflectionChatMessage(reflectionChatInput);
+                    }
+                  }}
+                  placeholder="自由入力で伝えたいことを入力"
+                  disabled={isReflectionChatBusy || isSubmittingReflection}
+                />
+                <Button
+                  type="button"
+                  onClick={() => void handleSendReflectionChatMessage(reflectionChatInput)}
+                  disabled={
+                    isSubmittingReflection ||
+                    isReflectionChatBusy ||
+                    reflectionChatInput.trim().length === 0
+                  }
+                  className="sm:w-36"
+                >
+                  送信
+                </Button>
+              </div>
+
+              {reflectionChatError && (
+                <p className="text-sm text-destructive">{reflectionChatError}</p>
+              )}
               {reflectionSubmissionError && (
                 <p className="text-sm text-destructive">
                   {reflectionSubmissionError}
                 </p>
               )}
-              <div className="flex justify-end gap-3">
+
+              <div className="flex flex-wrap justify-between gap-3">
                 <Button
                   type="button"
-                  variant="outline"
-                  disabled={isSubmittingReflection}
+                  variant="ghost"
+                  disabled={isSubmittingReflection || isReflectionChatBusy}
                   onClick={() => {
-                    void handleSubmitReflection("");
+                    void handleSubmitReflection({ skip: true });
                   }}
                 >
-                  特にない／次へ進む
+                  スキップする
                 </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    void handleSubmitReflection();
-                  }}
-                  disabled={isSubmittingReflection}
-                  isLoading={isSubmittingReflection}
-                >
-                  提出して次へ
-                </Button>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubmittingReflection || isReflectionChatBusy}
+                    onClick={() => {
+                      void handleSubmitReflection();
+                    }}
+                  >
+                    終了して次へ
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
