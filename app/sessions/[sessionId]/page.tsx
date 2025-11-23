@@ -51,13 +51,16 @@ type SessionInfo = {
 };
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
+type ResponseType = "scale" | "free_text";
 
 type ParticipantResponse = {
   id?: string;
   statementId: string;
   statementText: string;
   orderIndex: number;
-  value: ResponseValue;
+  responseType: ResponseType;
+  value: ResponseValue | null;
+  textResponse?: string | null;
   createdAt: string;
 };
 
@@ -152,6 +155,8 @@ export default function SessionPage({
   >(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [freeTextInput, setFreeTextInput] = useState("");
+  const [isSubmittingFreeText, setIsSubmittingFreeText] = useState(false);
   const [individualReport, setIndividualReport] =
     useState<IndividualReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -227,7 +232,9 @@ export default function SessionPage({
         statementId: string;
         statementText: string;
         orderIndex?: number;
-        value: ResponseValue;
+        responseType?: ResponseType;
+        value?: ResponseValue | null;
+        textResponse?: string | null;
         createdAt?: string;
       }>;
 
@@ -236,7 +243,9 @@ export default function SessionPage({
         statementId: item.statementId,
         statementText: item.statementText,
         orderIndex: item.orderIndex ?? 0,
-        value: item.value,
+        responseType: item.responseType ?? "scale",
+        value: item.value ?? null,
+        textResponse: item.textResponse ?? null,
         createdAt: item.createdAt ?? new Date().toISOString(),
       }));
 
@@ -305,7 +314,14 @@ export default function SessionPage({
   }, [sessionId, userId]);
 
   const upsertParticipantResponse = useCallback(
-    (statement: Statement, value: ResponseValue) => {
+    (
+      statement: Statement,
+      response: {
+        responseType: ResponseType;
+        value: ResponseValue | null;
+        textResponse?: string | null;
+      },
+    ) => {
       setParticipantResponses((prev) => {
         const existing = prev.find((item) => item.statementId === statement.id);
         const nextResponse: ParticipantResponse = {
@@ -313,7 +329,9 @@ export default function SessionPage({
           statementId: statement.id,
           statementText: statement.text,
           orderIndex: statement.orderIndex,
-          value,
+          responseType: response.responseType,
+          value: response.value,
+          textResponse: response.textResponse ?? null,
           createdAt: existing?.createdAt ?? new Date().toISOString(),
         };
 
@@ -374,7 +392,11 @@ export default function SessionPage({
     (payload: {
       id: string;
       statementId: string;
-      value: number;
+      value: number | null;
+      responseType: ResponseType;
+      textResponse?: string | null;
+      statementText?: string;
+      orderIndex?: number;
       createdAt: string;
     }) => {
       setParticipantResponses((prev) =>
@@ -384,7 +406,12 @@ export default function SessionPage({
               ? {
                   ...item,
                   id: payload.id,
-                  value: payload.value as ResponseValue,
+                  value: payload.value as ResponseValue | null,
+                  responseType: payload.responseType,
+                  textResponse: payload.textResponse ?? item.textResponse,
+                  statementText:
+                    payload.statementText ?? item.statementText ?? "",
+                  orderIndex: payload.orderIndex ?? item.orderIndex ?? 0,
                   createdAt: payload.createdAt,
                 }
               : item,
@@ -668,6 +695,9 @@ export default function SessionPage({
 
     setIsLoading(true);
     setError(null);
+    if (payload.responseType === "free_text") {
+      setIsSubmittingFreeText(true);
+    }
 
     try {
       await axios.post(
@@ -705,8 +735,19 @@ export default function SessionPage({
     }
   };
 
-  const handleAnswer = async (value: ResponseValue) => {
+  const handleSubmitResponse = async (payload: {
+    responseType: ResponseType;
+    value?: ResponseValue;
+    textResponse?: string;
+  }) => {
     if (!userId || !currentStatement || isLoading) return;
+    if (
+      payload.responseType === "free_text" &&
+      (!payload.textResponse || payload.textResponse.trim().length === 0)
+    ) {
+      setError("自由記述を入力してください。");
+      return;
+    }
 
     const previousStatement = currentStatement;
     const cachedNextStatement = prefetchedStatement;
@@ -718,7 +759,14 @@ export default function SessionPage({
       : null;
 
     setError(null);
-    upsertParticipantResponse(previousStatement, value);
+    upsertParticipantResponse(previousStatement, {
+      responseType: payload.responseType,
+      value: payload.responseType === "scale" ? payload.value ?? null : null,
+      textResponse:
+        payload.responseType === "free_text"
+          ? payload.textResponse ?? ""
+          : null,
+    });
     pendingAnswerStatementIdsRef.current.add(previousStatement.id);
     const clearPendingStatement = () => {
       pendingAnswerStatementIdsRef.current.delete(previousStatement.id);
@@ -735,7 +783,12 @@ export default function SessionPage({
 
         const postResult = await axios.post(
           `/api/sessions/${sessionId}/responses`,
-          { statementId: previousStatement.id, value },
+          {
+            statementId: previousStatement.id,
+            value: payload.value,
+            responseType: payload.responseType,
+            textResponse: payload.textResponse,
+          },
           { headers },
         );
 
@@ -747,6 +800,9 @@ export default function SessionPage({
         clearPendingStatement();
 
         enterReflectionMode();
+        if (payload.responseType === "free_text") {
+          setFreeTextInput("");
+        }
 
         setIsLoading(false);
         return;
@@ -759,7 +815,12 @@ export default function SessionPage({
         axios
           .post(
             `/api/sessions/${sessionId}/responses`,
-            { statementId: previousStatement.id, value },
+            {
+              statementId: previousStatement.id,
+              value: payload.value,
+              responseType: payload.responseType,
+              textResponse: payload.textResponse,
+            },
             { headers },
           )
           .then((res) => {
@@ -780,6 +841,9 @@ export default function SessionPage({
           .finally(() => {
             clearPendingStatement();
           });
+        if (payload.responseType === "free_text") {
+          setFreeTextInput("");
+        }
         return;
       }
 
@@ -788,7 +852,12 @@ export default function SessionPage({
       const [postResponse, nextResponse] = await Promise.all([
         axios.post(
           `/api/sessions/${sessionId}/responses`,
-          { statementId: previousStatement.id, value },
+          {
+            statementId: previousStatement.id,
+            value: payload.value,
+            responseType: payload.responseType,
+            textResponse: payload.textResponse,
+          },
           { headers },
         ),
         axios.get(
@@ -813,6 +882,9 @@ export default function SessionPage({
       }
 
       setIsLoading(false);
+      if (payload.responseType === "free_text") {
+        setFreeTextInput("");
+      }
     } catch (err) {
       clearPendingStatement();
       console.error("Failed to submit answer:", err);
@@ -830,7 +902,15 @@ export default function SessionPage({
         setError("回答の送信に失敗しました。");
       }
       setIsLoading(false);
+    } finally {
+      if (payload.responseType === "free_text") {
+        setIsSubmittingFreeText(false);
+      }
     }
+  };
+
+  const handleAnswer = async (value: ResponseValue) => {
+    return handleSubmitResponse({ responseType: "scale", value });
   };
 
   const handleUpdateResponse = async (
@@ -847,6 +927,11 @@ export default function SessionPage({
       return;
     }
 
+    if (currentResponse.responseType === "free_text") {
+      setResponsesError("自由記述で回答した項目はここから変更できません。");
+      return;
+    }
+
     const previousSnapshot: ParticipantResponse = { ...currentResponse };
     const stubStatement: Statement = {
       id: statementId,
@@ -856,7 +941,11 @@ export default function SessionPage({
     };
 
     setResponsesError(null);
-    upsertParticipantResponse(stubStatement, value);
+    upsertParticipantResponse(stubStatement, {
+      responseType: "scale",
+      value,
+      textResponse: null,
+    });
     addUpdatingResponseId(statementId);
 
     try {
@@ -1197,6 +1286,50 @@ export default function SessionPage({
                 </button>
               </div>
 
+              <div className="mt-6 space-y-3 rounded-lg border border-dashed border-border/60 bg-muted/30 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      自由記述で回答する
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      選択肢に当てはまらない場合や補足したい内容があれば、具体的に書いてください。
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+                    Optional
+                  </span>
+                </div>
+                <textarea
+                  value={freeTextInput}
+                  onChange={(event) => setFreeTextInput(event.target.value)}
+                  rows={4}
+                  className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
+                  disabled={isLoading || isSubmittingFreeText}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      handleSubmitResponse({
+                        responseType: "free_text",
+                        textResponse: freeTextInput,
+                      })
+                    }
+                    disabled={
+                      isLoading ||
+                      isSubmittingFreeText ||
+                      freeTextInput.trim().length === 0
+                    }
+                    isLoading={isSubmittingFreeText}
+                  >
+                    自由記述を送信
+                  </Button>
+                </div>
+              </div>
+
               {error && (
                 <p className="text-sm text-destructive mt-4">{error}</p>
               )}
@@ -1273,6 +1406,28 @@ export default function SessionPage({
                         const isUpdating = updatingResponseIds.has(
                           response.statementId,
                         );
+
+                        if (response.responseType === "free_text") {
+                          return (
+                            <div
+                              key={item.key}
+                              className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-sm font-medium text-foreground">
+                                  {response.statementText}
+                                </p>
+                              </div>
+                              <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2">
+                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                                  {response.textResponse?.trim().length
+                                    ? response.textResponse
+                                    : "（記入なし）"}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        }
 
                         return (
                           <div

@@ -395,7 +395,7 @@ export class PtolemyAgent {
 
     const { data: responses, error: responsesError } = await this.supabase
       .from("responses")
-      .select("statement_id, value, participant_user_id")
+      .select("statement_id, value, participant_user_id, response_type, text_response")
       .in("statement_id", statementIds);
 
     if (responsesError) {
@@ -677,14 +677,21 @@ export class PtolemyAgent {
     statements: Array<{ id: string; text: string }>,
     responses: Array<{
       statement_id: string;
-      value: number;
+      value: number | null;
+      response_type?: string;
+      text_response?: string | null;
       participant_user_id?: string;
     }>,
     participantNameMap?: Map<string, string>,
   ): StatementStat[] {
     const responseMap = new Map<
       string,
-      Array<{ value: number; participant_user_id?: string }>
+      Array<{
+        value: number | null;
+        response_type?: string;
+        text_response?: string | null;
+        participant_user_id?: string;
+      }>
     >();
     responses.forEach((response) => {
       const list = responseMap.get(response.statement_id) ?? [];
@@ -695,8 +702,19 @@ export class PtolemyAgent {
     return statements.map((statement) => {
       const statementResponses =
         responseMap.get(statement.id) ??
-        ([] as Array<{ value: number; participant_user_id?: string }>);
-      const totalCount = statementResponses.length;
+        ([] as Array<{
+          value: number | null;
+          response_type?: string;
+          text_response?: string | null;
+          participant_user_id?: string;
+        }>);
+      const scaleResponses = statementResponses.filter(
+        (response) => response.response_type !== "free_text",
+      );
+      const freeTextResponses = statementResponses.filter(
+        (response) => response.response_type === "free_text",
+      );
+      const totalCount = scaleResponses.length;
       const counts = {
         strongYes: 0,
         yes: 0,
@@ -705,13 +723,13 @@ export class PtolemyAgent {
         strongNo: 0,
       };
 
-      const participantResponses = statementResponses.map((response) => {
+      const participantResponses = scaleResponses.map((response) => {
         const participantId = response.participant_user_id;
         const participantName = participantId
           ? (participantNameMap?.get(participantId) ?? truncate(participantId))
           : "Unknown";
 
-        switch (response.value) {
+        switch (response.value ?? 0) {
           case 2:
             counts.strongYes++;
             break;
@@ -751,6 +769,19 @@ export class PtolemyAgent {
           strongNo: toPercent(counts.strongNo),
         },
         participantResponses,
+        freeTextResponses: freeTextResponses
+          .filter((entry) => Boolean(entry.text_response))
+          .map((entry) => {
+            const participantId = entry.participant_user_id;
+            return {
+              participantId: participantId ?? "unknown",
+              participantName: participantId
+                ? participantNameMap?.get(participantId) ??
+                  truncate(participantId)
+                : "Unknown",
+              text: entry.text_response ?? "",
+            };
+          }),
       };
     });
   }
@@ -802,13 +833,15 @@ export class PtolemyAgent {
 
     let responses: {
       statement_id: string;
-      value: number;
+      value: number | null;
+      response_type?: string;
+      text_response?: string | null;
       participant_user_id?: string;
     }[] = [];
     if (statementIds.size > 0) {
       const { data: responseRows, error: responsesError } = await this.supabase
         .from("responses")
-        .select("statement_id, value, participant_user_id")
+        .select("statement_id, value, participant_user_id, response_type, text_response")
         .in("statement_id", Array.from(statementIds));
       if (responsesError) {
         console.error(
@@ -887,6 +920,25 @@ export class PtolemyAgent {
             lines.push(
               this.indent(`strong_no=${stat.distribution.strongNo}%`, 5),
             );
+            if (stat.freeTextResponses.length > 0) {
+              lines.push(
+                this.indent(
+                  `free_text_count=${stat.freeTextResponses.length}`,
+                  4,
+                ),
+              );
+              stat.freeTextResponses.slice(0, 3).forEach((entry, entryIdx) => {
+                const participantLabel = entry.participantId
+                  ? truncate(entry.participantId)
+                  : "unknown";
+                lines.push(
+                  this.indent(
+                    `<free_text idx="${entryIdx + 1}" participant="${participantLabel}">${entry.text}</free_text>`,
+                    5,
+                  ),
+                );
+              });
+            }
           }
           lines.push(this.indent("</statement>", 3));
         });

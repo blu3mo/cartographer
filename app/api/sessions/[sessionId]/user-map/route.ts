@@ -162,8 +162,9 @@ export async function GET(
 
     const { data: responses, error: responsesError } = await supabase
       .from("responses")
-      .select("participant_user_id, statement_id, value")
-      .eq("session_id", sessionId);
+      .select("participant_user_id, statement_id, value, response_type")
+      .eq("session_id", sessionId)
+      .eq("response_type", "scale");
 
     if (responsesError) {
       console.error("Failed to fetch responses for user map:", responsesError);
