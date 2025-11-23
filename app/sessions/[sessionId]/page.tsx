@@ -162,6 +162,9 @@ export default function SessionPage({
   const [error, setError] = useState<string | null>(null);
   const [freeTextInput, setFreeTextInput] = useState("");
   const [isSubmittingFreeText, setIsSubmittingFreeText] = useState(false);
+  const [showAlternatives, setShowAlternatives] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [individualReport, setIndividualReport] =
     useState<IndividualReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -562,7 +565,15 @@ export default function SessionPage({
     state,
   ]);
 
-  // Prefetch next statement when current statement is displayed
+  // Reset UI state when statement changes
+  useEffect(() => {
+    if (currentStatement) {
+      setShowAlternatives(false);
+      setFreeTextInput("");
+    }
+  }, [currentStatement]);
+
+  // Prefetch next statement and AI suggestions when current statement is displayed
   useEffect(() => {
     if (!userId || userLoading) return;
     if (state !== "ANSWERING") return;
@@ -571,6 +582,8 @@ export default function SessionPage({
     // Reset prefetch state to undefined (loading state)
     setPrefetchedStatement(undefined);
     setPrefetchedRemainingQuestions(null);
+    setAiSuggestions([]);
+    setIsLoadingSuggestions(true);
 
     const prefetchNextStatement = async () => {
       try {
@@ -598,7 +611,33 @@ export default function SessionPage({
       }
     };
 
+    const prefetchAiSuggestions = async () => {
+      try {
+        const response = await axios.get(
+          `/api/sessions/${sessionId}/statements/${currentStatement.id}/suggestions`,
+          {
+            headers: createAuthorizationHeader(userId),
+          },
+        );
+
+        if (response.data.suggestions && Array.isArray(response.data.suggestions)) {
+          setAiSuggestions(response.data.suggestions);
+        }
+      } catch (err) {
+        console.error("Failed to fetch AI suggestions:", err);
+        // Set fallback suggestions
+        setAiSuggestions([
+          "状況によって賛成できる",
+          "一部には賛成だが全体には反対",
+          "今は判断できない",
+        ]);
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    };
+
     prefetchNextStatement();
+    prefetchAiSuggestions();
   }, [
     userId,
     userLoading,
@@ -930,6 +969,13 @@ export default function SessionPage({
 
   const handleAnswer = async (value: ResponseValue) => {
     return handleSubmitResponse({ responseType: "scale", value });
+  };
+
+  const handleSuggestionClick = async (suggestion: string) => {
+    return handleSubmitResponse({
+      responseType: "free_text",
+      textResponse: suggestion,
+    });
   };
 
   const handleUpdateResponse = async (
@@ -1269,96 +1315,157 @@ export default function SessionPage({
                 </p>
               </div>
 
-              <div className="grid grid-cols-5 gap-3">
+              <div className="grid grid-cols-5 gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => handleAnswer(2)}
                   disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="text-3xl">👍</div>
-                  <span className="text-xs font-semibold">強く同意</span>
+                  <div className="text-xl sm:text-3xl">👍</div>
+                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                    強く同意
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleAnswer(1)}
                   disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="text-3xl">✓</div>
-                  <span className="text-xs font-semibold">同意</span>
+                  <div className="text-xl sm:text-3xl">✓</div>
+                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                    同意
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleAnswer(0)}
                   disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="text-3xl">🤔</div>
-                  <span className="text-xs font-semibold">わからない</span>
+                  <div className="text-xl sm:text-3xl">🤔</div>
+                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                    わからない
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleAnswer(-1)}
                   disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="text-3xl">✗</div>
-                  <span className="text-xs font-semibold">反対</span>
+                  <div className="text-xl sm:text-3xl">✗</div>
+                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                    反対
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleAnswer(-2)}
                   disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-2 px-3 py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="text-3xl">👎</div>
-                  <span className="text-xs font-semibold">強く反対</span>
+                  <div className="text-xl sm:text-3xl">👎</div>
+                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                    強く反対
+                  </span>
                 </button>
               </div>
 
-              <div className="mt-6 space-y-3 rounded-lg border border-dashed border-border/60 bg-muted/30 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      自由記述で回答する
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      選択肢に当てはまらない場合や補足したい内容があれば、具体的に書いてください。
-                    </p>
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAlternatives(!showAlternatives)}
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-border/60 bg-muted/30 hover:bg-muted/50 text-sm font-medium text-muted-foreground hover:text-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {showAlternatives ? (
+                    <>
+                      <span>選択肢を閉じる</span>
+                      <span className="text-xs">▲</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>どれにも当てはまらない</span>
+                      <span className="text-xs">▼</span>
+                    </>
+                  )}
+                </button>
+
+                {showAlternatives && (
+                  <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        おすすめの回答
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        あなたの過去の回答から、以下の選択肢をご提案します。
+                      </p>
+                    </div>
+
+                    {isLoadingSuggestions ? (
+                      <div className="space-y-2">
+                        <div className="h-10 bg-muted rounded-md animate-pulse" />
+                        <div className="h-10 bg-muted rounded-md animate-pulse" />
+                        <div className="h-10 bg-muted rounded-md animate-pulse" />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {aiSuggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            disabled={isLoading || isSubmittingFreeText}
+                            className="w-full px-4 py-3 text-left rounded-md border border-border bg-background hover:bg-accent hover:border-accent-foreground/20 text-sm text-foreground transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-3 border-t border-border/60 space-y-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground mb-1">
+                          自由記述で回答する
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          上記の選択肢にも当てはまらない場合は、具体的に書いてください。
+                        </p>
+                      </div>
+                      <textarea
+                        value={freeTextInput}
+                        onChange={(event) => setFreeTextInput(event.target.value)}
+                        rows={4}
+                        className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
+                        disabled={isLoading || isSubmittingFreeText}
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            handleSubmitResponse({
+                              responseType: "free_text",
+                              textResponse: freeTextInput,
+                            })
+                          }
+                          disabled={
+                            isLoading ||
+                            isSubmittingFreeText ||
+                            freeTextInput.trim().length === 0
+                          }
+                          isLoading={isSubmittingFreeText}
+                        >
+                          自由記述を送信
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-semibold text-muted-foreground">
-                    Optional
-                  </span>
-                </div>
-                <textarea
-                  value={freeTextInput}
-                  onChange={(event) => setFreeTextInput(event.target.value)}
-                  rows={4}
-                  className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
-                  disabled={isLoading || isSubmittingFreeText}
-                />
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      handleSubmitResponse({
-                        responseType: "free_text",
-                        textResponse: freeTextInput,
-                      })
-                    }
-                    disabled={
-                      isLoading ||
-                      isSubmittingFreeText ||
-                      freeTextInput.trim().length === 0
-                    }
-                    isLoading={isSubmittingFreeText}
-                  >
-                    自由記述を送信
-                  </Button>
-                </div>
+                )}
               </div>
 
               {error && (

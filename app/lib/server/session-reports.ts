@@ -566,7 +566,7 @@ function formatStatementStats(stats: StatementStat[]): string {
 - 同意: ${stat.percentages.yes}%
 - わからない: ${stat.percentages.dontKnow}%
 - 反対: ${stat.percentages.no}%
-- 強く反対: ${stat.percentages.strongNo}%`;
+- 強く反対: ${stat.percentages.strongNo}%
 - 自由記述: ${stat.freeTextCount}件`;
     })
     .join("\n\n");

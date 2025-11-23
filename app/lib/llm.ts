@@ -31,7 +31,10 @@ export function buildSessionBrief(
   return sections.join("\n\n");
 }
 
-export async function callLLM(messages: LLMMessage[]): Promise<string> {
+export async function callLLM(
+  messages: LLMMessage[],
+  model: string = MODEL,
+): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY is not set");
@@ -39,7 +42,7 @@ export async function callLLM(messages: LLMMessage[]): Promise<string> {
 
   // Log input
   console.log("=== LLM Input ===");
-  console.log("Model:", MODEL);
+  console.log("Model:", model);
   messages.forEach((msg, index) => {
     console.log(`\n[Message ${index + 1}]`);
     console.log(`Role: ${msg.role}`);
@@ -51,7 +54,7 @@ export async function callLLM(messages: LLMMessage[]): Promise<string> {
     const response = await axios.post(
       OPENROUTER_API_URL,
       {
-        model: MODEL,
+        model,
         messages,
       },
       {
