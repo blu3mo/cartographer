@@ -235,6 +235,11 @@ export interface StatementStat {
     participantName: string;
     value: number;
   }>;
+  freeTextResponses: Array<{
+    participantId: string;
+    participantName: string;
+    text: string;
+  }>;
 }
 
 export async function generateSurveyAnalysisMarkdown(input: {
@@ -265,12 +270,20 @@ export async function generateSurveyAnalysisMarkdown(input: {
   const statementsText = input.statements
     .map((statement, index) => {
       const dist = statement.distribution;
-      return `${index + 1}. "${statement.text}" (回答人数: ${statement.totalCount}人)
+      const freeTextSnippet =
+        statement.freeTextResponses.length > 0
+          ? `- 自由記述(${statement.freeTextResponses.length}件):\n${statement.freeTextResponses
+            .slice(0, 3)
+            .map((entry) => `  - ${entry.participantName}: ${entry.text}`)
+            .join("\n")}`
+          : "";
+      const body = `${index + 1}. "${statement.text}" (回答人数: ${statement.totalCount}人)
 - Strong Yes: ${dist.strongYes}%
 - Yes: ${dist.yes}%
 - わからない: ${dist.dontKnow}%
 - No: ${dist.no}%
 - Strong No: ${dist.strongNo}%`;
+      return freeTextSnippet ? `${body}\n${freeTextSnippet}` : body;
     })
     .join("\n\n");
 
@@ -295,6 +308,20 @@ export async function generateSurveyAnalysisMarkdown(input: {
       }
       entry.responses.push(
         `${index + 1}. "${statement.text}": ${formatValue(response.value)}`,
+      );
+    });
+    statement.freeTextResponses.forEach((response) => {
+      const key =
+        response.participantId && response.participantId !== "unknown"
+          ? response.participantId
+          : `unknown:${response.participantName}`;
+      let entry = participantMap.get(key);
+      if (!entry) {
+        entry = { name: response.participantName, responses: [] };
+        participantMap.set(key, entry);
+      }
+      entry.responses.push(
+        `${index + 1}. "${statement.text}": [自由記述] ${response.text}`,
       );
     });
   });

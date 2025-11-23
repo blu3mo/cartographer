@@ -59,7 +59,9 @@ type StatementRow = {
 type ResponseRow = {
   statement_id: string;
   participant_user_id: string;
-  value: ResponseValue;
+  response_type: "scale" | "free_text";
+  value: ResponseValue | null;
+  text_response: string | null;
 };
 
 type ParticipantRow = {
@@ -97,6 +99,12 @@ type ParticipantSummary = {
     value: ResponseValue;
     valueLabel: string;
   }[];
+  freeTextResponses: {
+    statementId: string;
+    statementNumber: number;
+    statementText: string;
+    text: string;
+  }[];
 };
 
 type StatementStat = {
@@ -111,6 +119,7 @@ type StatementStat = {
     strongNo: number;
   };
   totalResponses: number;
+  freeTextCount: number;
 };
 
 export type SessionReportPromptSnapshot = {
@@ -278,7 +287,7 @@ async function fetchStatements(sessionId: string): Promise<StatementRow[]> {
 async function fetchResponses(sessionId: string): Promise<ResponseRow[]> {
   const { data, error } = await supabase
     .from("responses")
-    .select("statement_id, participant_user_id, value")
+    .select("statement_id, participant_user_id, value, response_type, text_response")
     .eq("session_id", sessionId);
 
   if (error) {
@@ -413,6 +422,7 @@ function buildParticipantSummaries(
       answeredCount: 0,
       totalStatements,
       responses: [],
+      freeTextResponses: [],
     });
   });
 
@@ -421,9 +431,20 @@ function buildParticipantSummaries(
     if (!participant) return;
     const statement = statementsById.get(response.statement_id);
     if (!statement) return;
+    const statementNumber = (statement.order_index ?? 0) + 1;
+    if (response.response_type === "free_text") {
+      participant.freeTextResponses.push({
+        statementId: statement.id,
+        statementNumber,
+        statementText: statement.text,
+        text: response.text_response ?? "",
+      });
+      return;
+    }
+    if (response.value === null) return;
     participant.responses.push({
       statementId: statement.id,
-      statementNumber: (statement.order_index ?? 0) + 1,
+      statementNumber,
       statementText: statement.text,
       value: response.value,
       valueLabel: getResponseLabel(response.value),
@@ -432,7 +453,11 @@ function buildParticipantSummaries(
 
   participantMap.forEach((participant) => {
     participant.responses.sort((a, b) => a.statementNumber - b.statementNumber);
-    participant.answeredCount = participant.responses.length;
+    participant.freeTextResponses.sort(
+      (a, b) => a.statementNumber - b.statementNumber,
+    );
+    participant.answeredCount =
+      participant.responses.length + participant.freeTextResponses.length;
   });
 
   return Array.from(participantMap.values());
@@ -442,23 +467,32 @@ function buildStatementStats(
   statements: StatementRow[],
   responses: ResponseRow[],
 ): StatementStat[] {
-  const responseMap = new Map<string, ResponseValue[]>();
+  const responseMap = new Map<string, ResponseRow[]>();
 
   responses.forEach((response) => {
     const list = responseMap.get(response.statement_id) ?? [];
-    list.push(response.value);
+    list.push(response);
     responseMap.set(response.statement_id, list);
   });
 
   return statements.map((statement) => {
     const list = responseMap.get(statement.id) ?? [];
-    const totalResponses = list.length;
+    const scaleResponses = list.filter(
+      (response) => response.response_type === "scale",
+    );
+    const freeTextCount = list.filter(
+      (response) => response.response_type === "free_text",
+    ).length;
+    const totalResponses = scaleResponses.length;
+    const values = scaleResponses
+      .map((item) => item.value)
+      .filter((value): value is ResponseValue => value !== null);
     const counts = {
-      strongYes: list.filter((v) => v === 2).length,
-      yes: list.filter((v) => v === 1).length,
-      dontKnow: list.filter((v) => v === 0).length,
-      no: list.filter((v) => v === -1).length,
-      strongNo: list.filter((v) => v === -2).length,
+      strongYes: values.filter((v) => v === 2).length,
+      yes: values.filter((v) => v === 1).length,
+      dontKnow: values.filter((v) => v === 0).length,
+      no: values.filter((v) => v === -1).length,
+      strongNo: values.filter((v) => v === -2).length,
     };
 
     const toPercent = (value: number) =>
@@ -478,6 +512,7 @@ function buildStatementStats(
         strongNo: toPercent(counts.strongNo),
       },
       totalResponses,
+      freeTextCount,
     };
   });
 }
@@ -492,14 +527,22 @@ function formatParticipantSummaries(
   return participants
     .map((participant) => {
       const header = `### ${participant.name} (${participant.answeredCount}/${participant.totalStatements})`;
-      if (participant.responses.length === 0) {
+      if (
+        participant.responses.length === 0 &&
+        participant.freeTextResponses.length === 0
+      ) {
         return `${header}\n- まだ回答はありません。`;
       }
       const lines = participant.responses.map(
         (response) =>
           `- [${response.valueLabel}] #${response.statementNumber} ${response.statementText}`,
       );
-      return `${header}\n${lines.join("\n")}`;
+      const freeTextLines = participant.freeTextResponses.map(
+        (response) =>
+          `- [自由記述] #${response.statementNumber} ${response.statementText} → ${response.text}`,
+      );
+      const merged = [...lines, ...freeTextLines];
+      return `${header}\n${merged.join("\n")}`;
     })
     .join("\n\n");
 }
@@ -513,14 +556,18 @@ function formatStatementStats(stats: StatementStat[]): string {
     .map((stat) => {
       const header = `### #${stat.statementNumber} ${stat.text}`;
       if (stat.totalResponses === 0) {
-        return `${header}\n- まだ回答がありません。`;
+        const noScale = "- まだスケール回答がありません。";
+        const freeTextLine =
+          stat.freeTextCount > 0 ? `- 自由記述: ${stat.freeTextCount}件` : null;
+        return `${header}\n${[noScale, freeTextLine].filter(Boolean).join("\n")}`;
       }
       return `${header}
 - Strong Yes: ${stat.percentages.strongYes}%
 - Yes: ${stat.percentages.yes}%
 - わからない: ${stat.percentages.dontKnow}%
 - No: ${stat.percentages.no}%
-- Strong No: ${stat.percentages.strongNo}%`;
+- Strong No: ${stat.percentages.strongNo}%
+- 自由記述: ${stat.freeTextCount}件`;
     })
     .join("\n\n");
 }

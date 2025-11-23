@@ -4,6 +4,9 @@ import { getUserIdFromRequest } from "@/lib/auth";
 import { buildSessionBrief, generateIndividualReport } from "@/lib/llm";
 import { supabase } from "@/lib/supabase";
 
+type IndividualReportResponse =
+  Parameters<typeof generateIndividualReport>[0]["responses"][number];
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
@@ -148,7 +151,7 @@ export async function POST(
     // Fetch all responses for this participant with statement text
     const { data: responses, error: responsesError } = await supabase
       .from("responses")
-      .select("statement_id, value")
+      .select("statement_id, value, response_type, text_response")
       .eq("participant_user_id", userId)
       .eq("session_id", sessionId);
 
@@ -195,19 +198,24 @@ export async function POST(
     );
 
     // Format responses for LLM
-    const responsesWithStatement = (responses ?? []).map((response) => ({
+    const responsesWithStatement: IndividualReportResponse[] = (
+      responses ?? []
+    ).map((response) => ({
       statementText: statementTextMap.get(response.statement_id) ?? "",
-      value: response.value,
+      responseType:
+        response.response_type === "free_text" ? "free_text" : "scale",
+      value: typeof response.value === "number" ? response.value : null,
+      textResponse: response.text_response ?? undefined,
     }));
 
     // Generate individual report using LLM
     const sessionBrief = buildSessionBrief(session.goal, session.context);
-    const reportContent = await generateIndividualReport(
-      session.title,
-      sessionBrief,
-      responsesWithStatement,
-      participant.name,
-    );
+    const reportContent = await generateIndividualReport({
+      sessionTitle: session.title,
+      context: sessionBrief,
+      responses: responsesWithStatement,
+      userName: participant.name,
+    });
 
     // Save report to database
     const { data: report, error: reportError } = await supabase

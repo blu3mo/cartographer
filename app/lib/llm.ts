@@ -90,19 +90,27 @@ export async function callLLM(messages: LLMMessage[]): Promise<string> {
   }
 }
 
-interface ResponseWithStatement {
+type IndividualReportResponse = {
   statementText: string;
-  value: number;
-}
+  responseType: "scale" | "free_text";
+  value: number | null;
+  textResponse?: string;
+};
 
-export async function generateIndividualReport(
-  sessionTitle: string,
-  context: string,
-  responses: ResponseWithStatement[],
-  userName: string,
-): Promise<string> {
-  const responsesText = responses
+export async function generateIndividualReport(input: {
+  sessionTitle: string;
+  context: string;
+  responses: IndividualReportResponse[];
+  userName: string;
+}): Promise<string> {
+  const responsesText = input.responses
     .map((r) => {
+      if (r.responseType === "free_text") {
+        const text = (r.textResponse ?? "").trim();
+        const content = text.length > 0 ? text : "（自由記述：未入力）";
+        return `- "${r.statementText}" → [自由記述] ${content}`;
+      }
+
       const valueLabel =
         r.value === 2
           ? "Strong Yes"
@@ -120,18 +128,18 @@ export async function generateIndividualReport(
   const prompt = `あなたは思慮深いコーチまたはカウンセラーです。
 
 **セッションタイトル:**
-${sessionTitle}
+${input.sessionTitle}
 
 **セッションのコンテキスト:**
-${context}
+${input.context}
 
 **参加者の名前:**
-${userName}
+${input.userName}
 
 **この参加者の回答履歴:**
 ${responsesText}
 
-この参加者の回答パターンから、${userName}さんがこのテーマに対してどのような認識を持っているかを分析し、本人向けのフィードバックレポートをMarkdown形式で作成してください。
+この参加者の回答パターンから、${input.userName}さんがこのテーマに対してどのような認識を持っているかを分析し、本人向けのフィードバックレポートをMarkdown形式で作成してください。
 
 **レポート作成の指示:**
 1. 特徴的な回答や、他の人と意見が異なりそうな点を優しく指摘してください

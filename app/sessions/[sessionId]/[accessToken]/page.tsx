@@ -51,6 +51,8 @@ interface StatementResponseStats {
   no: number;
   strongNo: number;
   totalCount: number;
+  freeTextCount: number;
+  freeTextSamples: Array<{ participantUserId: string | null; text: string }>;
 }
 
 interface StatementWithStats {
@@ -771,11 +773,13 @@ export default function AdminPage({
       const positive = statement.responses.strongYes + statement.responses.yes;
       const negative = statement.responses.strongNo + statement.responses.no;
       const neutral = statement.responses.dontKnow;
+      const totalForRate =
+        statement.responses.totalCount + statement.responses.freeTextCount;
       const conflict = Math.min(positive, negative);
       const responseRate =
         totalParticipants > 0
           ? Math.round(
-              (statement.responses.totalCount / totalParticipants) * 100 * 10,
+              (totalForRate / totalParticipants) * 100 * 10,
             ) / 10
           : 0;
       return {
@@ -789,7 +793,7 @@ export default function AdminPage({
     });
 
     const agreement = enriched
-      .filter((item) => item.statement.responses.totalCount > 0)
+      .filter((item) => item.statement.responses.totalCount + item.statement.responses.freeTextCount > 0)
       .sort((a, b) => {
         if (b.positive === a.positive) {
           return (
@@ -801,7 +805,7 @@ export default function AdminPage({
       .slice(0, 3);
 
     const conflict = enriched
-      .filter((item) => item.statement.responses.totalCount > 0)
+      .filter((item) => item.statement.responses.totalCount + item.statement.responses.freeTextCount > 0)
       .sort((a, b) => {
         if (b.conflict === a.conflict) {
           return (
@@ -813,7 +817,7 @@ export default function AdminPage({
       .slice(0, 3);
 
     const dontKnow = enriched
-      .filter((item) => item.statement.responses.totalCount > 0)
+      .filter((item) => item.statement.responses.totalCount + item.statement.responses.freeTextCount > 0)
       .sort((a, b) => {
         if (b.neutral === a.neutral) {
           return (
@@ -1849,6 +1853,27 @@ function StatementHighlightColumn({
               </span>
               <span>わからない {formatPercentage(item.neutral)}</span>
             </div>
+            {item.statement.responses.freeTextCount > 0 && (
+              <div className="mt-3 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-[11px] text-slate-700 shadow-inner">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-800">
+                    自由記述 {item.statement.responses.freeTextCount}件
+                  </span>
+                </div>
+                <ul className="mt-2 space-y-1">
+                  {item.statement.responses.freeTextSamples.map(
+                    (sample, sampleIndex) => (
+                      <li
+                        key={`${item.statement.id}-sample-${sampleIndex}`}
+                        className="line-clamp-2 text-slate-600"
+                      >
+                        ・{truncateText(sample.text, 90)}
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         ))
       )}
