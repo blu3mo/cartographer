@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import { Lightbulb, Loader2, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -22,12 +22,23 @@ const buildGoalFromInputs = (focus: string, purpose: string) =>
 
 export default function NewSessionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userId, isLoading: userLoading } = useUserId();
-  const [title, setTitle] = useState("");
-  const [backgroundInfo, setBackgroundInfo] = useState("");
-  const [recognitionFocus, setRecognitionFocus] = useState("");
-  const [recognitionPurpose, setRecognitionPurpose] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [title, setTitle] = useState(searchParams.get("title") || "");
+  const [backgroundInfo, setBackgroundInfo] = useState(
+    searchParams.get("background") || "",
+  );
+  const [recognitionFocus, setRecognitionFocus] = useState(
+    searchParams.get("topic") || "",
+  );
+  const [recognitionPurpose, setRecognitionPurpose] = useState(
+    searchParams.get("purpose") || "",
+  );
+  const [visibility, setVisibility] = useState<"public" | "private">(
+    (searchParams.get("visibility") as "public" | "private") === "private"
+      ? "private"
+      : "public",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
