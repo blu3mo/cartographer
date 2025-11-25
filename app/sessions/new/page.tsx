@@ -1,9 +1,9 @@
 "use client";
 
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { Lightbulb, Loader2, Sparkles } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -20,7 +20,7 @@ import { useUserId } from "@/lib/useUserId";
 const buildGoalFromInputs = (focus: string, purpose: string) =>
   `【何の認識を洗い出しますか？】${focus}\n【何のために洗い出しますか？】${purpose}`;
 
-export default function NewSessionPage() {
+function NewSessionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userId, isLoading: userLoading } = useUserId();
@@ -332,5 +332,19 @@ export default function NewSessionPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function NewSessionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <NewSessionContent />
+    </Suspense>
   );
 }
