@@ -102,7 +102,7 @@ export async function ensureEventThreadForSession(
     .from("event_threads")
     .insert({
       session_id: session.id,
-      should_proceed: true,
+      should_proceed: false,
     })
     .select("id, session_id, should_proceed, created_at, updated_at")
     .single();
