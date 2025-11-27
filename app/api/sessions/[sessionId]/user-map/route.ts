@@ -13,6 +13,8 @@ interface ParticipantPoint {
 }
 
 interface TopStatement {
+  id: string;
+  orderIndex: number;
   text: string;
   loading: number;
 }
@@ -256,11 +258,13 @@ export async function GET(
       topN: number,
     ): TopStatement[] => {
       const loadingsForComponent = (statements ?? []).map(
-        (stmt: { text: string }, idx: number) => {
+        (stmt: { id: string; text: string; order_index: number }, idx: number) => {
           // Get the loading value for this statement and component
           // Loadings matrix is (components x features), so we access as (componentIndex, statementIndex)
           const loadingValue = loadings.get(componentIndex, idx);
           return {
+            id: stmt.id,
+            orderIndex: stmt.order_index,
             text: stmt.text,
             loading: loadingValue,
           };
