@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/Button";
+import UserMap from "@/components/UserMap";
 import { useUserId } from "@/lib/useUserId";
 
 type SessionReportStatus = "pending" | "generating" | "completed" | "failed";
@@ -146,6 +147,30 @@ export default function SessionReportPrintPage({
             </p>
           </section>
         ) : null}
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm print:border-0 print:bg-transparent print:p-0 print:shadow-none">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                PCA Analysis
+              </p>
+              <h2 className="text-lg font-semibold text-slate-900">
+                ユーザーマップ（主成分分析）
+              </h2>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600">
+              Beta
+            </span>
+          </div>
+          {userId ? (
+            <UserMap sessionId={sessionId} userId={userId} />
+          ) : (
+            <div className="flex items-center justify-center py-8 text-sm text-slate-500">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin text-slate-400" />
+              ユーザー情報を読み込み中です…
+            </div>
+          )}
+        </section>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm print:border-0 print:bg-transparent print:p-0 print:shadow-none">
           {report.status === "completed" && report.contentMarkdown ? (
