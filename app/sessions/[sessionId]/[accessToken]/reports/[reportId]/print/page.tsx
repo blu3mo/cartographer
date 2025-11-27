@@ -126,6 +126,11 @@ interface AdminSessionResponse {
   };
 }
 
+const shortenLabel = (text: string, max = 20) => {
+  if (!text) return "未設定";
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+};
+
 const OpinionMap = ({
   onSelectUser,
   participants,
@@ -142,11 +147,17 @@ const OpinionMap = ({
     <div className="h-full w-full relative">
       <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 z-0 opacity-60">
         <div className="flex justify-center h-full relative">
-          <span className="absolute top-0 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100 shadow-sm">
-            ▲ {axisMeaning.y.positive}
+          <span
+            className="absolute top-0 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100 shadow-sm max-w-[220px] truncate inline-flex"
+            title={axisMeaning.y.positive}
+          >
+            ▲ {shortenLabel(axisMeaning.y.positive)}
           </span>
-          <span className="absolute bottom-4 bg-slate-50 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200">
-            ▼ {axisMeaning.y.negative}
+          <span
+            className="absolute bottom-4 bg-slate-50 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200 max-w-[220px] truncate inline-flex"
+            title={axisMeaning.y.negative}
+          >
+            ▼ {shortenLabel(axisMeaning.y.negative)}
           </span>
           <div className="h-full w-px border-l border-dashed border-gray-300 absolute left-1/2 -translate-x-1/2" />
         </div>
@@ -154,11 +165,17 @@ const OpinionMap = ({
 
       <div className="absolute inset-0 pointer-events-none flex items-center justify-between p-8 z-0 opacity-60">
         <div className="w-full flex justify-between items-center relative">
-          <span className="absolute left-0 bg-slate-50 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200">
-            ◀ {axisMeaning.x.negative}
+          <span
+            className="absolute left-0 bg-slate-50 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200 max-w-[220px] truncate inline-flex"
+            title={axisMeaning.x.negative}
+          >
+            ◀ {shortenLabel(axisMeaning.x.negative)}
           </span>
-          <span className="absolute right-0 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100 shadow-sm">
-            {axisMeaning.x.positive} ▶
+          <span
+            className="absolute right-0 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100 shadow-sm max-w-[220px] truncate text-right inline-flex"
+            title={axisMeaning.x.positive}
+          >
+            {shortenLabel(axisMeaning.x.positive)} ▶
           </span>
           <div className="w-full h-px border-t border-dashed border-gray-300 absolute top-1/2 -translate-y-1/2" />
         </div>
@@ -255,15 +272,15 @@ const ConsensusBeeswarm = ({
       <div className="absolute top-4 left-4 right-4 flex justify-between text-xs font-bold text-gray-500">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-red-500" />
-          全員反対 (Disagreement)
+          全員反対
         </span>
         <span className="flex items-center gap-1 text-amber-500">
           <span className="w-2 h-2 rounded-full bg-amber-500" />
-          意見が割れる (Divisive)
+          意見が割れる
         </span>
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-green-500" />
-          全員賛成 (Consensus)
+          全員賛成
         </span>
       </div>
 
@@ -345,6 +362,11 @@ const VisualDeliberationSection = ({
     return colors[index % colors.length];
   };
 
+  const handleTabChange = (tab: "map" | "beeswarm") => {
+    setActiveTab(tab);
+    setSelectedItem(null);
+  };
+
   const fetchData = useCallback(
     async (sessionId: string, accessToken: string, userId: string) => {
       try {
@@ -390,27 +412,27 @@ const VisualDeliberationSection = ({
           const quadrantMeta: ClusterInfo[] = [
             {
               id: "q1",
-              label: `${pc1Anchors.positive} × ${pc2Anchors.positive}`,
+              label: `${shortenLabel(pc1Anchors.positive)} × ${shortenLabel(pc2Anchors.positive)}`,
               color: "#fef3c7",
-              description: "PC1/PC2 が正の領域に位置する参加者",
+              description: `${shortenLabel(pc1Anchors.positive)} と ${shortenLabel(pc2Anchors.positive)} に寄る傾向`,
             },
             {
               id: "q2",
-              label: `${pc1Anchors.negative} × ${pc2Anchors.positive}`,
+              label: `${shortenLabel(pc1Anchors.negative)} × ${shortenLabel(pc2Anchors.positive)}`,
               color: "#e0f2fe",
-              description: "PC1 は負、PC2 は正の領域に位置する参加者",
+              description: `${shortenLabel(pc1Anchors.negative)} かつ ${shortenLabel(pc2Anchors.positive)} 寄り`,
             },
             {
               id: "q3",
-              label: `${pc1Anchors.negative} × ${pc2Anchors.negative}`,
+              label: `${shortenLabel(pc1Anchors.negative)} × ${shortenLabel(pc2Anchors.negative)}`,
               color: "#ede9fe",
-              description: "PC1/PC2 が負の領域に位置する参加者",
+              description: `${shortenLabel(pc1Anchors.negative)} と ${shortenLabel(pc2Anchors.negative)} に寄る傾向`,
             },
             {
               id: "q4",
-              label: `${pc1Anchors.positive} × ${pc2Anchors.negative}`,
+              label: `${shortenLabel(pc1Anchors.positive)} × ${shortenLabel(pc2Anchors.negative)}`,
               color: "#dcfce7",
-              description: "PC1 は正、PC2 は負の領域に位置する参加者",
+              description: `${shortenLabel(pc1Anchors.positive)} かつ ${shortenLabel(pc2Anchors.negative)} 寄り`,
             },
           ];
           setClusters(quadrantMeta);
@@ -478,6 +500,36 @@ const VisualDeliberationSection = ({
     return clusters.find((c) => c.id === selectedItem.clusterId) ?? null;
   }, [clusters, selectedItem]);
 
+  const positionTone = (value: number) => {
+    const magnitude = Math.abs(value);
+    if (magnitude > 1.5) return "強め";
+    if (magnitude > 0.8) return "やや";
+    return "中立気味";
+  };
+
+  const describePositionShort = (
+    value: number,
+    axis: { positive: string; negative: string },
+  ) => {
+    const direction = value >= 0 ? axis.positive : axis.negative;
+    const tone = positionTone(value);
+    if (tone === "中立気味") return "ほぼ中立";
+    return `${tone}に${shortenLabel(direction, 14)}寄り`;
+  };
+
+  const summarizePersona = (
+    x: number,
+    y: number,
+    axis: { x: { positive: string; negative: string }; y: { positive: string; negative: string } },
+  ) => {
+    const mainAxis = Math.abs(x) >= Math.abs(y) ? "x" : "y";
+    const value = mainAxis === "x" ? x : y;
+    const label = value >= 0 ? axis[mainAxis].positive : axis[mainAxis].negative;
+    const tone = positionTone(value);
+    if (tone === "中立気味") return "バランス型";
+    return `${tone}の${shortenLabel(label, 12)}寄り`;
+  };
+
   if (loading) {
     return (
       <div className="w-full bg-gray-50 rounded-2xl border border-slate-200 p-6 flex items-center justify-center text-sm text-gray-500">
@@ -496,54 +548,55 @@ const VisualDeliberationSection = ({
   }
 
   return (
-    <div className="w-full bg-gray-50 rounded-2xl border border-slate-200 p-4 lg:p-6">
+    <div className="w-full rounded-2xl border border-slate-200 bg-white/80 shadow-sm p-4 lg:p-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-3">
         <div>
           <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
             <Activity className="w-5 h-5 text-indigo-600" />
-            Visual Deliberation
+            議論の可視化
             <span className="text-[11px] font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
-              Beta
+              ベータ版
             </span>
           </h2>
-          <p className="text-gray-500 text-xs mt-1">
-            議論構造の2軸マップと合意スペクトラムを合わせて表示します。
-          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-4 flex flex-col gap-3">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 grid grid-cols-2 gap-2">
+          <div className="bg-slate-50/80 rounded-xl border border-slate-200 p-2 flex gap-2">
             <button
               type="button"
-              onClick={() => setActiveTab("map")}
-              className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all ${
+              onClick={() => handleTabChange("map")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
                 activeTab === "map"
-                  ? "bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm"
-                  : "text-gray-500 hover:bg-gray-50"
+                  ? "bg-white text-slate-900 border border-slate-200 shadow-sm"
+                  : "text-slate-500 hover:bg-white"
               }`}
             >
-              <Map className="w-5 h-5 mb-1" />
-              <span className="text-[11px] font-bold">Opinion Map</span>
+              <div className="flex items-center gap-2 justify-center">
+                <Map className="w-4 h-4" />
+                <span className="text-xs font-semibold">意見マップ</span>
+              </div>
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveTab("beeswarm")}
-              className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all ${
+              onClick={() => handleTabChange("beeswarm")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
                 activeTab === "beeswarm"
-                  ? "bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm"
-                  : "text-gray-500 hover:bg-gray-50"
+                  ? "bg-white text-slate-900 border border-slate-200 shadow-sm"
+                  : "text-slate-500 hover:bg-white"
               }`}
             >
-              <Activity className="w-5 h-5 mb-1" />
-              <span className="text-[11px] font-bold">Consensus Spectrum</span>
+              <div className="flex items-center gap-2 justify-center">
+                <Activity className="w-4 h-4" />
+                <span className="text-xs font-semibold">合意スペクトラム</span>
+              </div>
             </button>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex-1 min-h-[260px]">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-100 pb-2 text-gray-500">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex-1 min-h-[260px] shadow-sm">
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 border-b border-slate-100 pb-2 text-slate-700">
               <Info className="w-4 h-4" />
               詳細情報
             </h3>
@@ -553,8 +606,8 @@ const VisualDeliberationSection = ({
                 {"text" in selectedItem ? (
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <div className="text-[11px] font-bold text-white bg-indigo-600 px-2 py-1 rounded-full shadow-sm">
-                        Statement {selectedItem.id}
+                      <div className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-full">
+                        設問 {selectedItem.id}
                       </div>
                       <span
                         className={`text-[11px] font-bold px-2 py-1 rounded border ${
@@ -590,13 +643,13 @@ const VisualDeliberationSection = ({
                       </div>
                       <div className="grid grid-cols-2 gap-4 pt-2">
                         <div>
-                          <div className="text-[11px] text-gray-400 mb-0.5">Category</div>
+                          <div className="text-[11px] text-gray-400 mb-0.5">カテゴリ</div>
                           <div className="text-sm font-medium text-gray-700">
                             {selectedItem.category ?? "未分類"}
                           </div>
                         </div>
                         <div>
-                          <div className="text-[11px] text-gray-400 mb-0.5">Vote Count</div>
+                          <div className="text-[11px] text-gray-400 mb-0.5">回答数</div>
                           <div className="text-sm font-medium text-gray-700">
                             {selectedItem.voteCount} 票
                           </div>
@@ -622,23 +675,37 @@ const VisualDeliberationSection = ({
                     </div>
 
                     {selectedCluster ? (
-                      <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg">
-                        <div className="text-[11px] font-bold text-indigo-400 mb-1 uppercase">
+                      <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
+                        <div className="text-[11px] font-bold text-slate-500 mb-1 uppercase">
                           所属クラスター
                         </div>
-                        <div className="font-bold text-indigo-900">{selectedCluster.label}</div>
-                        <div className="text-[11px] text-indigo-700 mt-1 leading-snug">
+                        <div className="font-bold text-slate-900">{selectedCluster.label}</div>
+                        <div className="text-[11px] text-slate-700 mt-1 leading-snug">
                           {selectedCluster.description}
                         </div>
                       </div>
                     ) : null}
 
-                    <div className="bg-gray-50 border border-gray-100 p-3 rounded-lg">
-                      <div className="text-[11px] font-bold text-gray-400 mb-1 uppercase">
-                        PCA 座標
+                    <div className="bg-white border border-slate-200 p-3 rounded-lg shadow-sm space-y-2">
+                      <div className="text-[11px] font-bold text-slate-500 mb-1 uppercase">
+                        じぶんレポート
                       </div>
-                      <div className="text-[11px] text-gray-600 font-mono">
-                        PC1: {selectedItem.x.toFixed(2)}, PC2: {selectedItem.y.toFixed(2)}
+                      <div className="text-sm font-semibold text-slate-900">
+                        あなたの立ち位置：{summarizePersona(selectedItem.x, selectedItem.y, axisMeaning)}
+                      </div>
+                      <div className="text-xs text-slate-600 leading-relaxed space-y-1">
+                        <p>横軸：{describePositionShort(selectedItem.x, axisMeaning.x)}</p>
+                        <p>縦軸：{describePositionShort(selectedItem.y, axisMeaning.y)}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500">
+                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
+                          <div className="font-medium text-slate-700">PC1 スコア</div>
+                          <div className="font-mono text-slate-900 text-sm">{selectedItem.x.toFixed(2)}</div>
+                        </div>
+                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
+                          <div className="font-medium text-slate-700">PC2 スコア</div>
+                          <div className="font-mono text-slate-900 text-sm">{selectedItem.y.toFixed(2)}</div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -657,7 +724,7 @@ const VisualDeliberationSection = ({
           </div>
         </div>
 
-        <div className="lg:col-span-8 h-[520px] bg-white rounded-xl shadow-sm border border-gray-200 p-1 relative overflow-hidden">
+        <div className="lg:col-span-8 h-[520px] bg-white rounded-xl border border-slate-200 p-2 relative overflow-hidden">
           {activeTab === "map" ? (
             <OpinionMap
               participants={participants}
@@ -801,20 +868,7 @@ export default function SessionReportPrintPage({
           </section>
         ) : null}
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm print:border-0 print:bg-transparent print:p-0 print:shadow-none">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                PCA Analysis
-              </p>
-              <h2 className="text-lg font-semibold text-slate-900">
-                議論の可視化ダッシュボード
-              </h2>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600">
-              Beta
-            </span>
-          </div>
+        <section>
           {userId ? (
             <VisualDeliberationSection
               sessionId={sessionId}
