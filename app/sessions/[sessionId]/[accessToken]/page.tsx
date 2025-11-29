@@ -909,9 +909,6 @@ export default function AdminPage({
         <header className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                Session Admin
-              </div>
               <h1 className="text-3xl font-semibold text-slate-900">
                 {data.title}
               </h1>
@@ -923,9 +920,9 @@ export default function AdminPage({
           <div className="space-y-8">
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg">モニタリング</CardTitle>
+                <CardTitle className="text-lg">参加者状況の把握</CardTitle>
                 <CardDescription>
-                  参加状況・回答状況をリアルタイムに確認できます
+                  このセッションに参加している人の回答状況をリアルタイムに確認できます。更新する場合は、ページを再読み込みしてください。
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1804,7 +1801,7 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
           <p className="truncate text-sm font-medium text-slate-900">
             {participant.name || "名称未設定"}
           </p>
-          <p className="text-[10px] text-slate-400">最終更新: {updatedLabel}</p>
+          <p className="text-[10px] text-slate-400">{updatedLabel}に参加</p>
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold text-slate-900">
