@@ -73,17 +73,17 @@ type ParticipantReflection = {
 
 type HistoryEntry =
   | {
-      type: "response";
-      createdAt: string;
-      response: ParticipantResponse;
-      key: string;
-    }
+    type: "response";
+    createdAt: string;
+    response: ParticipantResponse;
+    key: string;
+  }
   | {
-      type: "reflection";
-      createdAt: string;
-      reflection: ParticipantReflection;
-      key: string;
-    };
+    type: "reflection";
+    createdAt: string;
+    reflection: ParticipantReflection;
+    key: string;
+  };
 
 const GOAL_PREVIEW_LIMIT = 140;
 
@@ -94,6 +94,11 @@ type GoalHighlight = {
   raw: string;
 };
 
+type KeywordPattern = {
+  match: string;
+  label?: string;
+};
+
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
   label: string;
@@ -101,48 +106,48 @@ const RESPONSE_CHOICES: Array<{
   idleClass: string;
   activeClass: string;
 }> = [
-  {
-    value: 2,
-    label: "強く同意",
-    emoji: "💯",
-    idleClass:
-      "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
-    activeClass:
-      "bg-emerald-500 text-white border-emerald-500 shadow-sm hover:bg-emerald-500",
-  },
-  {
-    value: 1,
-    label: "同意",
-    emoji: "✓",
-    idleClass: "bg-green-50 text-green-700 border-green-200 hover:bg-green-100",
-    activeClass:
-      "bg-green-400 text-white border-green-400 shadow-sm hover:bg-green-400",
-  },
-  {
-    value: 0,
-    label: "わからない",
-    emoji: "🤔",
-    idleClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
-    activeClass:
-      "bg-amber-400 text-gray-900 border-amber-400 shadow-sm hover:bg-amber-400",
-  },
-  {
-    value: -1,
-    label: "反対",
-    emoji: "✗",
-    idleClass: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
-    activeClass:
-      "bg-rose-400 text-white border-rose-400 shadow-sm hover:bg-rose-400",
-  },
-  {
-    value: -2,
-    label: "強く反対",
-    emoji: "👎",
-    idleClass: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100",
-    activeClass:
-      "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-600",
-  },
-];
+    {
+      value: 2,
+      label: "強く同意",
+      emoji: "💯",
+      idleClass:
+        "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
+      activeClass:
+        "bg-emerald-500 text-white border-emerald-500 shadow-sm hover:bg-emerald-500",
+    },
+    {
+      value: 1,
+      label: "同意",
+      emoji: "✓",
+      idleClass: "bg-green-50 text-green-700 border-green-200 hover:bg-green-100",
+      activeClass:
+        "bg-green-400 text-white border-green-400 shadow-sm hover:bg-green-400",
+    },
+    {
+      value: 0,
+      label: "わからない",
+      emoji: "🤔",
+      idleClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
+      activeClass:
+        "bg-amber-400 text-gray-900 border-amber-400 shadow-sm hover:bg-amber-400",
+    },
+    {
+      value: -1,
+      label: "反対",
+      emoji: "✗",
+      idleClass: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
+      activeClass:
+        "bg-rose-400 text-white border-rose-400 shadow-sm hover:bg-rose-400",
+    },
+    {
+      value: -2,
+      label: "強く反対",
+      emoji: "👎",
+      idleClass: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100",
+      activeClass:
+        "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-600",
+    },
+  ];
 
 export default function SessionPage({
   params,
@@ -156,6 +161,7 @@ export default function SessionPage({
   const [sessionInfoError, setSessionInfoError] = useState<string | null>(null);
   const [state, setState] = useState<SessionState>("NEEDS_NAME");
   const [showFullGoal, setShowFullGoal] = useState(false);
+  const [isGoalCollapsed, setIsGoalCollapsed] = useState(true);
   const [name, setName] = useState("");
   const [currentStatement, setCurrentStatement] = useState<Statement | null>(
     null,
@@ -381,8 +387,8 @@ export default function SessionPage({
           const exists = prev.some((item) => item.statementId === statementId);
           const updatedList = exists
             ? prev.map((item) =>
-                item.statementId === statementId ? previous : item,
-              )
+              item.statementId === statementId ? previous : item,
+            )
             : [...prev, previous];
 
           return sortResponsesByRecency(updatedList);
@@ -427,16 +433,16 @@ export default function SessionPage({
           prev.map((item) =>
             item.statementId === payload.statementId
               ? {
-                  ...item,
-                  id: payload.id,
-                  value: payload.value as ResponseValue | null,
-                  responseType: payload.responseType,
-                  textResponse: payload.textResponse ?? item.textResponse,
-                  statementText:
-                    payload.statementText ?? item.statementText ?? "",
-                  orderIndex: payload.orderIndex ?? item.orderIndex ?? 0,
-                  createdAt: payload.createdAt,
-                }
+                ...item,
+                id: payload.id,
+                value: payload.value as ResponseValue | null,
+                responseType: payload.responseType,
+                textResponse: payload.textResponse ?? item.textResponse,
+                statementText:
+                  payload.statementText ?? item.statementText ?? "",
+                orderIndex: payload.orderIndex ?? item.orderIndex ?? 0,
+                createdAt: payload.createdAt,
+              }
               : item,
           ),
         ),
@@ -1152,11 +1158,11 @@ export default function SessionPage({
 
       const reflection = response.data?.reflection as
         | {
-            id: string;
-            text: string;
-            createdAt?: string;
-            submittedAt?: string;
-          }
+          id: string;
+          text: string;
+          createdAt?: string;
+          submittedAt?: string;
+        }
         | undefined;
 
       if (reflection) {
@@ -1261,28 +1267,68 @@ export default function SessionPage({
     };
   }, [sessionInfo?.title]);
 
+  useEffect(() => {
+    setIsGoalCollapsed(state !== "NEEDS_NAME");
+  }, [state]);
+
   const sessionGoalHighlights = useMemo((): GoalHighlight[] => {
     if (!sessionInfo?.goal) return [];
     const lines = sessionInfo.goal.split("\n");
-    const purposeLine = lines.find((line) =>
-      line.includes("何のために洗い出しますか？"),
-    );
-    const focusLine = lines.find((line) =>
-      line.includes("何の認識を洗い出しますか？"),
-    );
+    const purposeKeywords: KeywordPattern[] = [
+      { match: "このセッションの目的: ", label: "このセッションの目的: " },
+      { match: "何のために洗い出しますか？", label: "このセッションの目的: " },
+    ];
+    const focusKeywords: KeywordPattern[] = [
+      { match: "そのために、次のような質問をします: ", label: "そのために、次のような質問をします: " },
+      { match: "何の認識を洗い出しますか？", label: "そのために、次のような質問をします: " },
+    ];
+
+    const findLineByKeywords = (keywords: KeywordPattern[]) => {
+      for (const keyword of keywords) {
+        const foundLine = lines.find((line) => line.includes(keyword.match));
+        if (foundLine) return { line: foundLine, label: keyword.label ?? null };
+      }
+      return null;
+    };
+
+    const purposeLine = findLineByKeywords(purposeKeywords);
+    const focusLine = findLineByKeywords(focusKeywords);
 
     const pickLines = [];
     if (purposeLine) pickLines.push(purposeLine);
     if (focusLine) pickLines.push(focusLine);
     if (pickLines.length === 0 && sessionInfo.goal) {
-      pickLines.push(sessionInfo.goal);
+      pickLines.push({ line: sessionInfo.goal, label: null });
     }
 
-    return pickLines.map((line) => {
-      const match = line.match(/^[【](.+?)[】](.*)$/);
-      const label = match?.[1]?.trim() || null;
-      const value = match?.[2]?.trim() || line;
-      return { key: line, label, value, raw: line };
+    return pickLines.map(({ line, label: labelOverride }) => {
+      const bracketMatch = line.match(/^[【](.+?)[】](.*)$/);
+      if (bracketMatch) {
+        const label = bracketMatch?.[1]?.trim() || null;
+        const value = bracketMatch?.[2]?.trim() || line;
+        return { key: line, label: labelOverride ?? label, value, raw: line };
+      }
+
+      const colonIndex = (() => {
+        const ascii = line.indexOf(":");
+        const jp = line.indexOf("：");
+        if (ascii === -1) return jp;
+        if (jp === -1) return ascii;
+        return Math.min(ascii, jp);
+      })();
+
+      if (colonIndex !== -1) {
+        const label = line.slice(0, colonIndex).trim() || null;
+        const value = line.slice(colonIndex + 1).trim() || line;
+        return {
+          key: line,
+          label: labelOverride ?? label,
+          value,
+          raw: line,
+        };
+      }
+
+      return { key: line, label: labelOverride ?? null, value: line, raw: line };
     });
   }, [sessionInfo?.goal]);
 
@@ -1340,40 +1386,112 @@ export default function SessionPage({
               {sessionInfo?.title ?? "セッション"}
             </h1>
             {sessionGoalHighlights.length > 0 && (
-              <div className="mt-3 space-y-3 text-muted-foreground">
-                {sessionGoalHighlights.map((item) => {
-                  const shouldTruncate =
-                    !showFullGoal && item.value.length > GOAL_PREVIEW_LIMIT;
-                  const displayText = shouldTruncate
-                    ? `${item.value.slice(0, GOAL_PREVIEW_LIMIT)}...`
-                    : item.value;
-
-                  return (
-                    <div key={item.key} className="space-y-0.5">
-                      {item.label && (
-                        <p className="text-sm font-medium text-foreground">
-                          {item.label}
-                        </p>
-                      )}
-                      <p className="whitespace-pre-line" title={item.raw}>
-                        {displayText}
-                      </p>
-                    </div>
-                  );
-                })}
-                {sessionGoalHighlights.some(
-                  (item) => item.value.length > GOAL_PREVIEW_LIMIT,
-                ) && (
-                  <div className="pt-1">
+              <div className="mt-3 space-y-2">
+                {state !== "NEEDS_NAME" ? (
+                  <div className="space-y-2">
                     <Button
                       type="button"
                       variant="link"
                       size="sm"
-                      className="px-0"
-                      onClick={() => setShowFullGoal((prev) => !prev)}
+                      className="px-0 underline underline-offset-4"
+                      onClick={() => setIsGoalCollapsed((prev) => !prev)}
                     >
-                      {showFullGoal ? "折りたたむ" : "全文を見る"}
+                      {isGoalCollapsed
+                        ? "▼ クリックしてセッション概要を表示"
+                        : "▲ クリックしてセッション概要を隠す"}
                     </Button>
+                    {!isGoalCollapsed && (
+                      <div className="space-y-3 text-muted-foreground">
+                        {sessionGoalHighlights.map((item) => {
+                          const shouldTruncate =
+                            !showFullGoal &&
+                            item.value.length > GOAL_PREVIEW_LIMIT;
+                          const displayText = shouldTruncate
+                            ? `${item.value.slice(0, GOAL_PREVIEW_LIMIT)}...`
+                            : item.value;
+
+                          return (
+                            <div key={item.key} className="space-y-0.5">
+                              {item.label && (
+                                <p className="text-sm font-medium text-foreground">
+                                  {item.label}
+                                </p>
+                              )}
+                              <p
+                                className="whitespace-pre-line"
+                                title={item.raw}
+                              >
+                                {displayText}
+                              </p>
+                            </div>
+                          );
+                        })}
+                        {sessionGoalHighlights.some(
+                          (item) => item.value.length > GOAL_PREVIEW_LIMIT,
+                        ) && (
+                            <div className="pt-1">
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                className="px-0"
+                                onClick={() => setShowFullGoal((prev) => !prev)}
+                              >
+                                {showFullGoal ? "折りたたむ" : "全文を見る"}
+                              </Button>
+                            </div>
+                          )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-3 text-muted-foreground">
+                    {sessionGoalHighlights.map((item) => {
+                      const shouldTruncate =
+                        !showFullGoal && item.value.length > GOAL_PREVIEW_LIMIT;
+                      const displayText = shouldTruncate
+                        ? `${item.value.slice(0, GOAL_PREVIEW_LIMIT)}...`
+                        : item.value;
+
+                      return (
+                        <div key={item.key} className="space-y-0.5">
+                          {item.label && (
+                            <p className="text-sm font-medium text-foreground">
+                              {item.label}
+                            </p>
+                          )}
+                          <p className="whitespace-pre-line" title={item.raw}>
+                            {displayText}
+                          </p>
+                        </div>
+                      );
+                    })}
+                    {sessionGoalHighlights.some(
+                      (item) => item.value.length > GOAL_PREVIEW_LIMIT,
+                    ) && (
+                        <div className="pt-1">
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="px-0"
+                            onClick={() => setShowFullGoal((prev) => !prev)}
+                          >
+                            {showFullGoal ? "折りたたむ" : "全文を見る"}
+                          </Button>
+                        </div>
+                      )}
+                  </div>
+                )}
+
+                {(!isGoalCollapsed || state === "NEEDS_NAME") && (
+                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    <p>
+                      皆さんには、AIが生成した問い・仮説に対して、強く同意、同意、わからない、反対、強く反対の中から1つ選んで回答していただきます。
+                    </p>
+                    <p className="mt-1 font-semibold text-foreground">
+                      どれにも当てはまらない場合は、積極的に「わからない」を押してください。
+                    </p>
                   </div>
                 )}
               </div>
@@ -1386,7 +1504,7 @@ export default function SessionPage({
             <CardHeader>
               <CardTitle>ようこそ</CardTitle>
               <CardDescription>
-                参加するには、まず名前を入力してください
+                このセッションに参加するには、まず名前を入力してください
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1656,59 +1774,80 @@ export default function SessionPage({
         {(state === "ANSWERING" ||
           state === "REFLECTION" ||
           state === "COMPLETED") && (
-          <>
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>質問への回答履歴</CardTitle>
-                <CardDescription>
-                  あなたの回答とふりかえりの履歴を時系列で確認できます。回答を変更したい場合、質問の回答を再度選択することで変更できます。
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {(responsesError || reflectionsError) && (
-                  <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
-                    {responsesError && (
-                      <p className="text-sm text-destructive">
-                        {responsesError}
-                      </p>
-                    )}
-                    {reflectionsError && (
-                      <p className="text-sm text-destructive">
-                        {reflectionsError}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {isLoadingResponses || isLoadingReflections ? (
-                  <div className="space-y-3">
-                    {[0, 1, 2].map((index) => (
-                      <div
-                        key={index}
-                        className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3"
-                      >
-                        <Skeleton className="h-4 w-3/4" />
-                        <div className="flex gap-2">
-                          <Skeleton className="h-6 w-20" />
-                          <Skeleton className="h-6 w-16" />
-                          <Skeleton className="h-6 w-24" />
+            <>
+              <Card className="mt-8">
+                <CardHeader>
+                  <CardTitle>質問への回答履歴</CardTitle>
+                  <CardDescription>
+                    あなたの回答とふりかえりの履歴を時系列で確認できます。回答を変更したい場合、質問の回答を再度選択することで変更できます。
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(responsesError || reflectionsError) && (
+                    <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                      {responsesError && (
+                        <p className="text-sm text-destructive">
+                          {responsesError}
+                        </p>
+                      )}
+                      {reflectionsError && (
+                        <p className="text-sm text-destructive">
+                          {reflectionsError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {isLoadingResponses || isLoadingReflections ? (
+                    <div className="space-y-3">
+                      {[0, 1, 2].map((index) => (
+                        <div
+                          key={index}
+                          className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3"
+                        >
+                          <Skeleton className="h-4 w-3/4" />
+                          <div className="flex gap-2">
+                            <Skeleton className="h-6 w-20" />
+                            <Skeleton className="h-6 w-16" />
+                            <Skeleton className="h-6 w-24" />
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : historyItems.length > 0 ? (
-                  <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-                    {historyItems.map((item) => {
-                      if (item.type === "response") {
-                        const response = item.response;
-                        const isPending =
-                          pendingAnswerStatementIdsRef.current.has(
+                      ))}
+                    </div>
+                  ) : historyItems.length > 0 ? (
+                    <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                      {historyItems.map((item) => {
+                        if (item.type === "response") {
+                          const response = item.response;
+                          const isPending =
+                            pendingAnswerStatementIdsRef.current.has(
+                              response.statementId,
+                            );
+                          const isUpdating = updatingResponseIds.has(
                             response.statementId,
                           );
-                        const isUpdating = updatingResponseIds.has(
-                          response.statementId,
-                        );
 
-                        if (response.responseType === "free_text") {
+                          if (response.responseType === "free_text") {
+                            return (
+                              <div
+                                key={item.key}
+                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm font-medium text-foreground">
+                                    {response.statementText}
+                                  </p>
+                                </div>
+                                <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2">
+                                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                                    {response.textResponse?.trim().length
+                                      ? response.textResponse
+                                      : "（記入なし）"}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div
                               key={item.key}
@@ -1719,171 +1858,150 @@ export default function SessionPage({
                                   {response.statementText}
                                 </p>
                               </div>
-                              <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2">
-                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                                  {response.textResponse?.trim().length
-                                    ? response.textResponse
-                                    : "（記入なし）"}
-                                </p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {RESPONSE_CHOICES.map((choice) => {
+                                  const isActive =
+                                    response.value === choice.value;
+                                  const isDisabled =
+                                    isPending ||
+                                    isUpdating ||
+                                    isLoading ||
+                                    isActive;
+
+                                  return (
+                                    <button
+                                      key={choice.value}
+                                      type="button"
+                                      onClick={() =>
+                                        handleUpdateResponse(
+                                          response.statementId,
+                                          choice.value,
+                                        )
+                                      }
+                                      disabled={isDisabled}
+                                      className={cn(
+                                        "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                        isActive
+                                          ? choice.activeClass
+                                          : choice.idleClass,
+                                        (isPending || isUpdating) && "opacity-70",
+                                      )}
+                                    >
+                                      <span>{choice.emoji}</span>
+                                      <span>{choice.label}</span>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           );
                         }
 
+                        const { reflection } = item;
                         return (
                           <div
                             key={item.key}
-                            className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                            className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-sm font-medium text-foreground">
-                                {response.statementText}
-                              </p>
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
+                                ふりかえり
+                              </span>
                             </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {RESPONSE_CHOICES.map((choice) => {
-                                const isActive =
-                                  response.value === choice.value;
-                                const isDisabled =
-                                  isPending ||
-                                  isUpdating ||
-                                  isLoading ||
-                                  isActive;
-
-                                return (
-                                  <button
-                                    key={choice.value}
-                                    type="button"
-                                    onClick={() =>
-                                      handleUpdateResponse(
-                                        response.statementId,
-                                        choice.value,
-                                      )
-                                    }
-                                    disabled={isDisabled}
-                                    className={cn(
-                                      "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                      isActive
-                                        ? choice.activeClass
-                                        : choice.idleClass,
-                                      (isPending || isUpdating) && "opacity-70",
-                                    )}
-                                  >
-                                    <span>{choice.emoji}</span>
-                                    <span>{choice.label}</span>
-                                  </button>
-                                );
-                              })}
+                            <div className="mt-3 rounded-md border border-gray-300 bg-gray-50 px-3 py-3 shadow-inner">
+                              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
+                                {reflection.text.trim().length > 0
+                                  ? reflection.text
+                                  : "（記入なし）"}
+                              </p>
                             </div>
                           </div>
                         );
-                      }
-
-                      const { reflection } = item;
-                      return (
-                        <div
-                          key={item.key}
-                          className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
-                              ふりかえり
-                            </span>
-                          </div>
-                          <div className="mt-3 rounded-md border border-gray-300 bg-gray-50 px-3 py-3 shadow-inner">
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-                              {reflection.text.trim().length > 0
-                                ? reflection.text
-                                : "（記入なし）"}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 py-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      回答やふりかえりを進めると、ここに履歴が表示されます
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="mt-8">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>じぶんレポート</CardTitle>
-                  <Button
-                    onClick={handleGenerateReport}
-                    disabled={isGeneratingReport}
-                    isLoading={isGeneratingReport}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    {individualReport ? "レポートを更新" : "レポートを生成"}
-                  </Button>
-                </div>
-                <CardDescription>
-                  あなたの回答から生成された個別分析レポート
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {error && (
-                  <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
-                    <p className="text-sm text-destructive">{error}</p>
-                  </div>
-                )}
-                {isGeneratingReport && (
-                  <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <div className="space-y-2 text-center">
-                      <p className="text-base font-medium text-foreground">
-                        レポートを生成しています...
-                      </p>
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 py-8 text-center">
                       <p className="text-sm text-muted-foreground">
-                        あなたの回答を分析しています。少々お待ちください。
+                        回答やふりかえりを進めると、ここに履歴が表示されます
                       </p>
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="mt-8">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>じぶんレポート</CardTitle>
+                    <Button
+                      onClick={handleGenerateReport}
+                      disabled={isGeneratingReport}
+                      isLoading={isGeneratingReport}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      {individualReport ? "レポートを更新" : "レポートを生成"}
+                    </Button>
                   </div>
-                )}
-                {isLoadingReport ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-5/6" />
-                    <Skeleton className="h-4 w-4/5" />
-                    <div className="pt-2">
+                  <CardDescription>
+                    あなたの回答から生成された個別分析レポート
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {error && (
+                    <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                      <p className="text-sm text-destructive">{error}</p>
+                    </div>
+                  )}
+                  {isGeneratingReport && (
+                    <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
+                      <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                      <div className="space-y-2 text-center">
+                        <p className="text-base font-medium text-foreground">
+                          レポートを生成しています...
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          あなたの回答を分析しています。少々お待ちください。
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {isLoadingReport ? (
+                    <div className="space-y-3">
                       <Skeleton className="h-4 w-full" />
-                      <Skeleton className="mt-3 h-4 w-full" />
-                      <Skeleton className="mt-3 h-4 w-3/4" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-4/5" />
+                      <div className="pt-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="mt-3 h-4 w-full" />
+                        <Skeleton className="mt-3 h-4 w-3/4" />
+                      </div>
                     </div>
-                  </div>
-                ) : individualReport ? (
-                  <div
-                    className={cn(
-                      "markdown-body prose prose-sm max-w-none",
-                      isGeneratingReport && "opacity-60",
-                    )}
-                  >
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {individualReport.contentMarkdown}
-                    </ReactMarkdown>
-                  </div>
-                ) : !isGeneratingReport ? (
-                  <div className="py-8 text-center">
-                    <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                      <FileText className="h-6 w-6 text-muted-foreground" />
+                  ) : individualReport ? (
+                    <div
+                      className={cn(
+                        "markdown-body prose prose-sm max-w-none",
+                        isGeneratingReport && "opacity-60",
+                      )}
+                    >
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {individualReport.contentMarkdown}
+                      </ReactMarkdown>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      回答を進めると、あなた専用の分析レポートがここに表示されます
-                    </p>
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          </>
-        )}
+                  ) : !isGeneratingReport ? (
+                    <div className="py-8 text-center">
+                      <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                        <FileText className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        回答を進めると、あなた専用の分析レポートがここに表示されます
+                      </p>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </>
+          )}
       </div>
     </div>
   );
