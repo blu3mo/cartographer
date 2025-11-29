@@ -200,11 +200,11 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1.5">
                         <Users className="h-4 w-4" />
-                        <span>{session._count.participants}</span>
+                        <span>{session._count.participants}人参加</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <FileText className="h-4 w-4" />
-                        <span>{session._count.statements}</span>
+                        <span>{session._count.statements}質問</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Calendar className="h-4 w-4" />
@@ -212,6 +212,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                           {new Date(session.createdAt).toLocaleDateString(
                             "ja-JP",
                           )}
+                          作成
                         </span>
                       </div>
                     </div>
