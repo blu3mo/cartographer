@@ -4,8 +4,9 @@ import { getUserIdFromRequest } from "@/lib/auth";
 import { buildSessionBrief, generateIndividualReport } from "@/lib/llm";
 import { supabase } from "@/lib/supabase";
 
-type IndividualReportResponse =
-  Parameters<typeof generateIndividualReport>[0]["responses"][number];
+type IndividualReportResponse = Parameters<
+  typeof generateIndividualReport
+>[0]["responses"][number];
 
 export async function GET(
   request: NextRequest,
