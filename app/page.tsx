@@ -191,8 +191,13 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                       </span>
                     )}
                   </div>
-                  <CardDescription className="line-clamp-2">
-                    {session.goal || session.context}
+                  <CardDescription className="space-y-1 text-base leading-6">
+                    {session.goal && (
+                      <p className="whitespace-pre-line">{session.goal}</p>
+                    )}
+                    {session.context && (
+                      <p className="whitespace-pre-line">{session.context}</p>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
