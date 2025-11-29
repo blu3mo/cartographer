@@ -173,10 +173,10 @@ function NewSessionContent() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  placeholder="例: プロジェクトの現状認識"
+                  placeholder="例: 社内チャットツールの入れ替えに関する各メンバーの現状認識のすり合わせ"
                 />
                 <p className="text-xs text-muted-foreground">
-                  後から見返して、セッションの内容が分かりやすいタイトルをつけましょう
+                  それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
                 </p>
               </div>
 
@@ -185,7 +185,7 @@ function NewSessionContent() {
                   htmlFor="recognitionPurpose"
                   className="text-sm font-medium"
                 >
-                  目的: 何のために参加者の認識を洗い出したいですか？
+                  何のために参加者の認識を洗い出したいですか？
                 </label>
                 <textarea
                   id="recognitionPurpose"
@@ -194,7 +194,7 @@ function NewSessionContent() {
                   required
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
+                  placeholder="例: 導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にするため"
                 />
                 <p className="text-xs text-muted-foreground">
                   洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。
@@ -206,7 +206,7 @@ function NewSessionContent() {
                   htmlFor="recognitionFocus"
                   className="text-sm font-medium"
                 >
-                  手段: そのためには、参加者の何の認識をすり合わせられると良いですか？
+                  そのためには、参加者の何の認識をすり合わせられると良いですか？
                 </label>
                 <textarea
                   id="recognitionFocus"
@@ -215,7 +215,7 @@ function NewSessionContent() {
                   required
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: プロジェクトの現状、課題、今後の方向性について"
+                  placeholder="例: チャットツール入れ替えに向けた現状の使い方、課題、懸念点、導入後の期待"
                 />
                 <p className="text-xs text-muted-foreground">
                   洗い出したいトピックや範囲を具体的に記載してください。
@@ -232,10 +232,10 @@ function NewSessionContent() {
                   onChange={(e) => setBackgroundInfo(e.target.value)}
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: プロジェクトは3ヶ月前に立ち上がり、現在はプロダクトのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
+                  placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
                 />
                 <p className="text-xs text-muted-foreground">
-                  共有しておくと助かる背景や状況があればどうぞ。なくても問題ありません。
+                  なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
                 </p>
               </div>
 
