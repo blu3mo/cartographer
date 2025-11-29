@@ -976,7 +976,7 @@ export default function AdminPage({
                       セッションレポート
                     </CardTitle>
                     <CardDescription>
-                      参加者の回答やEvent Threadをもとに洞察レポートを生成します
+                      参加者の回答やをもとに洞察レポートを生成します
                     </CardDescription>
                   </div>
                   {selectedReport ? (
