@@ -334,11 +334,10 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { title, context, goal, isPublic } = body as {
+    const { title, context, goal } = body as {
       title?: unknown;
       context?: unknown;
       goal?: unknown;
-      isPublic?: unknown;
     };
 
     if (typeof title !== "string" || title.trim().length === 0) {
@@ -353,20 +352,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid goal" }, { status: 400 });
     }
 
-    if (typeof isPublic !== "boolean") {
-      return NextResponse.json(
-        { error: "Invalid visibility" },
-        { status: 400 },
-      );
-    }
-
     const { data: updatedSession, error: updateError } = await supabase
       .from("sessions")
       .update({
         title: title.trim(),
         context: context.trim(),
         goal: goal.trim(),
-        is_public: isPublic,
+        is_public: false,
       })
       .eq("id", sessionId)
       .select("id, title, context, goal, is_public, created_at")

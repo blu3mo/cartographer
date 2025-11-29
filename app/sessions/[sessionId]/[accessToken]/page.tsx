@@ -257,9 +257,6 @@ export default function AdminPage({
   const [editingTitle, setEditingTitle] = useState("");
   const [editingContext, setEditingContext] = useState("");
   const [editingGoal, setEditingGoal] = useState("");
-  const [editingVisibility, setEditingVisibility] = useState<
-    "public" | "private"
-  >("public");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
@@ -444,7 +441,6 @@ export default function AdminPage({
       setEditingTitle(data.title);
       setEditingContext(data.context);
       setEditingGoal(data.goal);
-      setEditingVisibility(data.isPublic ? "public" : "private");
     }
   }, [data]);
 
@@ -542,7 +538,6 @@ export default function AdminPage({
           title: editingTitle,
           context: editingContext,
           goal: editingGoal,
-          isPublic: editingVisibility === "public",
         },
         {
           headers: { Authorization: `Bearer ${userId}` },
@@ -553,7 +548,6 @@ export default function AdminPage({
         title: string;
         context: string;
         goal: string;
-        isPublic: boolean;
       };
 
       setData((prev) =>
@@ -563,7 +557,6 @@ export default function AdminPage({
               title: updated.title,
               context: updated.context,
               goal: updated.goal,
-              isPublic: updated.isPublic,
             }
           : prev,
       );
@@ -1500,14 +1493,6 @@ export default function AdminPage({
                   <div className="space-y-4 text-sm text-slate-600">
                     <div>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        公開設定
-                      </p>
-                      <p className="mt-1 text-slate-800 font-medium">
-                        {data.isPublic ? "公開" : "非公開"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
                         ゴール
                       </p>
                       <p
@@ -1550,34 +1535,6 @@ export default function AdminPage({
                         required
                         className="text-sm"
                       />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-slate-600">
-                        公開設定
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-700 shadow-sm">
-                          <input
-                            type="radio"
-                            name="sessionVisibility"
-                            value="public"
-                            checked={editingVisibility === "public"}
-                            onChange={() => setEditingVisibility("public")}
-                          />
-                          <span>公開</span>
-                        </label>
-                        <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-700 shadow-sm">
-                          <input
-                            type="radio"
-                            name="sessionVisibility"
-                            value="private"
-                            checked={editingVisibility === "private"}
-                            onChange={() => setEditingVisibility("private")}
-                          />
-                          <span>非公開</span>
-                        </label>
-                      </div>
                     </div>
 
                     <div className="space-y-1.5">
@@ -1649,9 +1606,6 @@ export default function AdminPage({
                             setEditingTitle(data.title);
                             setEditingContext(data.context);
                             setEditingGoal(data.goal);
-                            setEditingVisibility(
-                              data.isPublic ? "public" : "private",
-                            );
                           }
                         }}
                         className="gap-1.5 text-xs"
