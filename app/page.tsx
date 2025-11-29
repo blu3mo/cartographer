@@ -1,7 +1,15 @@
 "use client";
 
 import axios from "axios";
-import { Calendar, FileText, Loader2, Lock, Plus, Users } from "lucide-react";
+import {
+  Calendar,
+  FileText,
+  Loader2,
+  Lock,
+  Plus,
+  SquareArrowOutUpRight,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -88,7 +96,7 @@ export default function Home() {
           <Link href="/sessions/new">
             <Button>
               <Plus className="h-4 w-4" />
-              新しいセッション
+              新しいセッションを作成
             </Button>
           </Link>
         </div>
@@ -226,10 +234,15 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                         size="sm"
                         onClick={(event) => {
                           event.stopPropagation();
-                          router.push(`/sessions/${session.id}`);
+                          window.open(
+                            `/sessions/${session.id}`,
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
                         }}
                       >
                         参加
+                        <SquareArrowOutUpRight className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
