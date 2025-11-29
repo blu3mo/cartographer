@@ -85,6 +85,15 @@ type HistoryEntry =
       key: string;
     };
 
+const GOAL_PREVIEW_LIMIT = 140;
+
+type GoalHighlight = {
+  key: string;
+  label: string | null;
+  value: string;
+  raw: string;
+};
+
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
   label: string;
@@ -146,6 +155,7 @@ export default function SessionPage({
   const [isSessionInfoLoading, setIsSessionInfoLoading] = useState(true);
   const [sessionInfoError, setSessionInfoError] = useState<string | null>(null);
   const [state, setState] = useState<SessionState>("NEEDS_NAME");
+  const [showFullGoal, setShowFullGoal] = useState(false);
   const [name, setName] = useState("");
   const [currentStatement, setCurrentStatement] = useState<Statement | null>(
     null,
@@ -1251,6 +1261,31 @@ export default function SessionPage({
     };
   }, [sessionInfo?.title]);
 
+  const sessionGoalHighlights = useMemo((): GoalHighlight[] => {
+    if (!sessionInfo?.goal) return [];
+    const lines = sessionInfo.goal.split("\n");
+    const purposeLine = lines.find((line) =>
+      line.includes("何のために洗い出しますか？"),
+    );
+    const focusLine = lines.find((line) =>
+      line.includes("何の認識を洗い出しますか？"),
+    );
+
+    const pickLines = [];
+    if (purposeLine) pickLines.push(purposeLine);
+    if (focusLine) pickLines.push(focusLine);
+    if (pickLines.length === 0 && sessionInfo.goal) {
+      pickLines.push(sessionInfo.goal);
+    }
+
+    return pickLines.map((line) => {
+      const match = line.match(/^[【](.+?)[】](.*)$/);
+      const label = match?.[1]?.trim() || null;
+      const value = match?.[2]?.trim() || line;
+      return { key: line, label, value, raw: line };
+    });
+  }, [sessionInfo?.goal]);
+
   if (userLoading || isSessionInfoLoading || isCheckingParticipation) {
     return (
       <div className="min-h-screen bg-background">
@@ -1304,6 +1339,45 @@ export default function SessionPage({
             <h1 className="text-3xl font-bold tracking-tight">
               {sessionInfo?.title ?? "セッション"}
             </h1>
+            {sessionGoalHighlights.length > 0 && (
+              <div className="mt-3 space-y-3 text-muted-foreground">
+                {sessionGoalHighlights.map((item) => {
+                  const shouldTruncate =
+                    !showFullGoal && item.value.length > GOAL_PREVIEW_LIMIT;
+                  const displayText = shouldTruncate
+                    ? `${item.value.slice(0, GOAL_PREVIEW_LIMIT)}...`
+                    : item.value;
+
+                  return (
+                    <div key={item.key} className="space-y-0.5">
+                      {item.label && (
+                        <p className="text-sm font-medium text-foreground">
+                          {item.label}
+                        </p>
+                      )}
+                      <p className="whitespace-pre-line" title={item.raw}>
+                        {displayText}
+                      </p>
+                    </div>
+                  );
+                })}
+                {sessionGoalHighlights.some(
+                  (item) => item.value.length > GOAL_PREVIEW_LIMIT,
+                ) && (
+                  <div className="pt-1">
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="px-0"
+                      onClick={() => setShowFullGoal((prev) => !prev)}
+                    >
+                      {showFullGoal ? "折りたたむ" : "全文を見る"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
