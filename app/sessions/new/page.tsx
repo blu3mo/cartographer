@@ -150,7 +150,7 @@ function NewSessionContent() {
             新しいセッションを作成
           </h1>
           <p className="text-muted-foreground">
-          セッション情報をもとにAIが質問を生成します。前提情報など、なるべく議論の概要を網羅的に入力するようにしてください。
+          セッション情報をもとにAIが質問を生成します
           </p>
         </div>
 
@@ -158,7 +158,7 @@ function NewSessionContent() {
           <CardHeader>
             <CardTitle>セッション情報</CardTitle>
             <CardDescription>
-              いくつかの質問に答えると、みんなで話したいことが整理されます。
+              前提情報など、なるべく議論の概要を網羅的に入力するようにしてください。
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -176,7 +176,7 @@ function NewSessionContent() {
                   placeholder="例: プロジェクトの現状認識"
                 />
                 <p className="text-xs text-muted-foreground">
-                  セッションを識別しやすいタイトルを付けましょう
+                  後から見返して、セッションの内容が分かりやすいタイトルをつけましょう
                 </p>
               </div>
 
@@ -185,7 +185,7 @@ function NewSessionContent() {
                   htmlFor="recognitionPurpose"
                   className="text-sm font-medium"
                 >
-                  何のために洗い出しますか？
+                  目的: 何のために参加者の認識を洗い出したいですか？
                 </label>
                 <textarea
                   id="recognitionPurpose"
@@ -206,7 +206,7 @@ function NewSessionContent() {
                   htmlFor="recognitionFocus"
                   className="text-sm font-medium"
                 >
-                  何の認識を洗い出しますか？
+                  手段: そのためには、参加者の何の認識をすり合わせられると良いですか？
                 </label>
                 <textarea
                   id="recognitionFocus"
