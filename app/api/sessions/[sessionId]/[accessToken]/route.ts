@@ -134,7 +134,12 @@ export async function GET(
 
     const responseMap = new Map<
       string,
-      { value: number | null; responseType: string; text: string | null; participantId: string | null }[]
+      {
+        value: number | null;
+        responseType: string;
+        text: string | null;
+        participantId: string | null;
+      }[]
     >();
     const participantResponseCount = new Map<string, number>();
 
@@ -245,12 +250,10 @@ export async function GET(
             strongNo: Math.round(strongNoPercent * 100) / 100,
             totalCount,
             freeTextCount: freeTextResponses.length,
-            freeTextSamples: freeTextResponses
-              .slice(0, 5)
-              .map((response) => ({
-                participantUserId: response.participantId,
-                text: response.text ?? "",
-              })),
+            freeTextSamples: freeTextResponses.slice(0, 5).map((response) => ({
+              participantUserId: response.participantId,
+              text: response.text ?? "",
+            })),
           },
           agreementScore,
         };

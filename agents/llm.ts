@@ -220,6 +220,61 @@ export async function generateSurveyStatements(input: {
   }
 }
 
+export async function generateSingleSurveyStatement(input: {
+  sessionTitle: string;
+  sessionGoal: string;
+  initialContext: string;
+  eventThreadContext: string;
+  planMarkdown?: string;
+  latestAnalysisMarkdown?: string;
+  participantCount?: number;
+}): Promise<string> {
+  const participantsLabel =
+    typeof input.participantCount === "number"
+      ? String(input.participantCount)
+      : "unknown";
+
+  const prompt = `
+<role>
+あなたはシニアリサーチャー兼コンサルタント。参加者への問いかけと分析や考察を繰り返しながら、認識の合意点・相違点・不明点を洗い出します。
+</role>
+<task>
+ステートメントに対する全参加者のYES/NO回答を通じて、認識・解釈・価値観・利害・優先順位などを浮き彫りにし、収集したい認識の情報を収集します。
+今までのEventThreadの内容を踏まえて、新たに1つのステートメントを生成してください。それに対して参加者全員がYES/NOで回答します。
+ステートメントは以下を満たすこと。
+- YES/NOの二択で答えられる断定文であること。
+- 1文のみ、単体で意味が通じること。
+- 解釈のブレが生じないよう、必要であれば5W1Hや具体例を明示してシャープに表現すること。
+- 参加者の立ち位置がYES/NOで鮮明に分かれ、背後の動機が推測できるようにする。
+- 今後も質問を繰り返すので、今回だけで調査目的を達成する必要はない。深掘りを急がずに、まず今集めるべき情報を集めてほしい。
+</task>
+<session>
+  <title>${input.sessionTitle}</title>
+  <goal>${input.sessionGoal}</goal>
+  <participants>${participantsLabel}</participants>
+</session>
+<context>
+  ${input.eventThreadContext}
+  <initial_context>${input.initialContext}</initial_context>
+</context>
+<output>JSON配列（例: ["文1"]）のみを返してください。配列の中身は1つだけにしてください。</output>
+`;
+
+  try {
+    const response = await callLLM([{ role: "user", content: prompt }], {
+      reasoning_max_tokens: 1,
+    });
+    const parsed = extractJsonArray(response);
+    if (!parsed || parsed.length === 0) {
+      throw new Error("LLM response was not valid JSON array");
+    }
+    return parsed[0];
+  } catch (error) {
+    console.error("[LLM] Single survey statement generation failed:", error);
+    throw new Error("Single survey statement generation failed");
+  }
+}
+
 export interface StatementStat {
   text: string;
   totalCount: number;
@@ -273,9 +328,9 @@ export async function generateSurveyAnalysisMarkdown(input: {
       const freeTextSnippet =
         statement.freeTextResponses.length > 0
           ? `- 自由記述(${statement.freeTextResponses.length}件):\n${statement.freeTextResponses
-            .slice(0, 3)
-            .map((entry) => `  - ${entry.participantName}: ${entry.text}`)
-            .join("\n")}`
+              .slice(0, 3)
+              .map((entry) => `  - ${entry.participantName}: ${entry.text}`)
+              .join("\n")}`
           : "";
       const body = `${index + 1}. "${statement.text}" (回答人数: ${statement.totalCount}人)
 - 強く同意: ${dist.strongYes}%

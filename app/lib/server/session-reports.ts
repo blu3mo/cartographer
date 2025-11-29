@@ -287,7 +287,9 @@ async function fetchStatements(sessionId: string): Promise<StatementRow[]> {
 async function fetchResponses(sessionId: string): Promise<ResponseRow[]> {
   const { data, error } = await supabase
     .from("responses")
-    .select("statement_id, participant_user_id, value, response_type, text_response")
+    .select(
+      "statement_id, participant_user_id, value, response_type, text_response",
+    )
     .eq("session_id", sessionId);
 
   if (error) {

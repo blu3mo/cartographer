@@ -395,7 +395,9 @@ export class PtolemyAgent {
 
     const { data: responses, error: responsesError } = await this.supabase
       .from("responses")
-      .select("statement_id, value, participant_user_id, response_type, text_response")
+      .select(
+        "statement_id, value, participant_user_id, response_type, text_response",
+      )
       .in("statement_id", statementIds);
 
     if (responsesError) {
@@ -776,8 +778,8 @@ export class PtolemyAgent {
             return {
               participantId: participantId ?? "unknown",
               participantName: participantId
-                ? participantNameMap?.get(participantId) ??
-                  truncate(participantId)
+                ? (participantNameMap?.get(participantId) ??
+                  truncate(participantId))
                 : "Unknown",
               text: entry.text_response ?? "",
             };
@@ -841,7 +843,9 @@ export class PtolemyAgent {
     if (statementIds.size > 0) {
       const { data: responseRows, error: responsesError } = await this.supabase
         .from("responses")
-        .select("statement_id, value, participant_user_id, response_type, text_response")
+        .select(
+          "statement_id, value, participant_user_id, response_type, text_response",
+        )
         .in("statement_id", Array.from(statementIds));
       if (responsesError) {
         console.error(

@@ -287,6 +287,8 @@ export default function AdminPage({
     "idle" | "copied" | "error"
   >("idle");
 
+  const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
+
   const fetchAdminData = useCallback(async () => {
     if (!userId) return;
 
@@ -714,6 +716,33 @@ export default function AdminPage({
     }
   };
 
+  const handleGenerateQuestion = async () => {
+    if (!userId || !canEdit || isGeneratingQuestion) return;
+
+    try {
+      setIsGeneratingQuestion(true);
+      const response = await axios.post(
+        `/api/sessions/${sessionId}/statements/generate`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${userId}` },
+        },
+      );
+
+      const newStatements = response.data.statements;
+      if (newStatements && newStatements.length > 0) {
+        // Refresh data to show the new statements
+        await fetchAdminData();
+        alert(`${newStatements.length}問の質問を生成しました。`);
+      }
+    } catch (err) {
+      console.error("Failed to generate questions:", err);
+      alert("質問の生成に失敗しました。");
+    } finally {
+      setIsGeneratingQuestion(false);
+    }
+  };
+
   const participants = data?.participants ?? [];
   const totalParticipants =
     data?.totalParticipants ?? participants?.length ?? 0;
@@ -778,9 +807,7 @@ export default function AdminPage({
       const conflict = Math.min(positive, negative);
       const responseRate =
         totalParticipants > 0
-          ? Math.round(
-              (totalForRate / totalParticipants) * 100 * 10,
-            ) / 10
+          ? Math.round((totalForRate / totalParticipants) * 100 * 10) / 10
           : 0;
       return {
         statement,
@@ -793,7 +820,12 @@ export default function AdminPage({
     });
 
     const agreement = enriched
-      .filter((item) => item.statement.responses.totalCount + item.statement.responses.freeTextCount > 0)
+      .filter(
+        (item) =>
+          item.statement.responses.totalCount +
+            item.statement.responses.freeTextCount >
+          0,
+      )
       .sort((a, b) => {
         if (b.positive === a.positive) {
           return (
@@ -805,7 +837,12 @@ export default function AdminPage({
       .slice(0, 3);
 
     const conflict = enriched
-      .filter((item) => item.statement.responses.totalCount + item.statement.responses.freeTextCount > 0)
+      .filter(
+        (item) =>
+          item.statement.responses.totalCount +
+            item.statement.responses.freeTextCount >
+          0,
+      )
       .sort((a, b) => {
         if (b.conflict === a.conflict) {
           return (
@@ -817,7 +854,12 @@ export default function AdminPage({
       .slice(0, 3);
 
     const dontKnow = enriched
-      .filter((item) => item.statement.responses.totalCount + item.statement.responses.freeTextCount > 0)
+      .filter(
+        (item) =>
+          item.statement.responses.totalCount +
+            item.statement.responses.freeTextCount >
+          0,
+      )
       .sort((a, b) => {
         if (b.neutral === a.neutral) {
           return (
@@ -1175,13 +1217,29 @@ export default function AdminPage({
 
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg">
-                  意見の可視化
-                </CardTitle>
-                <CardDescription>
-                  参加者の回答をもとに、合意できている点、対立している点、みんなが分からない点を把握できます
-                </CardDescription>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-lg">意見の可視化</CardTitle>
+                    <CardDescription>
+                      参加者の回答をもとに、合意できている点、対立している点、みんなが分からない点を把握できます
+                    </CardDescription>
+                  </div>
+                  {canEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateQuestion}
+                      disabled={isGeneratingQuestion}
+                      isLoading={isGeneratingQuestion}
+                      className="gap-1.5 text-xs"
+                    >
+                      <Bot className="h-3.5 w-3.5" />
+                      質問を生成
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
+
               <CardContent className="space-y-6">
                 <div className="grid gap-6 lg:grid-cols-3">
                   <StatementHighlightColumn

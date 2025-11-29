@@ -607,7 +607,8 @@ export default function SessionPage({
     if (!currentStatement) return;
 
     // Check if this statement came from prefetch
-    const isFromPrefetch = prefetchedStatementIdRef.current === currentStatement.id;
+    const isFromPrefetch =
+      prefetchedStatementIdRef.current === currentStatement.id;
 
     if (isFromPrefetch) {
       // This statement came from prefetch, suggestions are already set
@@ -628,7 +629,10 @@ export default function SessionPage({
             },
           );
 
-          if (response.data.suggestions && Array.isArray(response.data.suggestions)) {
+          if (
+            response.data.suggestions &&
+            Array.isArray(response.data.suggestions)
+          ) {
             setAiSuggestions(response.data.suggestions);
           }
         } catch (err) {
@@ -676,13 +680,19 @@ export default function SessionPage({
               },
             );
 
-            if (suggestionsResponse.data.suggestions && Array.isArray(suggestionsResponse.data.suggestions)) {
+            if (
+              suggestionsResponse.data.suggestions &&
+              Array.isArray(suggestionsResponse.data.suggestions)
+            ) {
               setPrefetchedAiSuggestions(suggestionsResponse.data.suggestions);
             } else {
               setPrefetchedAiSuggestions([]);
             }
           } catch (err) {
-            console.error("Failed to prefetch AI suggestions for next statement:", err);
+            console.error(
+              "Failed to prefetch AI suggestions for next statement:",
+              err,
+            );
             // Set fallback suggestions for next statement
             setPrefetchedAiSuggestions([
               "状況によって賛成できる",
@@ -883,10 +893,10 @@ export default function SessionPage({
     setError(null);
     upsertParticipantResponse(previousStatement, {
       responseType: payload.responseType,
-      value: payload.responseType === "scale" ? payload.value ?? null : null,
+      value: payload.responseType === "scale" ? (payload.value ?? null) : null,
       textResponse:
         payload.responseType === "free_text"
-          ? payload.textResponse ?? ""
+          ? (payload.textResponse ?? "")
           : null,
     });
     pendingAnswerStatementIdsRef.current.add(previousStatement.id);
@@ -1636,9 +1646,7 @@ export default function SessionPage({
                 >
                   <div className="text-xl sm:text-3xl">🤔</div>
                   <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    {showAlternatives
-                      ? "わからない▲"
-                      : "わからない▼"}
+                    {showAlternatives ? "わからない▲" : "わからない▼"}
                   </span>
                 </button>
                 <button
@@ -1675,7 +1683,10 @@ export default function SessionPage({
                       <button
                         type="button"
                         onClick={() =>
-                          handleSubmitResponse({ responseType: "scale", value: 0 })
+                          handleSubmitResponse({
+                            responseType: "scale",
+                            value: 0,
+                          })
                         }
                         disabled={isLoading || isSubmittingFreeText}
                         className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1718,7 +1729,9 @@ export default function SessionPage({
                       </div>
                       <textarea
                         value={freeTextInput}
-                        onChange={(event) => setFreeTextInput(event.target.value)}
+                        onChange={(event) =>
+                          setFreeTextInput(event.target.value)
+                        }
                         rows={4}
                         className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"

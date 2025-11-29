@@ -150,8 +150,7 @@ export async function POST(
       );
     }
 
-    const normalizedType =
-      responseType === "free_text" ? "free_text" : "scale";
+    const normalizedType = responseType === "free_text" ? "free_text" : "scale";
 
     if (normalizedType === "scale") {
       if (value === undefined) {
