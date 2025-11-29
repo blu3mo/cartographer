@@ -1176,10 +1176,10 @@ export default function AdminPage({
             <Card className="border-none bg-white/80 shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg">
-                  ステートメントのハイライト
+                  意見の可視化
                 </CardTitle>
                 <CardDescription>
-                  合意・対立・迷いが大きいテーマを把握できます
+                  参加者の回答をもとに、合意できている点、対立している点、みんなが分からない点を把握できます
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1199,22 +1199,6 @@ export default function AdminPage({
                     tone="slate"
                     items={statementHighlights.dontKnow}
                   />
-                </div>
-                <div className="flex justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      window.open(
-                        `/sessions/${sessionId}/admin/statements`,
-                        "_blank",
-                      )
-                    }
-                    className="gap-1.5 text-xs"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    ステートメント一覧へ
-                  </Button>
                 </div>
               </CardContent>
             </Card>
