@@ -34,11 +34,6 @@ function NewSessionContent() {
   const [recognitionPurpose, setRecognitionPurpose] = useState(
     searchParams.get("purpose") || "",
   );
-  const [visibility, setVisibility] = useState<"public" | "private">(
-    (searchParams.get("visibility") as "public" | "private") === "private"
-      ? "private"
-      : "public",
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -122,7 +117,6 @@ function NewSessionContent() {
           title: title.trim(),
           context: backgroundInfo.trim(),
           goal,
-          isPublic: visibility === "public",
         },
         { headers: createAuthorizationHeader(userId) },
       );
@@ -187,46 +181,6 @@ function NewSessionContent() {
               </div>
 
               <div className="space-y-3">
-                <span className="text-sm font-medium">公開設定</span>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <label className="flex items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
-                    <input
-                      type="radio"
-                      name="visibility"
-                      value="public"
-                      checked={visibility === "public"}
-                      onChange={() => setVisibility("public")}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      <span className="font-medium">公開セッション</span>
-                      <br />
-                      <span className="text-xs text-muted-foreground">
-                        倍速会議のトップページで参加者を募集できます。
-                      </span>
-                    </span>
-                  </label>
-                  <label className="flex items-start gap-3 rounded-lg border border-input bg-muted px-4 py-3 text-sm shadow-sm transition hover:border-primary/60">
-                    <input
-                      type="radio"
-                      name="visibility"
-                      value="private"
-                      checked={visibility === "private"}
-                      onChange={() => setVisibility("private")}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      <span className="font-medium">非公開セッション</span>
-                      <br />
-                      <span className="text-xs text-muted-foreground">
-                        直接URLを共有したメンバーだけがアクセスできます。
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="space-y-2">
                 <label htmlFor="backgroundInfo" className="text-sm font-medium">
                   背景情報（任意）
                 </label>

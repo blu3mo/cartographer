@@ -143,11 +143,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, context, goal, isPublic } = body as {
+    const { title, context, goal } = body as {
       title?: unknown;
       context?: unknown;
       goal?: unknown;
-      isPublic?: unknown;
     };
 
     if (typeof title !== "string" || title.trim().length === 0) {
@@ -174,8 +173,6 @@ export async function POST(request: NextRequest) {
     const trimmedTitle = title.trim();
     const trimmedGoal = goal.trim();
     const normalizedContext = context.trim();
-    const normalizedVisibility =
-      typeof isPublic === "boolean" ? isPublic : true;
 
     const { data: createdSessions, error: createSessionError } = await supabase
       .from("sessions")
@@ -183,7 +180,7 @@ export async function POST(request: NextRequest) {
         title: trimmedTitle,
         context: normalizedContext,
         goal: trimmedGoal,
-        is_public: normalizedVisibility,
+        is_public: false,
         host_user_id: userId,
       })
       .select(
