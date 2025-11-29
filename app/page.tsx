@@ -148,6 +148,22 @@ type SessionSectionsProps = {
 
 function SessionSections({ sessions }: SessionSectionsProps) {
   const router = useRouter();
+  const stripSupplementalInfo = (text: string) => {
+    if (!text) return "";
+    const lines = text.split(/\r?\n/);
+    const cutoffIndex = lines.findIndex((line) =>
+      line.includes("補足情報"),
+    );
+    const keptLines = cutoffIndex === -1 ? lines : lines.slice(0, cutoffIndex);
+    return keptLines.join("\n").trim();
+  };
+  const getContextPreview = (text: string) => {
+    const stripped = stripSupplementalInfo(text);
+    if (!stripped) return "";
+    const maxLength = 240;
+    if (stripped.length <= maxLength) return stripped;
+    return `${stripped.slice(0, maxLength)}…`;
+  };
   const sessionCategories = useMemo(() => {
     const adminSessions = sessions.filter((session) => session.isHost);
     const participatingSessions = sessions.filter(
@@ -191,12 +207,24 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                       </span>
                     )}
                   </div>
-                  <CardDescription className="space-y-1 text-base leading-6">
+                  <CardDescription className="space-y-2 text-base leading-6">
                     {session.goal && (
-                      <p className="whitespace-pre-line">{session.goal}</p>
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-muted-foreground">
+                          セッション概要
+                        </p>
+                        <p className="whitespace-pre-line">{session.goal}</p>
+                      </div>
                     )}
                     {session.context && (
-                      <p className="whitespace-pre-line">{session.context}</p>
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-muted-foreground">
+                          補足情報
+                        </p>
+                        <p className="whitespace-pre-line">
+                          {getContextPreview(session.context)}
+                        </p>
+                      </div>
                     )}
                   </CardDescription>
                 </CardHeader>
