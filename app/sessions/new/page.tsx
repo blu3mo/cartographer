@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
-import { Lightbulb, Loader2, Sparkles } from "lucide-react";
+import { ArrowUpRight, Lightbulb, Loader2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -150,7 +150,7 @@ function NewSessionContent() {
             新しいセッションを作成
           </h1>
           <p className="text-muted-foreground">
-            チームの認識を可視化し、合意形成や新たな気づきにつなげていきましょう
+          セッション情報をもとにAIが質問を生成します
           </p>
         </div>
 
@@ -158,7 +158,7 @@ function NewSessionContent() {
           <CardHeader>
             <CardTitle>セッション情報</CardTitle>
             <CardDescription>
-              いくつかの質問に答えると、みんなで話したいことが整理されます。
+              前提情報など、なるべく議論の概要を網羅的に入力するようにしてください。
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -173,10 +173,52 @@ function NewSessionContent() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  placeholder="例: プロジェクトの現状認識"
+                  placeholder="例: 社内チャットツールの入れ替えに関する各メンバーの現状認識のすり合わせ"
                 />
                 <p className="text-xs text-muted-foreground">
-                  セッションを識別しやすいタイトルを付けましょう
+                  それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="recognitionPurpose"
+                  className="text-sm font-medium"
+                >
+                  何のために参加者の認識を洗い出したいですか？
+                </label>
+                <textarea
+                  id="recognitionPurpose"
+                  value={recognitionPurpose}
+                  onChange={(e) => setRecognitionPurpose(e.target.value)}
+                  required
+                  rows={4}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                  placeholder="例: 導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にするため"
+                />
+                <p className="text-xs text-muted-foreground">
+                  洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="recognitionFocus"
+                  className="text-sm font-medium"
+                >
+                  そのためには、参加者の何の認識をすり合わせられると良いですか？
+                </label>
+                <textarea
+                  id="recognitionFocus"
+                  value={recognitionFocus}
+                  onChange={(e) => setRecognitionFocus(e.target.value)}
+                  required
+                  rows={4}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                  placeholder="例: チャットツール入れ替えに向けた現状の使い方、課題、懸念点、導入後の期待"
+                />
+                <p className="text-xs text-muted-foreground">
+                  洗い出したいトピックや範囲を具体的に記載してください。
                 </p>
               </div>
 
@@ -187,57 +229,28 @@ function NewSessionContent() {
                 <textarea
                   id="backgroundInfo"
                   value={backgroundInfo}
-                  onChange={(e) => setBackgroundInfo(e.target.value)}
-                  rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: プロジェクトは3ヶ月前に立ち上がり、現在はプロダクトのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
-                />
-                <p className="text-xs text-muted-foreground">
-                  共有しておくと助かる背景や状況があればどうぞ。なくても問題ありません。
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="recognitionFocus"
-                  className="text-sm font-medium"
+              onChange={(e) => setBackgroundInfo(e.target.value)}
+              rows={4}
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+              placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
+            />
+            <p className="text-xs text-muted-foreground space-y-1">
+              <span className="block">
+                なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
+              </span>
+              <span className="block text-[11px] text-muted-foreground/80">
+                <a
+                  href="https://scrapbox.io/baisoku-kaigi/%E3%80%8C%E8%A3%9C%E8%B6%B3%E6%83%85%E5%A0%B1%E3%80%8D%E3%82%92%E3%81%9F%E3%81%8F%E3%81%95%E3%82%93%E6%9B%B8%E3%81%8F%E3%81%9F%E3%82%81%E3%81%AB%E9%9F%B3%E5%A3%B0%E5%85%A5%E5%8A%9B%E3%82%92%E6%B4%BB%E7%94%A8%E3%81%99%E3%82%8B"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 underline underline-offset-2"
                 >
-                  何の認識を洗い出しますか？
-                </label>
-                <textarea
-                  id="recognitionFocus"
-                  value={recognitionFocus}
-                  onChange={(e) => setRecognitionFocus(e.target.value)}
-                  required
-                  rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: プロジェクトの現状、課題、今後の方向性について"
-                />
-                <p className="text-xs text-muted-foreground">
-                  洗い出したいトピックや範囲を具体的に記載してください。
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="recognitionPurpose"
-                  className="text-sm font-medium"
-                >
-                  何のために洗い出しますか？
-                </label>
-                <textarea
-                  id="recognitionPurpose"
-                  value={recognitionPurpose}
-                  onChange={(e) => setRecognitionPurpose(e.target.value)}
-                  required
-                  rows={4}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
-                />
-                <p className="text-xs text-muted-foreground">
-                  洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。
-                </p>
-              </div>
+                  背景情報の入力には、AI音声入力がおすすめです
+                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                </a>
+              </span>
+            </p>
+          </div>
 
               {suggestions.length > 0 && (
                 <Card className="border-blue-200 bg-blue-50/50">
