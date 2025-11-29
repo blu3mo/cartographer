@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Info, Loader2 } from "lucide-react";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -194,6 +194,7 @@ export default function SessionPage({
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
+  const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
   const sessionInfoId = sessionInfo?.id;
   const sortResponsesByRecency = useCallback((items: ParticipantResponse[]) => {
     return [...items].sort((a, b) => {
@@ -1038,6 +1039,10 @@ export default function SessionPage({
   };
 
   const handleAnswer = async (value: ResponseValue) => {
+    if (value === 0) {
+      setShowAlternatives((prev) => !prev);
+      return;
+    }
     return handleSubmitResponse({ responseType: "scale", value });
   };
 
@@ -1045,6 +1050,16 @@ export default function SessionPage({
     return handleSubmitResponse({
       responseType: "free_text",
       textResponse: suggestion,
+    });
+  };
+
+  const handleInfoClick = () => {
+    setShowAlternatives(true);
+    requestAnimationFrame(() => {
+      freeTextSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   };
 
@@ -1384,7 +1399,16 @@ export default function SessionPage({
                       あと{remainingQuestions}個の質問があります
                     </p>
                   )}
-                <p className="text-xl font-medium leading-relaxed">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  onClick={handleInfoClick}
+                  aria-label="質問が私たちの前提を把握できていない"
+                >
+                  <Info className="h-4 w-4" />
+                  矛盾している・質問が私たちの前提を把握できていない場合
+                </button>
+                <p className="mt-3 text-xl font-medium leading-relaxed">
                   {currentStatement.text}
                 </p>
               </div>
@@ -1420,7 +1444,9 @@ export default function SessionPage({
                 >
                   <div className="text-xl sm:text-3xl">🤔</div>
                   <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    わからない
+                    {showAlternatives
+                      ? "わからない▲"
+                      : "わからない▼"}
                   </span>
                 </button>
                 <button
@@ -1448,31 +1474,22 @@ export default function SessionPage({
               </div>
 
               <div className="mt-6 space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAlternatives(!showAlternatives)}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-muted-foreground/30 bg-transparent hover:bg-muted/20 hover:border-muted-foreground/50 text-sm font-medium text-muted-foreground hover:text-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {showAlternatives ? (
-                    <>
-                      <span>選択肢を閉じる</span>
-                      <span className="text-xs">▲</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>どれにも当てはまらない</span>
-                      <span className="text-xs">▼</span>
-                    </>
-                  )}
-                </button>
-
                 {showAlternatives && (
                   <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
                     <div className="space-y-2">
                       <p className="text-sm font-semibold text-foreground">
                         その他の選択肢
                       </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleSubmitResponse({ responseType: "scale", value: 0 })
+                        }
+                        disabled={isLoading || isSubmittingFreeText}
+                        className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        （自分はこの質問に対して）確信が持てない・情報を把握していない
+                      </button>
                     </div>
 
                     {isLoadingSuggestions ? (
@@ -1498,12 +1515,13 @@ export default function SessionPage({
                     )}
 
                     <div className="pt-3 border-t border-border/60 space-y-3">
+                      <div ref={freeTextSectionRef} />
                       <div>
                         <p className="text-sm font-semibold text-foreground mb-1">
                           自由記述で回答する
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          上記の選択肢にも当てはまらない場合は、具体的に書いてください。
+                          選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
                         </p>
                       </div>
                       <textarea
