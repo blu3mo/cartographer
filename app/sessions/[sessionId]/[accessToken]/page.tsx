@@ -483,10 +483,10 @@ export default function AdminPage({
 
   useEffect(() => {
     if (data?.title) {
-      document.title = `${data.title} - 管理画面 - Cartographer`;
+      document.title = `${data.title} - 管理画面 - 倍速会議`;
     }
     return () => {
-      document.title = "Cartographer";
+      document.title = "倍速会議";
     };
   }, [data]);
 

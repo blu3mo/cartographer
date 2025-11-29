@@ -1,12 +1,12 @@
-# Cartographer
+# 倍速会議
 
-Cartographer is a web service that visualizes recognition and facilitates consensus building. It collects and analyzes recognition from multiple people on specific themes (e.g., "current status of this project") using LLM-powered insights.
+倍速会議 is a web service that visualizes recognition and facilitates consensus building. It collects and analyzes recognition from multiple people on specific themes (e.g., "current status of this project") using LLM-powered insights.
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
-Cartographer needs a Supabase project and OpenRouter API access. Follow these quick steps, then read `GUIDE_ja.md` for the full setup and troubleshooting guide.
+倍速会議 needs a Supabase project and OpenRouter API access. Follow these quick steps, then read `GUIDE_ja.md` for the full setup and troubleshooting guide.
 
 ```bash
 cp .env.example .env.local   # fill in Supabase + OpenRouter keys

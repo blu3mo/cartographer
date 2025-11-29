@@ -46,9 +46,9 @@ function NewSessionContent() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    document.title = "新しいセッションを作成 - Cartographer";
+    document.title = "新しいセッションを作成 - 倍速会議";
     return () => {
-      document.title = "Cartographer - 認識を可視化し、合意形成を促進する";
+      document.title = "倍速会議 - 認識を可視化し、合意形成を促進する";
     };
   }, []);
 
@@ -202,7 +202,7 @@ function NewSessionContent() {
                       <span className="font-medium">公開セッション</span>
                       <br />
                       <span className="text-xs text-muted-foreground">
-                        Cartographerのトップページで参加者を募集できます。
+                        倍速会議のトップページで参加者を募集できます。
                       </span>
                     </span>
                   </label>

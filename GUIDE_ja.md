@@ -1,6 +1,6 @@
-# Cartographer 開発環境セットアップ & 動作ガイド
+# 倍速会議 開発環境セットアップ & 動作ガイド
 
-このドキュメントは、Cartographer のローカル開発環境を構築し、日々の運用やトラブルシューティングを行うための詳細な手順をまとめたものです。新しく参加した開発者でも、このガイドに沿って進めれば短時間でアプリとエージェントを起動し、主要フローを確認できるようになっています。
+このドキュメントは、倍速会議 のローカル開発環境を構築し、日々の運用やトラブルシューティングを行うための詳細な手順をまとめたものです。新しく参加した開発者でも、このガイドに沿って進めれば短時間でアプリとエージェントを起動し、主要フローを確認できるようになっています。
 
 ---
 
@@ -210,7 +210,7 @@ Supabase ダッシュボードで `sessions`, `statements`, `events` などの�
 
 | 症状 | チェックポイント |
 | --- | --- |
-| API が 401 を返す | ローカルストレージ `cartographer_user_id` が存在するか、リクエストに `Authorization: Bearer <id>` が付与されているか（`app/lib/useUserId.ts`）。 |
+| API が 401 を返す | ローカルストレージ `倍速会議_user_id` が存在するか、リクエストに `Authorization: Bearer <id>` が付与されているか（`app/lib/useUserId.ts`）。 |
 | セッション作成後に Event が出てこない | Supabase で `event_threads` / `agent_instances` が作成されているか確認。エージェントが起動していない可能性。 |
 | エージェントが進行しない | `should_proceed` が `true` か、`agents` プロセスのログにエラーが出ていないか（OpenRouter API キーや Supabase 接続を確認）。 |
 | LLM 呼び出しが失敗する | OpenRouter の利用制限（Rate Limit）や課金状況、API キーが正しいかを確認。`agents/llm.ts` や `app/lib/llm.ts` のログに詳細が出ます。 |
