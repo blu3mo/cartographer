@@ -150,7 +150,7 @@ function NewSessionContent() {
             新しいセッションを作成
           </h1>
           <p className="text-muted-foreground">
-            チームの認識を可視化し、合意形成や新たな気づきにつなげていきましょう
+          セッション情報をもとにAIが質問を生成します。前提情報など、なるべく議論の概要を網羅的に入力するようにしてください。
           </p>
         </div>
 
@@ -180,20 +180,24 @@ function NewSessionContent() {
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <label htmlFor="backgroundInfo" className="text-sm font-medium">
-                  背景情報（任意）
+              <div className="space-y-2">
+                <label
+                  htmlFor="recognitionPurpose"
+                  className="text-sm font-medium"
+                >
+                  何のために洗い出しますか？
                 </label>
                 <textarea
-                  id="backgroundInfo"
-                  value={backgroundInfo}
-                  onChange={(e) => setBackgroundInfo(e.target.value)}
+                  id="recognitionPurpose"
+                  value={recognitionPurpose}
+                  onChange={(e) => setRecognitionPurpose(e.target.value)}
+                  required
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: プロジェクトは3ヶ月前に立ち上がり、現在はプロダクトのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
+                  placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
                 />
                 <p className="text-xs text-muted-foreground">
-                  共有しておくと助かる背景や状況があればどうぞ。なくても問題ありません。
+                  洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。
                 </p>
               </div>
 
@@ -218,24 +222,20 @@ function NewSessionContent() {
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <label
-                  htmlFor="recognitionPurpose"
-                  className="text-sm font-medium"
-                >
-                  何のために洗い出しますか？
+              <div className="space-y-3">
+                <label htmlFor="backgroundInfo" className="text-sm font-medium">
+                  背景情報（任意）
                 </label>
                 <textarea
-                  id="recognitionPurpose"
-                  value={recognitionPurpose}
-                  onChange={(e) => setRecognitionPurpose(e.target.value)}
-                  required
+                  id="backgroundInfo"
+                  value={backgroundInfo}
+                  onChange={(e) => setBackgroundInfo(e.target.value)}
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                  placeholder="例: チーム全体で認識を合わせ、次のアクションを決めるため"
+                  placeholder="例: プロジェクトは3ヶ月前に立ち上がり、現在はプロダクトのリリース直前。開発チームは5名で、関係部署との連携が課題になっている。"
                 />
                 <p className="text-xs text-muted-foreground">
-                  洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。
+                  共有しておくと助かる背景や状況があればどうぞ。なくても問題ありません。
                 </p>
               </div>
 
