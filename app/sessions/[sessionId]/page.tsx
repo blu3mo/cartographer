@@ -1406,7 +1406,7 @@ export default function SessionPage({
                   aria-label="質問が私たちの前提を把握できていない"
                 >
                   <Info className="h-4 w-4" />
-                  矛盾している・質問が私たちの前提を把握できていない場合
+                  質問が矛盾している・自分たちの前提を把握できていない場合
                 </button>
                 <p className="mt-3 text-xl font-medium leading-relaxed">
                   {currentStatement.text}
