@@ -1,7 +1,15 @@
 "use client";
 
 import axios from "axios";
-import { Calendar, FileText, Loader2, Lock, Plus, Users } from "lucide-react";
+import {
+  Calendar,
+  FileText,
+  Loader2,
+  Lock,
+  Plus,
+  SquareArrowOutUpRight,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -88,7 +96,7 @@ export default function Home() {
           <Link href="/sessions/new">
             <Button>
               <Plus className="h-4 w-4" />
-              新しいセッション
+              新しいセッションを作成
             </Button>
           </Link>
         </div>
@@ -183,8 +191,13 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                       </span>
                     )}
                   </div>
-                  <CardDescription className="line-clamp-2">
-                    {session.goal || session.context}
+                  <CardDescription className="space-y-1 text-base leading-6">
+                    {session.goal && (
+                      <p className="whitespace-pre-line">{session.goal}</p>
+                    )}
+                    {session.context && (
+                      <p className="whitespace-pre-line">{session.context}</p>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -192,11 +205,11 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1.5">
                         <Users className="h-4 w-4" />
-                        <span>{session._count.participants}</span>
+                        <span>{session._count.participants}人参加</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <FileText className="h-4 w-4" />
-                        <span>{session._count.statements}</span>
+                        <span>{session._count.statements}質問</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Calendar className="h-4 w-4" />
@@ -204,6 +217,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                           {new Date(session.createdAt).toLocaleDateString(
                             "ja-JP",
                           )}
+                          作成
                         </span>
                       </div>
                     </div>
@@ -226,10 +240,15 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                         size="sm"
                         onClick={(event) => {
                           event.stopPropagation();
-                          router.push(`/sessions/${session.id}`);
+                          window.open(
+                            `/sessions/${session.id}`,
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
                         }}
                       >
                         参加
+                        <SquareArrowOutUpRight className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
