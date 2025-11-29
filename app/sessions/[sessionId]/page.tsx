@@ -1585,9 +1585,9 @@ export default function SessionPage({
           <>
             <Card className="mt-8">
               <CardHeader>
-                <CardTitle>これまでの記録</CardTitle>
+                <CardTitle>質問への回答履歴</CardTitle>
                 <CardDescription>
-                  あなたの回答とふりかえりを時系列で確認できます
+                  あなたの回答とふりかえりの履歴を時系列で確認できます。回答を変更したい場合、質問の回答を再度選択することで変更できます。
                 </CardDescription>
               </CardHeader>
               <CardContent>
