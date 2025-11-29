@@ -75,10 +75,10 @@ export default function Home() {
         {/* Hero Section */}
         <div className="mb-12">
           <h1 className="text-4xl font-bold tracking-tight mb-3">
-            Cartographer
+            倍速会議
           </h1>
           <p className="text-lg text-muted-foreground">
-            認識を可視化し、合意形成を促進するワークショップツール
+            認識を可視化し、合意形成を促進するツール
           </p>
         </div>
 

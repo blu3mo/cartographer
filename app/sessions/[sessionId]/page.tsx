@@ -1270,10 +1270,10 @@ export default function SessionPage({
   // Update document title when session info is available
   useEffect(() => {
     if (sessionInfo?.title) {
-      document.title = `${sessionInfo.title} - セッションに参加 - Cartographer`;
+      document.title = `${sessionInfo.title} - セッションに参加 - 倍速会議`;
     }
     return () => {
-      document.title = "Cartographer - 認識を可視化し、合意形成を促進する";
+      document.title = "倍速会議 - 認識を可視化し、合意形成を促進する";
     };
   }, [sessionInfo?.title]);
 
