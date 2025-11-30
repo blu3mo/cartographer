@@ -127,7 +127,7 @@ alter table public.participants
 create table if not exists public.event_threads (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.sessions(id) on delete cascade,
-  should_proceed boolean not null default true,
+  should_proceed boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (session_id)
@@ -189,7 +189,7 @@ alter table if exists public.sessions
 alter table if exists public.sessions
   add column if not exists admin_access_token uuid not null default gen_random_uuid();
 
-create unique index if not exists sessions_admin_access_token_idx 
+create unique index if not exists sessions_admin_access_token_idx
   on public.sessions (admin_access_token);
 
 -- Migration: allow free-text responses alongside scale responses ----------
