@@ -12,8 +12,8 @@ import {
   Maximize2,
   Pause,
   Play,
-  Printer,
   Send,
+  SquareArrowOutUpRight,
   Trash2,
   X,
 } from "lucide-react";
@@ -1101,7 +1101,7 @@ export default function AdminPage({
                         </Button>
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           className="gap-1.5 text-xs"
                           disabled={
@@ -1115,8 +1115,8 @@ export default function AdminPage({
                             )
                           }
                         >
-                          <Printer className="h-3.5 w-3.5" />
-                          印刷用ページ
+                          <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                          レポート詳細ページを開く
                         </Button>
                       </div>
                     </div>

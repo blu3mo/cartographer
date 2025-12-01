@@ -100,17 +100,7 @@ export default function SessionReportPrintPage({
   return (
     <div className="min-h-screen bg-white text-slate-900 print:bg-white">
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0 print:space-y-6">
-        <div className="flex items-center justify-between gap-4 print:hidden">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => window.history.back()}
-            className="gap-1.5 text-xs"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            管理画面へ戻る
-          </Button>
+        <div className="flex items-center justify-end gap-4 print:hidden">
           <Button
             type="button"
             variant="outline"
@@ -124,15 +114,12 @@ export default function SessionReportPrintPage({
         </div>
 
         <header className="space-y-2 text-center print:hidden">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
-            Session Report
-          </p>
           <h1 className="text-3xl font-semibold">
             セッションレポート v{String(report.version).padStart(2, "0")}
           </h1>
           <div className="flex justify-center gap-4 text-xs text-slate-500">
-            <span>Session ID: {sessionId}</span>
-            <span>Report ID: {report.id}</span>
+            <span>セッションID: {sessionId}</span>
+            <span>レポートID: {report.id}</span>
           </div>
         </header>
 
@@ -168,12 +155,12 @@ export default function SessionReportPrintPage({
 
         <footer className="text-center text-[11px] uppercase tracking-[0.2em] text-slate-400 print:hidden">
           <p>
-            Created:{" "}
+            作成:{" "}
             {new Date(report.createdAt).toLocaleString("ja-JP", {
               hour12: false,
             })}
             {report.completedAt
-              ? ` / Updated: ${new Date(report.completedAt).toLocaleString("ja-JP", { hour12: false })}`
+              ? ` / 更新: ${new Date(report.completedAt).toLocaleString("ja-JP", { hour12: false })}`
               : ""}
           </p>
         </footer>
