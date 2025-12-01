@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { generateSurveyStatements } from "../../../../../../agents/llm";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { ensureEventThreadForSession } from "@/lib/server/event-threads";
 import {
@@ -8,6 +7,7 @@ import {
   SessionAccessError,
 } from "@/lib/server/session-access";
 import { supabase } from "@/lib/supabase";
+import { generateSurveyStatements } from "../../../../../../agents/llm";
 
 export async function POST(
   request: NextRequest,
