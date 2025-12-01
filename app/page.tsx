@@ -82,9 +82,7 @@ export default function Home() {
       <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {/* Hero Section */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tight mb-3">
-            倍速会議
-          </h1>
+          <h1 className="text-4xl font-bold tracking-tight mb-3">倍速会議</h1>
           <p className="text-lg text-muted-foreground">
             認識を可視化し、合意形成を促進するツール
           </p>
@@ -151,9 +149,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
   const stripSupplementalInfo = (text: string) => {
     if (!text) return "";
     const lines = text.split(/\r?\n/);
-    const cutoffIndex = lines.findIndex((line) =>
-      line.includes("補足情報"),
-    );
+    const cutoffIndex = lines.findIndex((line) => line.includes("補足情報"));
     const keptLines = cutoffIndex === -1 ? lines : lines.slice(0, cutoffIndex);
     return keptLines.join("\n").trim();
   };
