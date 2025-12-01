@@ -202,3 +202,7 @@ alter table if exists public.responses
 
 alter table if exists public.responses
   add column if not exists text_response text null;
+
+alter table public.event_threads
+  alter column should_proceed set default false;
+
