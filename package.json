@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "agent": "tsx agents/index.ts",
+    "test": "npm run lint && npm run build",
     "lint": "biome check",
     "format": "biome format --write"
   },

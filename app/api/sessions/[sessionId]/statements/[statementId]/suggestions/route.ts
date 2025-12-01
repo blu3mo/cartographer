@@ -8,6 +8,17 @@ type StatementRow = {
   text: string;
 };
 
+type PastResponse = {
+  statement_id: string;
+  response_type: "scale" | "free_text";
+  value: number | null;
+  text_response: string | null;
+  statements?:
+    | { text?: string | null }
+    | Array<{ text?: string | null }>
+    | null;
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ sessionId: string; statementId: string }> },
@@ -112,14 +123,16 @@ export async function GET(
 
 async function generateSuggestions(
   currentStatementText: string,
-  pastResponses: any[],
+  pastResponses: PastResponse[],
 ): Promise<string[]> {
   // Build context from past responses
   let contextText = "";
   if (pastResponses.length > 0) {
     const responsesText = pastResponses
       .map((r) => {
-        const statementText = r.statements?.text || "不明な質問";
+        const statementText = Array.isArray(r.statements)
+          ? (r.statements[0]?.text ?? "不明な質問")
+          : (r.statements?.text ?? "不明な質問");
         if (r.response_type === "free_text") {
           const text = (r.text_response ?? "").trim();
           const content = text.length > 0 ? text : "（未入力）";

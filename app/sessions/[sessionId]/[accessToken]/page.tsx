@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
-  ExternalLink,
   FileText,
   Loader2,
   Maximize2,
