@@ -100,17 +100,7 @@ export default function SessionReportPrintPage({
   return (
     <div className="min-h-screen bg-white text-slate-900 print:bg-white">
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0 print:space-y-6">
-        <div className="flex items-center justify-between gap-4 print:hidden">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => window.history.back()}
-            className="gap-1.5 text-xs"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            管理画面へ戻る
-          </Button>
+        <div className="flex items-center justify-end gap-4 print:hidden">
           <Button
             type="button"
             variant="outline"
