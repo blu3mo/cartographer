@@ -211,6 +211,7 @@ export default function SessionPage({
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
   const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
+  const historySectionRef = useRef<HTMLDivElement | null>(null);
   const sessionInfoId = sessionInfo?.id;
   const sortResponsesByRecency = useCallback((items: ParticipantResponse[]) => {
     return [...items].sort((a, b) => {
@@ -1079,6 +1080,13 @@ export default function SessionPage({
     });
   };
 
+  const handleScrollToHistory = () => {
+    historySectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   const handleInfoClick = () => {
     setShowAlternatives(true);
     requestAnimationFrame(() => {
@@ -1626,7 +1634,19 @@ export default function SessionPage({
                 </p>
               </div>
 
-              <div className="grid grid-cols-5 gap-2 sm:gap-3">
+              <div className="grid grid-cols-6 gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={handleScrollToHistory}
+                  disabled={isLoading}
+                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-white hover:bg-gray-50 text-black border-2 border-black hover:border-gray-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="質問への回答履歴に戻る"
+                >
+                  <div className="text-xl sm:text-3xl">↩︎</div>
+                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                    前の質問へ戻る
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={() => handleAnswer(2)}
@@ -1799,58 +1819,83 @@ export default function SessionPage({
           state === "REFLECTION" ||
           state === "COMPLETED") && (
           <>
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>質問への回答履歴</CardTitle>
-                <CardDescription>
-                  あなたの回答とふりかえりの履歴を時系列で確認できます。回答を変更したい場合、質問の回答を再度選択することで変更できます。
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {(responsesError || reflectionsError) && (
-                  <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
-                    {responsesError && (
-                      <p className="text-sm text-destructive">
-                        {responsesError}
-                      </p>
-                    )}
-                    {reflectionsError && (
-                      <p className="text-sm text-destructive">
-                        {reflectionsError}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {isLoadingResponses || isLoadingReflections ? (
-                  <div className="space-y-3">
-                    {[0, 1, 2].map((index) => (
-                      <div
-                        key={index}
-                        className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3"
-                      >
-                        <Skeleton className="h-4 w-3/4" />
-                        <div className="flex gap-2">
-                          <Skeleton className="h-6 w-20" />
-                          <Skeleton className="h-6 w-16" />
-                          <Skeleton className="h-6 w-24" />
+            <div ref={historySectionRef}>
+              <Card className="mt-8">
+                <CardHeader>
+                  <CardTitle>質問への回答履歴</CardTitle>
+                  <CardDescription>
+                    あなたの回答とふりかえりの履歴を時系列で確認できます。
+                    <span className="font-bold">
+                      回答を変更したい場合、質問の回答を再度選択することで変更できます。
+                    </span>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(responsesError || reflectionsError) && (
+                    <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                      {responsesError && (
+                        <p className="text-sm text-destructive">
+                          {responsesError}
+                        </p>
+                      )}
+                      {reflectionsError && (
+                        <p className="text-sm text-destructive">
+                          {reflectionsError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {isLoadingResponses || isLoadingReflections ? (
+                    <div className="space-y-3">
+                      {[0, 1, 2].map((index) => (
+                        <div
+                          key={index}
+                          className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3"
+                        >
+                          <Skeleton className="h-4 w-3/4" />
+                          <div className="flex gap-2">
+                            <Skeleton className="h-6 w-20" />
+                            <Skeleton className="h-6 w-16" />
+                            <Skeleton className="h-6 w-24" />
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : historyItems.length > 0 ? (
-                  <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-                    {historyItems.map((item) => {
-                      if (item.type === "response") {
-                        const response = item.response;
-                        const isPending =
-                          pendingAnswerStatementIdsRef.current.has(
+                      ))}
+                    </div>
+                  ) : historyItems.length > 0 ? (
+                    <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                      {historyItems.map((item) => {
+                        if (item.type === "response") {
+                          const response = item.response;
+                          const isPending =
+                            pendingAnswerStatementIdsRef.current.has(
+                              response.statementId,
+                            );
+                          const isUpdating = updatingResponseIds.has(
                             response.statementId,
                           );
-                        const isUpdating = updatingResponseIds.has(
-                          response.statementId,
-                        );
 
-                        if (response.responseType === "free_text") {
+                          if (response.responseType === "free_text") {
+                            return (
+                              <div
+                                key={item.key}
+                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm font-medium text-foreground">
+                                    {response.statementText}
+                                  </p>
+                                </div>
+                                <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2">
+                                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                                    {response.textResponse?.trim().length
+                                      ? response.textResponse
+                                      : "（記入なし）"}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div
                               key={item.key}
@@ -1861,97 +1906,78 @@ export default function SessionPage({
                                   {response.statementText}
                                 </p>
                               </div>
-                              <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2">
-                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                                  {response.textResponse?.trim().length
-                                    ? response.textResponse
-                                    : "（記入なし）"}
-                                </p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {RESPONSE_CHOICES.map((choice) => {
+                                  const isActive =
+                                    response.value === choice.value;
+                                  const isDisabled =
+                                    isPending ||
+                                    isUpdating ||
+                                    isLoading ||
+                                    isActive;
+
+                                  return (
+                                    <button
+                                      key={choice.value}
+                                      type="button"
+                                      onClick={() =>
+                                        handleUpdateResponse(
+                                          response.statementId,
+                                          choice.value,
+                                        )
+                                      }
+                                      disabled={isDisabled}
+                                      className={cn(
+                                        "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                        isActive
+                                          ? choice.activeClass
+                                          : choice.idleClass,
+                                        (isPending || isUpdating) &&
+                                          "opacity-70",
+                                      )}
+                                    >
+                                      <span>{choice.emoji}</span>
+                                      <span>{choice.label}</span>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           );
                         }
 
+                        const { reflection } = item;
                         return (
                           <div
                             key={item.key}
-                            className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                            className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-sm font-medium text-foreground">
-                                {response.statementText}
-                              </p>
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
+                                ふりかえり
+                              </span>
                             </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {RESPONSE_CHOICES.map((choice) => {
-                                const isActive =
-                                  response.value === choice.value;
-                                const isDisabled =
-                                  isPending ||
-                                  isUpdating ||
-                                  isLoading ||
-                                  isActive;
-
-                                return (
-                                  <button
-                                    key={choice.value}
-                                    type="button"
-                                    onClick={() =>
-                                      handleUpdateResponse(
-                                        response.statementId,
-                                        choice.value,
-                                      )
-                                    }
-                                    disabled={isDisabled}
-                                    className={cn(
-                                      "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                      isActive
-                                        ? choice.activeClass
-                                        : choice.idleClass,
-                                      (isPending || isUpdating) && "opacity-70",
-                                    )}
-                                  >
-                                    <span>{choice.emoji}</span>
-                                    <span>{choice.label}</span>
-                                  </button>
-                                );
-                              })}
+                            <div className="mt-3 rounded-md border border-gray-300 bg-gray-50 px-3 py-3 shadow-inner">
+                              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
+                                {reflection.text.trim().length > 0
+                                  ? reflection.text
+                                  : "（記入なし）"}
+                              </p>
                             </div>
                           </div>
                         );
-                      }
-
-                      const { reflection } = item;
-                      return (
-                        <div
-                          key={item.key}
-                          className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
-                              ふりかえり
-                            </span>
-                          </div>
-                          <div className="mt-3 rounded-md border border-gray-300 bg-gray-50 px-3 py-3 shadow-inner">
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-                              {reflection.text.trim().length > 0
-                                ? reflection.text
-                                : "（記入なし）"}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 py-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      回答やふりかえりを進めると、ここに履歴が表示されます
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 py-8 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        回答やふりかえりを進めると、ここに履歴が表示されます
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             <Card className="mt-8">
               <CardHeader>
