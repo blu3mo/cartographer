@@ -1878,8 +1878,8 @@ function StatementHighlightColumn({
                         <span className="ml-2 text-[10px] text-slate-400">
                           —{" "}
                           {sample.participantUserId
-                            ? participantNameMap[sample.participantUserId] ??
-                              "送信者不明"
+                            ? (participantNameMap[sample.participantUserId] ??
+                              "送信者不明")
                             : "送信者不明"}
                         </span>
                       </li>
