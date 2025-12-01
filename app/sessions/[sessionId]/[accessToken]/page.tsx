@@ -741,6 +741,15 @@ export default function AdminPage({
   const _totalStatements =
     data?.totalStatements ?? data?.statements?.length ?? 0;
   const statements = data?.statements ?? [];
+  const participantNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    participants.forEach((participant) => {
+      if (participant.userId) {
+        map[participant.userId] = participant.name || "匿名";
+      }
+    });
+    return map;
+  }, [participants]);
 
   const participantSummary = useMemo(() => {
     if (participants.length === 0) {
@@ -1235,16 +1244,19 @@ export default function AdminPage({
                     title="合意度トップ3"
                     tone="emerald"
                     items={statementHighlights.agreement}
+                    participantNameMap={participantNameMap}
                   />
                   <StatementHighlightColumn
                     title="対立度トップ3"
                     tone="amber"
                     items={statementHighlights.conflict}
+                    participantNameMap={participantNameMap}
                   />
                   <StatementHighlightColumn
                     title="わからない度トップ3"
                     tone="slate"
                     items={statementHighlights.dontKnow}
+                    participantNameMap={participantNameMap}
                   />
                 </div>
               </CardContent>
@@ -1790,12 +1802,14 @@ interface StatementHighlightColumnProps {
   title: string;
   tone: HighlightTone;
   items: StatementHighlight[];
+  participantNameMap: Record<string, string>;
 }
 
 function StatementHighlightColumn({
   title,
   tone,
   items,
+  participantNameMap,
 }: StatementHighlightColumnProps) {
   const toneClass =
     tone === "emerald"
@@ -1858,9 +1872,16 @@ function StatementHighlightColumn({
                     (sample, sampleIndex) => (
                       <li
                         key={`${item.statement.id}-sample-${sampleIndex}`}
-                        className="line-clamp-2 text-slate-600"
+                        className="text-slate-600 whitespace-pre-wrap break-words"
                       >
-                        ・{truncateText(sample.text, 90)}
+                        ・{sample.text}
+                        <span className="ml-2 text-[10px] text-slate-400">
+                          —{" "}
+                          {sample.participantUserId
+                            ? participantNameMap[sample.participantUserId] ??
+                              "送信者不明"
+                            : "送信者不明"}
+                        </span>
                       </li>
                     ),
                   )}
