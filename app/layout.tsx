@@ -1,10 +1,9 @@
-import type { Metadata } from "next";
 import "./globals.css";
+import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "倍速会議 - 認識を可視化し、合意形成を促進する",
-  description: "チームの認識を可視化し、合意形成を促進するツール",
-};
+import { buildMetadata } from "@/lib/metadata";
+
+export const metadata: Metadata = buildMetadata({});
 
 export default function RootLayout({
   children,
@@ -12,7 +11,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ja">
       <body className="antialiased">{children}</body>
     </html>
   );
