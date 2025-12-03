@@ -190,10 +190,12 @@ function SuggestionsLoader({
 
 export default function NewSessionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userId, isLoading } = useUserId();
-  const [title, setTitle] = useState("");
-  const [goal, setGoal] = useState("");
-  const [context, setContext] = useState("");
+
+  const [title, setTitle] = useState(searchParams.get("title") || "");
+  const [goal, setGoal] = useState(searchParams.get("purpose") || "");
+  const [context, setContext] = useState(searchParams.get("background") || "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
