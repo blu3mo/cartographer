@@ -2110,46 +2110,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                         全ての回答はここからやり直せます。サジェストを選ぶか、自由入力で修正してください。
                       </CardDescription>
                     </div>
-                    <div className="flex flex-wrap gap-2 pt-2 sm:pt-0">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleScrollToCurrentQuestion}
-                      >
-                        現在の質問に戻る
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleScrollToHistory}
-                        className="text-xs"
-                      >
-                        編集のしかたを確認
-                      </Button>
-                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 p-4 text-white shadow-md">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold">
-                          いつでも回答を上書きできます
-                        </p>
-                        <p className="text-xs text-slate-200">
-                          質問カードを開き、ボタンで選び直すか、自由記述を更新してください。送信すると最新の回答に置き換わります。
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wide">
-                          ✦ スケールはタップで即変更
-                        </span>
-                        <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wide">
-                          ✦ 自由記述は編集→更新
-                        </span>
-                      </div>
-                    </div>
-                  </div>
 
                   {(responsesError || reflectionsError) && (
                     <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
