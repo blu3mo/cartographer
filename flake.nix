@@ -32,6 +32,7 @@
               openssl
               git
               watchman
+              biome
 
             ]
             ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];

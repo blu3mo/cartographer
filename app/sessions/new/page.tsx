@@ -447,7 +447,8 @@ function NewSessionContent() {
                   className={textareaClasses("backgroundInfo")}
                   placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
                 />
-                <p className="text-xs text-muted-foreground">ある程度入力した後は、ひとまずセッションを作成し、質問が表示された際に追加で背景情報を補足する形がおすすめです。
+                <p className="text-xs text-muted-foreground">
+                  ある程度入力した後は、ひとまずセッションを作成し、質問が表示された際に追加で背景情報を補足する形がおすすめです。
                 </p>
               </div>
               {renderSuggestionCard(

@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
-
-import { generateSurveyStatements } from "../../../agents/llm";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { ensureEventThreadForSession } from "@/lib/server/event-threads";
 import { supabase } from "@/lib/supabase";
+import { generateSurveyStatements } from "../../../agents/llm";
 
 type SessionRow = {
   id: string;
@@ -239,11 +238,13 @@ export async function POST(request: NextRequest) {
         });
 
         if (statementTexts.length > 0) {
-          const statementsPayload = statementTexts.map((text: string, index: number) => ({
-            session_id: createdSession.id,
-            text,
-            order_index: index + 1,
-          }));
+          const statementsPayload = statementTexts.map(
+            (text: string, index: number) => ({
+              session_id: createdSession.id,
+              text,
+              order_index: index + 1,
+            }),
+          );
 
           const { error: insertError } = await supabase
             .from("statements")
