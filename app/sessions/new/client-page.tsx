@@ -227,8 +227,8 @@ function NewSessionContent() {
           };
         }
         return {
-          field: inferFieldFromMessage(item.message),
           ...item,
+          field: item.field ?? inferFieldFromMessage(item.message),
         };
       });
 
