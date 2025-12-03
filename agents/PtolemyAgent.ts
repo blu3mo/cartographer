@@ -151,12 +151,30 @@ export class PtolemyAgent {
       .eq("id", eventId);
     this.log(instance, "plan markdown ready", { eventId });
 
-    await this.transition(instance.id, "WAITING_SURVEY", {
-      lastPlanEventId: eventId,
-    });
-    this.log(instance, "transitioned to WAITING_SURVEY", {
-      planEventId: eventId,
-    });
+    const { count: planCount } = await this.supabase
+      .from("events")
+      .select("*", { count: "exact", head: true })
+      .eq("thread_id", context.thread.id)
+      .eq("type", "plan");
+
+    // If this is the first plan, we proceed directly to creating the survey
+    // regardless of the should_proceed flag (which defaults to false).
+    // This ensures the initial 15 questions are always generated.
+    if (planCount === 1) {
+      await this.transition(instance.id, "CREATING_SURVEY", {
+        lastPlanEventId: eventId,
+      });
+      this.log(instance, "transitioned to CREATING_SURVEY (first run)", {
+        planEventId: eventId,
+      });
+    } else {
+      await this.transition(instance.id, "WAITING_SURVEY", {
+        lastPlanEventId: eventId,
+      });
+      this.log(instance, "transitioned to WAITING_SURVEY", {
+        planEventId: eventId,
+      });
+    }
 
     return { status: "transitioned" };
   }
