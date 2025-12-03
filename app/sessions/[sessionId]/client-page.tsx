@@ -2476,14 +2476,19 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                   回答をタップすると即変更されます
                                 </p>
                                 <div className="mt-2 flex flex-wrap gap-2">
-                                    {RESPONSE_CHOICES.map((choice) => {
-                                      const isActive =
-                                        response.value === choice.value;
-                                      const isDisabled =
-                                        isPending ||
-                                        isUpdating ||
-                                        isLoading ||
-                                        isActive;
+                                  {RESPONSE_CHOICES.map((choice) => {
+                                    const isActive =
+                                      response.value === choice.value;
+                                    const isExpandedNeutral =
+                                      choice.value === 0 &&
+                                      expandedHistoryIds.has(
+                                        response.statementId,
+                                      );
+                                    const isDisabled =
+                                      isPending ||
+                                      isUpdating ||
+                                      isLoading ||
+                                      (choice.value !== 0 && isActive);
 
                                       // 「わからない」の場合、展開状態に応じてラベルを変更
                                       const displayLabel = choice.value === 0
@@ -2507,14 +2512,14 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                           type="button"
                                           onClick={handleClick}
                                           disabled={isDisabled}
-                                          className={cn(
-                                            "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                            isActive
-                                              ? choice.activeClass
-                                              : "border-dashed border-border/70 bg-transparent text-muted-foreground hover:bg-white hover:text-foreground",
-                                            (isPending || isUpdating) &&
-                                              "opacity-70",
-                                          )}
+                                        className={cn(
+                                          "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                          isActive || isExpandedNeutral
+                                            ? choice.activeClass
+                                            : "border-dashed border-border/70 bg-transparent text-muted-foreground hover:bg-white hover:text-foreground",
+                                          (isPending || isUpdating) &&
+                                            "opacity-70",
+                                        )}
                                         >
                                           <span>{choice.emoji}</span>
                                           <span>{displayLabel}</span>
