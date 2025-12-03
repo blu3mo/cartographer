@@ -2101,7 +2101,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           state === "COMPLETED") && (
           <>
             <div ref={historySectionRef}>
-              <Card className="mt-8">
+              <Card className="mt-10 border border-border/60 shadow-lg">
                 <CardHeader>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-1">
@@ -2112,7 +2112,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-2 pb-6 space-y-4">
 
                   {(responsesError || reflectionsError) && (
                     <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
@@ -2145,7 +2145,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                       ))}
                     </div>
                   ) : historyItems.length > 0 ? (
-                    <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                    <div className="max-h-96 space-y-3 overflow-y-auto pr-1">
                       {historyItems.map((item) => {
                         if (item.type === "response") {
                           const response = item.response;
@@ -2219,8 +2219,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      size="xs"
+                                      size="sm"
                                       onClick={() => handleToggleHistoryExpand(response)}
+                                      className="h-7 text-xs px-2"
                                     >
                                       {expandedHistoryIds.has(response.statementId)
                                         ? "閉じる"
@@ -2459,7 +2460,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 <p className="text-sm font-medium text-foreground">
                                   {response.statementText}
                                 </p>
-                                <Button
+                                {/* <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
@@ -2468,7 +2469,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                   {expandedHistoryIds.has(response.statementId)
                                     ? "編集を閉じる"
                                     : "編集する"}
-                                </Button>
+                                </Button> */}
                               </div>
                               <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
                                 <p className="text-xs font-semibold text-muted-foreground">
@@ -2484,12 +2485,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                         isLoading ||
                                         isActive;
 
+                                      // 「わからない」の場合、展開状態に応じてラベルを変更
+                                      const displayLabel = choice.value === 0
+                                        ? expandedHistoryIds.has(response.statementId)
+                                          ? "わからない▲"
+                                          : "わからない▼"
+                                        : choice.label;
+
                                       const handleClick =
                                         choice.value === 0
-                                          ? () =>
-                                              handleNeutralReanswer(
-                                                response.statementId,
-                                              )
+                                          ? () => handleToggleHistoryExpand(response)
                                           : () =>
                                               handleUpdateResponse(
                                                 response.statementId,
@@ -2504,18 +2509,15 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                           disabled={isDisabled}
                                           className={cn(
                                             "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                            isActive || neutralEditIds.has(response.statementId) && choice.value === 0
+                                            isActive
                                               ? choice.activeClass
                                               : choice.idleClass,
                                             (isPending || isUpdating) &&
                                               "opacity-70",
-                                            neutralEditIds.has(response.statementId) &&
-                                              choice.value === 0 &&
-                                              "ring-2 ring-amber-300",
                                           )}
                                         >
                                           <span>{choice.emoji}</span>
-                                          <span>{choice.label}</span>
+                                          <span>{displayLabel}</span>
                                         </button>
                                     );
                                   })}
@@ -2770,7 +2772,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     </div>
                                   </div>
                                 )}
-                              {!expandedHistoryIds.has(response.statementId) &&
+                              {/* {!expandedHistoryIds.has(response.statementId) &&
                                 !neutralEditIds.has(response.statementId) && (
                                   <div className="mt-2 flex justify-end">
                                     <Button
@@ -2784,7 +2786,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                       ほかの選択肢を開く
                                     </Button>
                                   </div>
-                                )}
+                                )} */}
                             </div>
                           );
                         }
