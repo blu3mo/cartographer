@@ -407,6 +407,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     [editingSuggestionsMap, sessionId, userId],
   );
 
+  useEffect(() => {
+    // 事前に「わからない」回答のサジェストだけ先読みしておく
+    const neutralResponses = participantResponses.filter(
+      (res) => res.responseType === "scale" && res.value === 0,
+    );
+    neutralResponses.slice(0, 5).forEach((res) => {
+      void fetchEditingSuggestions(res.statementId);
+    });
+  }, [participantResponses, fetchEditingSuggestions]);
+
   const upsertParticipantResponse = useCallback(
     (
       statement: Statement,
@@ -2329,6 +2339,32 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     ) && (
                                       <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
                                     )}
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() =>
+                                        handleUpdateResponse(
+                                          response.statementId,
+                                          0,
+                                        )
+                                      }
+                                      disabled={
+                                        isPending ||
+                                        isUpdating ||
+                                        isLoading ||
+                                        neutralEditIds.has(
+                                          response.statementId,
+                                        )
+                                      }
+                                    >
+                                      通常の「わからない」で送信
+                                    </Button>
+                                    <span className="text-[11px] text-amber-800">
+                                      いつでもサジェスト付きで書き直せます
+                                    </span>
                                   </div>
                                   {loadingEditingSuggestions.has(
                                     response.statementId,
