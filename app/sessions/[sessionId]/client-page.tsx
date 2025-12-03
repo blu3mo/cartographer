@@ -2602,6 +2602,34 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     );
                                   })}
                                 </div>
+                                {response.value === 0 && (
+                                  <div className="mt-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 shadow-inner">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="space-y-1">
+                                        <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+                                          自由記述
+                                        </span>
+                                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                                          {response.textResponse?.trim().length
+                                            ? response.textResponse
+                                            : "（自分はこの質問に対して）確信が持てない・情報を把握していない"}
+                                        </p>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleToggleHistoryExpand(response)
+                                        }
+                                        disabled={isPending || isUpdating}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                        <span>編集する</span>
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               {neutralEditIds.has(response.statementId) && (
                                 <div className="mt-3 space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3 shadow-inner">
