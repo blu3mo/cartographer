@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { FileText, Info, Loader2 } from "lucide-react";
+import { FileText, Info, Loader2, Pencil } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -2172,68 +2172,66 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             const editSuggestions =
                               editingSuggestionsMap[response.statementId] ??
                               [];
+                            const isExpandedHistory = expandedHistoryIds.has(
+                              response.statementId,
+                            );
                             return (
                               <div
                                 key={item.key}
                                 className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm ring-1 ring-transparent transition hover:ring-emerald-300"
                               >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="space-y-1">
-                                      <p className="text-sm font-medium text-foreground">
-                                        {response.statementText}
-                                      </p>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-medium text-foreground">
+                                      {response.statementText}
+                                    </p>
                                     {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
                                       自由記述
                                     </span> */}
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                        isEditingFreeText
-                                          ? handleCancelFreeTextEdit(
-                                              response.statementId,
-                                            )
-                                          : handleStartFreeTextEdit(response)
-                                      }
-                                      disabled={isPending || isUpdating}
-                                    >
-                                      {isEditingFreeText ? "編集を閉じる" : "編集"}
-                                    </Button>
-                                  </div>
                                 </div>
-                                <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2 flex items-start gap-3">
+                                <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
                                   <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 mt-0.5 whitespace-nowrap">
                                     自由記述
                                   </span>
-                                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground mb-0 max-w-[400px] break-words">
-                                    {response.textResponse?.trim().length
-                                      ? (response.textResponse.length > 120
-                                          ? response.textResponse.slice(0, 120) + "..."
-                                          : response.textResponse)
-                                      : "（記入なし）"}
-                                  </p>
-                                </div>
-                                <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-xs font-semibold text-muted-foreground">
-                                      リッカード式の選択肢で回答し直す
+                                  <div className="flex flex-1 items-start justify-between gap-2">
+                                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground mb-0 max-w-[400px] break-words flex-1">
+                                      {response.textResponse?.trim().length
+                                        ? (response.textResponse.length > 120
+                                            ? response.textResponse.slice(0, 120) + "..."
+                                            : response.textResponse)
+                                        : "（記入なし）"}
                                     </p>
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      size="sm"
+                                      size="icon"
                                       onClick={() => handleToggleHistoryExpand(response)}
-                                      className="h-7 text-xs px-2"
+                                      disabled={isPending || isUpdating}
+                                      aria-label={
+                                        isExpandedHistory ? "編集を閉じる" : "編集する"
+                                      }
                                     >
-                                      {expandedHistoryIds.has(response.statementId)
-                                        ? "閉じる"
-                                        : "開く"}
+                                      <Pencil className="h-4 w-4" />
                                     </Button>
                                   </div>
-                                  {expandedHistoryIds.has(response.statementId) && (
+                                </div>
+                                {isExpandedHistory && (
+                                  <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
+                                    <div className="flex items-center justify-between">
+                                      {/* <p className="text-xs font-semibold text-muted-foreground">
+                                        リッカード式の選択肢で回答し直す
+                                      </p> */}
+                                      {/* <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleToggleHistoryExpand(response)}
+                                        className="h-7 text-xs px-2"
+                                      >
+                                        閉じる
+                                      </Button> */}
+                                    </div>
                                     <div className="mt-2 space-y-3">
                                       <div className="flex flex-wrap gap-2">
                                         {RESPONSE_CHOICES.map((choice) => {
@@ -2356,8 +2354,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                         </div>
                                       </div>
                                     </div>
-                                  )}
-                                </div>
+                                  </div>
+                                )}
                                 {isEditingFreeText && (
                                   <div className="mt-3 space-y-3 rounded-lg border border-indigo-100 bg-white/80 p-3 shadow-inner">
                                     <div className="flex items-start justify-between gap-2">
