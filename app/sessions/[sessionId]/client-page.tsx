@@ -332,6 +332,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
+  const prefetchSuggestionsPromiseRef = useRef<Promise<string[] | null> | null>(
+    null,
+  );
   const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
   const historySectionRef = useRef<HTMLDivElement | null>(null);
   const sessionInfoId = sessionInfo?.id;
@@ -513,14 +516,24 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   );
 
   useEffect(() => {
-    // 事前に「わからない」回答のサジェストだけ先読みしておく
-    const neutralResponses = participantResponses.filter(
-      (res) => res.responseType === "scale" && res.value === 0,
-    );
-    neutralResponses.slice(0, 5).forEach((res) => {
-      void fetchEditingSuggestions(res.statementId);
+    // すべての回答のサジェストを事前取得
+    // 最新の回答から順に取得（ユーザーが編集する可能性が高い順）
+    // fetchEditingSuggestions内でキャッシュチェックを行うため、重複リクエストは送信されない
+    participantResponses.forEach((res) => {
+      // まだサジェストが取得されていない、かつ取得中でもない場合のみ取得
+      if (
+        !editingSuggestionsMap[res.statementId] &&
+        !loadingEditingSuggestions.has(res.statementId)
+      ) {
+        void fetchEditingSuggestions(res.statementId);
+      }
     });
-  }, [participantResponses, fetchEditingSuggestions]);
+  }, [
+    participantResponses,
+    fetchEditingSuggestions,
+    editingSuggestionsMap,
+    loadingEditingSuggestions,
+  ]);
 
   const upsertParticipantResponse = useCallback(
     (
@@ -852,34 +865,45 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           setPrefetchedRemainingQuestions(response.data.remainingCount ?? null);
 
           // Prefetch suggestions for the next statement
-          try {
-            const suggestionsResponse = await axios.get(
-              `/api/sessions/${sessionId}/statements/${nextStatement.id}/suggestions`,
-              {
-                headers: createAuthorizationHeader(userId),
-              },
-            );
+          const suggestionsPromise = (async () => {
+            try {
+              const suggestionsResponse = await axios.get(
+                `/api/sessions/${sessionId}/statements/${nextStatement.id}/suggestions`,
+                {
+                  headers: createAuthorizationHeader(userId),
+                },
+              );
 
-            if (
-              suggestionsResponse.data.suggestions &&
-              Array.isArray(suggestionsResponse.data.suggestions)
-            ) {
-              setPrefetchedAiSuggestions(suggestionsResponse.data.suggestions);
-            } else {
-              setPrefetchedAiSuggestions([]);
+              if (
+                suggestionsResponse.data.suggestions &&
+                Array.isArray(suggestionsResponse.data.suggestions)
+              ) {
+                return suggestionsResponse.data.suggestions;
+              } else {
+                return [];
+              }
+            } catch (err) {
+              console.error(
+                "Failed to prefetch AI suggestions for next statement:",
+                err,
+              );
+              // Return fallback suggestions for next statement
+              return [
+                "状況によって賛成できる",
+                "一部には賛成だが全体には反対",
+                "今は判断できない",
+              ];
             }
-          } catch (err) {
-            console.error(
-              "Failed to prefetch AI suggestions for next statement:",
-              err,
-            );
-            // Set fallback suggestions for next statement
-            setPrefetchedAiSuggestions([
-              "状況によって賛成できる",
-              "一部には賛成だが全体には反対",
-              "今は判断できない",
-            ]);
-          }
+          })();
+
+          // Store the promise for potential early resolution
+          prefetchSuggestionsPromiseRef.current = suggestionsPromise;
+
+          // Wait for suggestions to complete and store them
+          suggestionsPromise.then((suggestions) => {
+            setPrefetchedAiSuggestions(suggestions);
+            prefetchSuggestionsPromiseRef.current = null;
+          });
         } else {
           // null means this is the last question
           setPrefetchedStatement(null);
@@ -1132,6 +1156,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           prefetchedStatementIdRef.current = cachedNextStatement.id;
           setAiSuggestions(prefetchedAiSuggestions);
           setIsLoadingSuggestions(false);
+          setPrefetchedAiSuggestions(undefined);
+          prefetchSuggestionsPromiseRef.current = null;
+        } else if (prefetchSuggestionsPromiseRef.current) {
+          // Suggestions are being fetched - wait for them
+          setAiSuggestions([]);
+          setIsLoadingSuggestions(true);
+          prefetchSuggestionsPromiseRef.current.then((suggestions) => {
+            if (suggestions) {
+              prefetchedStatementIdRef.current = cachedNextStatement.id;
+              setAiSuggestions(suggestions);
+              setIsLoadingSuggestions(false);
+            }
+          });
+          prefetchSuggestionsPromiseRef.current = null;
           setPrefetchedAiSuggestions(undefined);
         } else {
           // Fallback: suggestions weren't prefetched yet
@@ -2210,7 +2248,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             return (
                               <div
                                 key={item.key}
-                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm ring-1 ring-transparent transition hover:ring-emerald-300"
+                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
                               >
                                 {/* {isExpandedHistory && (
                               <div className="mb-2 flex justify-end">
@@ -2238,7 +2276,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             )} */}
                                 <div className="flex items-center justify-between gap-3">
                                   <div className="space-y-1">
-                                    <p className="text-sm font-medium text-foreground">
+                                    <p className="text-sm font-bold text-foreground">
                                       {response.statementText}
                                     </p>
                                     {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
