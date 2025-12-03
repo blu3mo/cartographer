@@ -121,7 +121,7 @@ const renderSuggestionCard = (
                   <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-blue-700">
                     {FIELD_META[suggestion.field]?.label ?? "参考"}
                   </span>
-                  <span className="mt-1 block text-sm text-blue-900 leading-relaxed">
+                  <span className="mt-1 block text-sm leading-relaxed text-blue-900">
                     {suggestion.message}
                   </span>
                   {/* </button> */}
@@ -160,6 +160,9 @@ function NewSessionContent() {
   const lastFormStateRef = useRef<string>("");
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const suggestionAbortRef = useRef<AbortController | null>(null);
+  const [previewQuestions, setPreviewQuestions] = useState<string[]>([]);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "新しいセッションを作成 - 倍速会議";
@@ -293,6 +296,45 @@ function NewSessionContent() {
     return renderSuggestionCard(field, suggestions, handleSuggestionClick);
   };
 
+  const handlePreview = useCallback(async () => {
+    if (!userId) return;
+
+    if (
+      !title.trim() ||
+      !recognitionFocus.trim() ||
+      !recognitionPurpose.trim()
+    ) {
+      setPreviewError("タイトルと目的、洗い出したい認識を入力してください");
+      return;
+    }
+
+    setIsPreviewLoading(true);
+    setPreviewError(null);
+
+    const goal = buildGoalFromInputs(recognitionFocus, recognitionPurpose);
+
+    try {
+      const response = await axios.post(
+        "/api/sessions/preview-questions",
+        {
+          title: title.trim(),
+          goal,
+          context: backgroundInfo.trim(),
+        },
+        {
+          headers: createAuthorizationHeader(userId),
+        },
+      );
+      setPreviewQuestions(response.data.questions);
+    } catch (err) {
+      console.error("Failed to generate preview:", err);
+      setPreviewQuestions([]);
+      setPreviewError("質問の生成に失敗しました。もう一度お試しください。");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  }, [backgroundInfo, recognitionFocus, recognitionPurpose, title, userId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -305,14 +347,25 @@ function NewSessionContent() {
     setError(null);
     const goal = buildGoalFromInputs(recognitionFocus, recognitionPurpose);
 
+    const payload: {
+      title: string;
+      context: string;
+      goal: string;
+      initialQuestions?: string[];
+    } = {
+      title: title.trim(),
+      context: backgroundInfo.trim(),
+      goal,
+    };
+
+    if (previewQuestions.length > 0) {
+      payload.initialQuestions = previewQuestions;
+    }
+
     try {
       const response = await axios.post(
         "/api/sessions",
-        {
-          title: title.trim(),
-          context: backgroundInfo.trim(),
-          goal,
-        },
+        payload,
         { headers: createAuthorizationHeader(userId) },
       );
 
@@ -454,6 +507,65 @@ function NewSessionContent() {
                 handleSuggestionClick,
               )}
 
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePreview}
+                  isLoading={isPreviewLoading}
+                  disabled={isSubmitting}
+                >
+                  質問をプレビュー
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  isLoading={isSubmitting}
+                  className="w-full sm:w-auto"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  セッションを作成
+                </Button>
+              </div>
+
+              {previewError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {previewError}
+                </p>
+              )}
+
+              {previewQuestions.length > 0 && (
+                <Card className="border-indigo-100 bg-indigo-50/40">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base text-indigo-900">
+                      生成された質問プレビュー
+                    </CardTitle>
+                    <CardDescription>
+                      YES/NO で回答される想定のステートメントです。内容だけ確認してください。
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+                      {previewQuestions.map((q, index) => (
+                        <div
+                          key={q}
+                          className="rounded-lg border border-border/60 bg-white shadow-sm"
+                        >
+                          <div className="flex items-start gap-3 px-4 py-3">
+                            {/* <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+                              {index + 1}
+                            </span> */}
+                            <p className="text-sm leading-relaxed text-slate-900">
+                              {q}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {error && (
                 <Card className="border-destructive">
                   <CardContent className="pt-6">
@@ -461,16 +573,6 @@ function NewSessionContent() {
                   </CardContent>
                 </Card>
               )}
-
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                isLoading={isSubmitting}
-                className="w-full"
-              >
-                <Sparkles className="h-4 w-4" />
-                セッションを作成
-              </Button>
             </form>
           </CardContent>
         </Card>

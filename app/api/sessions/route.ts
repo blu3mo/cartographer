@@ -216,46 +216,54 @@ export async function POST(request: NextRequest) {
 
     // Generate initial 15 questions
     try {
-      // Fetch context for LLM (initial user message)
-      const { data: events, error: eventsError } = await supabase
-        .from("events")
-        .select(
-          "id, type, agent_id, user_id, progress, payload, order_index, created_at",
-        )
-        .eq("thread_id", threadId)
-        .order("order_index", { ascending: true });
+      let statementTexts: string[] = [];
+      const { initialQuestions } = body as { initialQuestions?: string[] };
 
-      if (eventsError) {
-        console.error("Failed to fetch events for context:", eventsError);
-        // Continue without generating questions, or log warning
+      if (
+        Array.isArray(initialQuestions) &&
+        initialQuestions.every((q) => typeof q === "string") &&
+        initialQuestions.length > 0
+      ) {
+        statementTexts = initialQuestions;
       } else {
-        const statementTexts = await generateSurveyStatements({
-          sessionTitle: trimmedTitle,
-          sessionGoal: trimmedGoal,
-          initialContext: normalizedContext,
-          eventThreadContext: JSON.stringify(events),
-          participantCount: 0, // Initial creation, no participants yet
-        });
+        // Fetch context for LLM (initial user message)
+        const { data: events, error: eventsError } = await supabase
+          .from("events")
+          .select(
+            "id, type, agent_id, user_id, progress, payload, order_index, created_at",
+          )
+          .eq("thread_id", threadId)
+          .order("order_index", { ascending: true });
 
-        if (statementTexts.length > 0) {
-          const statementsPayload = statementTexts.map(
-            (text: string, index: number) => ({
-              session_id: createdSession.id,
-              text,
-              order_index: index + 1,
-            }),
-          );
+        if (eventsError) {
+          console.error("Failed to fetch events for context:", eventsError);
+          // Continue without generating questions, or log warning
+        } else {
+          statementTexts = await generateSurveyStatements({
+            sessionTitle: trimmedTitle,
+            sessionGoal: trimmedGoal,
+            initialContext: normalizedContext,
+            eventThreadContext: JSON.stringify(events),
+            participantCount: 0, // Initial creation, no participants yet
+          });
+        }
+      }
 
-          const { error: insertError } = await supabase
-            .from("statements")
-            .insert(statementsPayload);
+      if (statementTexts.length > 0) {
+        const statementsPayload = statementTexts.map(
+          (text: string, index: number) => ({
+            session_id: createdSession.id,
+            text,
+            order_index: index + 1,
+          }),
+        );
 
-          if (insertError) {
-            console.error(
-              "Failed to insert generated statements:",
-              insertError,
-            );
-          }
+        const { error: insertError } = await supabase
+          .from("statements")
+          .insert(statementsPayload);
+
+        if (insertError) {
+          console.error("Failed to insert generated statements:", insertError);
         }
       }
     } catch (genError) {
