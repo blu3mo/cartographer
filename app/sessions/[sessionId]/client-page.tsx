@@ -1147,6 +1147,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     });
   };
 
+  const handleScrollToCurrentQuestion = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleInfoClick = () => {
     setShowAlternatives(true);
     requestAnimationFrame(() => {
@@ -1983,15 +1987,54 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
             <div ref={historySectionRef}>
               <Card className="mt-8">
                 <CardHeader>
-                  <CardTitle>質問への回答履歴</CardTitle>
-                  <CardDescription>
-                    あなたの回答とふりかえりの履歴を時系列で確認できます。
-                    <span className="font-bold">
-                      回答を変更したい場合、質問の回答を再度選択することで変更できます。
-                    </span>
-                  </CardDescription>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1">
+                      <CardTitle>質問への回答履歴</CardTitle>
+                      <CardDescription>
+                        全ての回答はここからやり直せます。サジェストを選ぶか、自由入力で修正してください。
+                      </CardDescription>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-2 sm:pt-0">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleScrollToCurrentQuestion}
+                      >
+                        現在の質問に戻る
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleScrollToHistory}
+                        className="text-xs"
+                      >
+                        編集のしかたを確認
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 p-4 text-white shadow-md">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold">
+                          いつでも回答を上書きできます
+                        </p>
+                        <p className="text-xs text-slate-200">
+                          質問カードを開き、ボタンで選び直すか、自由記述を更新してください。送信すると最新の回答に置き換わります。
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wide">
+                          ✦ スケールはタップで即変更
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wide">
+                          ✦ 自由記述は編集→更新
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   {(responsesError || reflectionsError) && (
                     <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
                       {responsesError && (
@@ -2053,16 +2096,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             return (
                               <div
                                 key={item.key}
-                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm ring-1 ring-transparent transition hover:ring-emerald-300"
                               >
                                 <div className="flex items-center justify-between gap-3">
                                   <div className="space-y-1">
                                     <p className="text-sm font-medium text-foreground">
                                       {response.statementText}
                                     </p>
-                                    {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
+                                    <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
                                       自由記述
-                                    </span> */}
+                                    </span>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <Button
@@ -2197,41 +2240,46 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                   {response.statementText}
                                 </p>
                               </div>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {RESPONSE_CHOICES.map((choice) => {
-                                  const isActive =
-                                    response.value === choice.value;
-                                  const isDisabled =
-                                    isPending ||
-                                    isUpdating ||
-                                    isLoading ||
-                                    isActive;
+                              <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
+                                <p className="text-xs font-semibold text-muted-foreground">
+                                  回答をタップすると即変更されます
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {RESPONSE_CHOICES.map((choice) => {
+                                    const isActive =
+                                      response.value === choice.value;
+                                    const isDisabled =
+                                      isPending ||
+                                      isUpdating ||
+                                      isLoading ||
+                                      isActive;
 
-                                  return (
-                                    <button
-                                      key={choice.value}
-                                      type="button"
-                                      onClick={() =>
-                                        handleUpdateResponse(
-                                          response.statementId,
-                                          choice.value,
-                                        )
-                                      }
-                                      disabled={isDisabled}
-                                      className={cn(
-                                        "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                        isActive
-                                          ? choice.activeClass
-                                          : choice.idleClass,
-                                        (isPending || isUpdating) &&
-                                          "opacity-70",
-                                      )}
-                                    >
-                                      <span>{choice.emoji}</span>
-                                      <span>{choice.label}</span>
-                                    </button>
-                                  );
-                                })}
+                                    return (
+                                      <button
+                                        key={choice.value}
+                                        type="button"
+                                        onClick={() =>
+                                          handleUpdateResponse(
+                                            response.statementId,
+                                            choice.value,
+                                          )
+                                        }
+                                        disabled={isDisabled}
+                                        className={cn(
+                                          "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                          isActive
+                                            ? choice.activeClass
+                                            : choice.idleClass,
+                                          (isPending || isUpdating) &&
+                                            "opacity-70",
+                                        )}
+                                      >
+                                        <span>{choice.emoji}</span>
+                                        <span>{choice.label}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             </div>
                           );
