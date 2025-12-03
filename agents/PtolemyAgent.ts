@@ -228,7 +228,10 @@ export class PtolemyAgent {
     // If this is the first survey (count === 1 because we just created one)
     // and we already have statements (lastOrderIndex > 0), use them.
     if ((surveyCount === 1 || surveyCount === 0) && lastOrderIndex > 0) {
-      this.log(instance, "using existing statements (preview) for first survey");
+      this.log(
+        instance,
+        "using existing statements (preview) for first survey",
+      );
 
       const { data: existingStatements, error: fetchError } =
         await this.supabase

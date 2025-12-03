@@ -219,20 +219,13 @@ export async function POST(request: NextRequest) {
       let statementTexts: string[] = [];
       const { initialQuestions } = body as { initialQuestions?: string[] };
 
-      console.log("[API] Body keys:", Object.keys(body as object));
-      console.log("[API] Received initialQuestions type:", typeof initialQuestions);
-      console.log("[API] Received initialQuestions isArray:", Array.isArray(initialQuestions));
-      console.log("[API] Received initialQuestions length:", initialQuestions?.length);
-
       if (
         Array.isArray(initialQuestions) &&
         initialQuestions.every((q) => typeof q === "string") &&
         initialQuestions.length > 0
       ) {
-        console.log("[API] Using provided initial questions");
         statementTexts = initialQuestions;
       } else {
-        console.log("[API] Generating new questions (fallback)");
         // Fetch context for LLM (initial user message)
         const { data: events, error: eventsError } = await supabase
           .from("events")
