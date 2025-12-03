@@ -154,6 +154,8 @@ const FALLBACK_SUGGESTIONS = [
   "一部には賛成だが全体には反対",
   "今は判断できない",
 ];
+const SUGGESTIONS_TITLE = "AIのおすすめ";
+const SUGGESTIONS_DESCRIPTION = "参考文例から自由記述に切り替えられます。";
 
 export default function SessionPage({ sessionId }: { sessionId: string }) {
   const { userId, isLoading: userLoading } = useUserId();
@@ -1218,6 +1220,11 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       if (serverResponse) {
         syncParticipantResponseFromServer(serverResponse);
       }
+      setExpandedHistoryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(statementId);
+        return next;
+      });
     } catch (err) {
       console.error("Failed to update response:", err);
       revertParticipantResponse(statementId, previousSnapshot);
@@ -1262,6 +1269,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const handleSubmitFreeTextUpdate = async (
     statementId: string,
     overrideText?: string,
+    options?: { forceValueZero?: boolean },
   ) => {
     if (!userId) return;
 
@@ -1292,7 +1300,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     setResponsesError(null);
     upsertParticipantResponse(stubStatement, {
       responseType: "free_text",
-      value: null,
+      value: options?.forceValueZero ? 0 : null,
       textResponse: text,
     });
     addUpdatingResponseId(statementId);
@@ -1304,11 +1312,24 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           statementId,
           responseType: "free_text",
           textResponse: text,
+          ...(options?.forceValueZero ? { value: 0 } : {}),
         },
         { headers: createAuthorizationHeader(userId) },
       );
-      const serverResponse = res.data?.response;
-      if (serverResponse) {
+      const serverResponseRaw = res.data?.response;
+      if (serverResponseRaw) {
+        const serverResponse = options?.forceValueZero
+          ? {
+              ...serverResponseRaw,
+              value:
+                serverResponseRaw.value === null
+                  ? 0
+                  : (serverResponseRaw.value as ResponseValue | null),
+              responseType: serverResponseRaw.responseType ?? "free_text",
+              textResponse: serverResponseRaw.textResponse ?? text,
+            }
+          : serverResponseRaw;
+
         syncParticipantResponseFromServer(serverResponse);
       }
       setEditingTextMap((prev) => ({ ...prev, [statementId]: text }));
@@ -2190,30 +2211,33 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     </span> */}
                                   </div>
                                 </div>
-                                <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
-                                  <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 mt-0.5 whitespace-nowrap">
-                                    自由記述
-                                  </span>
-                                  <div className="flex flex-1 items-start justify-between gap-2">
-                                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground mb-0 max-w-[400px] break-words flex-1">
-                                      {response.textResponse?.trim().length
-                                        ? (response.textResponse.length > 120
-                                            ? response.textResponse.slice(0, 120) + "..."
-                                            : response.textResponse)
-                                        : "（記入なし）"}
-                                    </p>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleToggleHistoryExpand(response)}
-                                      disabled={isPending || isUpdating}
-                                      aria-label={
-                                        isExpandedHistory ? "編集を閉じる" : "編集する"
-                                      }
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
+                                <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2 shadow-inner">
+                                  <div className="flex items-start gap-3">
+                                    <span className="mt-0.5 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 whitespace-nowrap">
+                                      自由記述
+                                    </span>
+                                    <div className="flex flex-1 items-start justify-between gap-3">
+                                      <p className="mb-0 flex-1 max-w-[440px] whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
+                                        {response.textResponse?.trim().length
+                                          ? response.textResponse.length > 120
+                                            ? `${response.textResponse.slice(0, 120)}...`
+                                            : response.textResponse
+                                          : "（記入なし）"}
+                                      </p>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleToggleHistoryExpand(response)}
+                                        disabled={isPending || isUpdating}
+                                        aria-label={
+                                          isExpandedHistory ? "編集を閉じる" : "編集する"
+                                        }
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                        <span>編集する</span>
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                                 {isExpandedHistory && (
@@ -2265,19 +2289,15 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                       </div>
                                       <div className="rounded-lg border border-indigo-100 bg-white p-3 shadow-inner">
                                         <div className="flex items-start justify-between gap-2">
-                                          <div>
+                                          {/* <div>
                                             <p className="text-xs font-semibold text-foreground">
-                                              AIのおすすめ
+                                              {SUGGESTIONS_TITLE}
                                             </p>
                                             <p className="text-[11px] text-muted-foreground">
-                                              参考文例から自由記述に切り替えられます。
+                                              {SUGGESTIONS_DESCRIPTION}
                                             </p>
-                                          </div>
-                                          {loadingEditingSuggestions.has(
-                                            response.statementId,
-                                          ) && (
-                                            <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                          )}
+                                          </div> */}
+                                          （自分はこの質問に対して）確信が持てない・情報を把握していない
                                         </div>
                                         {loadingEditingSuggestions.has(
                                           response.statementId,
@@ -2359,14 +2379,14 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 {isEditingFreeText && (
                                   <div className="mt-3 space-y-3 rounded-lg border border-indigo-100 bg-white/80 p-3 shadow-inner">
                                     <div className="flex items-start justify-between gap-2">
-                                      <div>
+                                      {/* <div>
                                         <p className="text-xs font-semibold text-foreground">
-                                          AIのおすすめ
+                                          {SUGGESTIONS_TITLE}
                                         </p>
                                         <p className="text-[11px] text-muted-foreground">
-                                          参考になりそうな文例から選ぶか、下で直接編集してください。
+                                          {SUGGESTIONS_DESCRIPTION}
                                         </p>
-                                      </div>
+                                      </div> */}
                                       {isLoadingEditSuggestions && (
                                         <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
                                       )}
@@ -2460,7 +2480,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                               className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
                             >
                               <div className="flex items-center justify-between gap-3">
-                                <p className="text-sm font-medium text-foreground">
+                                <p className="text-sm font-bold text-foreground">
                                   {response.statementText}
                                 </p>
                                 {/* <Button
@@ -2475,20 +2495,22 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 </Button> */}
                               </div>
                               <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
-                                <p className="text-xs font-semibold text-muted-foreground">
+                                {/* <p className="text-xs text-muted-foreground">
                                   回答をタップすると即変更されます
-                                </p>
+                                </p> */}
                                 <div className="mt-2 flex flex-wrap gap-2">
                                   {RESPONSE_CHOICES.map((choice) => {
                                     const isNeutralExpanded =
                                       expandedHistoryIds.has(
                                         response.statementId,
                                       );
+                                    const isNeutralSelected =
+                                      response.value === 0;
                                     const isActiveValue =
                                       response.value === choice.value;
                                     const shouldHighlight =
                                       choice.value === 0
-                                        ? isNeutralExpanded
+                                        ? isNeutralExpanded || isNeutralSelected
                                         : !isNeutralExpanded && isActiveValue;
                                     const isDisabled =
                                       isPending ||
@@ -2671,130 +2693,154 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                   </div>
                                 </div>
                               )}
-                                  {expandedHistoryIds.has(response.statementId) &&
-                                    !neutralEditIds.has(response.statementId) && (
-                                      <div className="mt-3 rounded-lg border border-indigo-100 bg-white p-3 shadow-inner">
-                                        <div className="mb-2">
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              handleUpdateResponse(
-                                                response.statementId,
-                                                0,
-                                              )
-                                            }
-                                            disabled={isPending || isUpdating}
-                                            className="w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-left text-sm font-semibold text-amber-700 transition  disabled:opacity-60"
-                                          >
-                                            （自分はこの質問に対して）確信が持てない・情報を把握していない
-                                          </button>
-                                        </div>
-                                        <div className="flex items-start justify-between gap-2">
-                                          <div>
-                                            <p className="text-xs font-semibold text-foreground">
-                                              ほかの選択肢・自由記述で回答し直す
-                                            </p>
-                                        <p className="text-[11px] text-muted-foreground">
-                                          サジェストから選ぶか、自由記述を書いて送信できます。
-                                        </p>
-                                      </div>
-                                      {loadingEditingSuggestions.has(
-                                        response.statementId,
-                                      ) && (
-                                        <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                      )}
-                                    </div>
-                                    {loadingEditingSuggestions.has(
-                                      response.statementId,
-                                    ) ? (
-                                      <div className="mt-2 space-y-2">
-                                        <div className="h-9 rounded-md bg-muted animate-pulse" />
-                                        <div className="h-9 rounded-md bg-muted animate-pulse" />
-                                        <div className="h-9 rounded-md bg-muted animate-pulse" />
-                                      </div>
-                                    ) : (
-                                      <div className="mt-2 space-y-2">
-                                        {(editingSuggestionsMap[
-                                          response.statementId
-                                        ] ?? FALLBACK_SUGGESTIONS).map(
-                                          (suggestion) => (
+                              {expandedHistoryIds.has(response.statementId) &&
+                                !neutralEditIds.has(response.statementId) && (
+                                  <div className="mt-3 space-y-4">
+                                    {/* <div className="rounded-lg border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
+                                      <p className="text-xs font-semibold text-muted-foreground">
+                                        リッカード式で回答し直す
+                                      </p>
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {RESPONSE_CHOICES.map((choice) => {
+                                          const isDisabled =
+                                            isPending ||
+                                            isUpdating ||
+                                            isLoading ||
+                                            choice.value === response.value;
+                                          return (
                                             <button
-                                              key={suggestion}
+                                              key={choice.value}
                                               type="button"
                                               onClick={() =>
-                                                handleSubmitFreeTextUpdate(
+                                                handleConvertFreeTextToScale(
                                                   response.statementId,
-                                                  suggestion,
+                                                  choice.value,
                                                 )
                                               }
-                                              disabled={isPending || isUpdating}
-                                              className="w-full rounded-md border border-border bg-card px-3 py-2 text-left text-sm font-medium text-foreground transition-all hover:border-indigo-200 hover:bg-indigo-50 disabled:opacity-60"
+                                              disabled={isDisabled}
+                                              className={cn(
+                                                "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                                choice.idleClass,
+                                                isDisabled && "opacity-70",
+                                              )}
                                             >
-                                              {suggestion}
+                                              <span>{choice.emoji}</span>
+                                              <span>{choice.label}</span>
                                             </button>
-                                          ),
-                                        )}
+                                          );
+                                        })}
                                       </div>
-                                    )}
-                                    <div className="mt-3 space-y-2 pt-2">
-                                      <p className="text-xs font-semibold text-foreground">
-                                        自由記述で回答する
-                                      </p>
-                                      <textarea
-                                        value={
-                                          editingTextMap[response.statementId] ??
-                                          ""
-                                        }
-                                        onChange={(event) =>
-                                          setEditingTextMap((prev) => ({
-                                            ...prev,
-                                            [response.statementId]:
-                                              event.target.value,
-                                          }))
-                                        }
-                                        rows={3}
-                                        className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2"
-                                        placeholder="この質問への補足や考えを書いてください"
-                                        disabled={isPending || isUpdating}
-                                      />
-                                      <div className="flex justify-end gap-2">
-                                        <Button
+                                    </div> */}
+
+                                    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
+                                      <div className="space-y-2">
+                                        <p className="text-sm font-semibold text-foreground">
+                                          その他の選択肢
+                                        </p>
+                                        <button
                                           type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() =>
-                                            setExpandedHistoryIds((prev) => {
-                                              const next = new Set(prev);
-                                              next.delete(response.statementId);
-                                              return next;
-                                            })
-                                          }
-                                          disabled={isPending || isUpdating}
-                                        >
-                                          閉じる
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="sm"
                                           onClick={() =>
                                             handleSubmitFreeTextUpdate(
                                               response.statementId,
-                                              editingTextMap[
-                                                response.statementId
-                                              ],
+                                              "（自分はこの質問に対して）確信が持てない・情報を把握していない",
+                                              { forceValueZero: true },
                                             )
                                           }
                                           disabled={
                                             isPending ||
                                             isUpdating ||
-                                            (editingTextMap[
-                                              response.statementId
-                                            ] ?? "").trim().length === 0
+                                            isLoading ||
+                                            response.value === 0
                                           }
-                                          isLoading={isUpdating}
+                                          className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                          自由記述を送信
-                                        </Button>
+                                          （自分はこの質問に対して）確信が持てない・情報を把握していない
+                                        </button>
+                                      </div>
+
+                                      {loadingEditingSuggestions.has(
+                                        response.statementId,
+                                      ) ? (
+                                        <div className="space-y-2">
+                                          <div className="h-10 bg-muted rounded-md animate-pulse" />
+                                          <div className="h-10 bg-muted rounded-md animate-pulse" />
+                                          <div className="h-10 bg-muted rounded-md animate-pulse" />
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-3">
+                                          {(editingSuggestionsMap[
+                                            response.statementId
+                                          ] ?? FALLBACK_SUGGESTIONS).map(
+                                            (suggestion) => (
+                                              <button
+                                                key={suggestion}
+                                                type="button"
+                                                onClick={() =>
+                                                  handleSubmitFreeTextUpdate(
+                                                    response.statementId,
+                                                    suggestion,
+                                                  )
+                                                }
+                                                disabled={isPending || isUpdating}
+                                                className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                              >
+                                                {suggestion}
+                                              </button>
+                                            ),
+                                          )}
+                                        </div>
+                                      )}
+
+                                      <div className="pt-3 border-t border-border/60 space-y-3">
+                                        <div>
+                                          <p className="text-sm font-semibold text-foreground mb-1">
+                                            自由記述で回答する
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">
+                                            選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
+                                          </p>
+                                        </div>
+                                        <textarea
+                                          value={
+                                            editingTextMap[response.statementId] ??
+                                            ""
+                                          }
+                                          onChange={(event) =>
+                                            setEditingTextMap((prev) => ({
+                                              ...prev,
+                                              [response.statementId]:
+                                                event.target.value,
+                                            }))
+                                          }
+                                          rows={4}
+                                          className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                          placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
+                                          disabled={isPending || isUpdating}
+                                        />
+                                        <div className="flex justify-end">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() =>
+                                              handleSubmitFreeTextUpdate(
+                                                response.statementId,
+                                                editingTextMap[
+                                                  response.statementId
+                                                ],
+                                              )
+                                            }
+                                            disabled={
+                                              isPending ||
+                                              isUpdating ||
+                                              (editingTextMap[
+                                                response.statementId
+                                              ] ?? "").trim().length === 0
+                                            }
+                                            isLoading={isUpdating}
+                                          >
+                                            自由記述を送信
+                                          </Button>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
