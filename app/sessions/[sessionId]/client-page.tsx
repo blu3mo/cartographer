@@ -2595,7 +2595,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                               )
                                             }
                                             disabled={isPending || isUpdating}
-                                            className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-left text-sm font-medium text-foreground transition-all hover:border-amber-300 hover:bg-amber-100 disabled:opacity-60"
+                                            className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-left text-sm font-medium text-foreground transition-all disabled:opacity-60"
                                           >
                                             {suggestion}
                                           </button>
@@ -2677,7 +2677,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                               )
                                             }
                                             disabled={isPending || isUpdating}
-                                            className="w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-left text-sm font-semibold text-amber-700 transition hover:bg-amber-50 hover:border-amber-400 disabled:opacity-60"
+                                            className="w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-left text-sm font-semibold text-amber-700 transition  disabled:opacity-60"
                                           >
                                             （自分はこの質問に対して）確信が持てない・情報を把握していない
                                           </button>
