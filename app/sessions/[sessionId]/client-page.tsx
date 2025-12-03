@@ -1416,22 +1416,31 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       );
       const serverResponseRaw = res.data?.response;
       if (serverResponseRaw) {
-        const serverResponse = options?.forceValueZero
-          ? {
-              ...serverResponseRaw,
-              value:
-                serverResponseRaw.value === null
-                  ? 0
-                  : (serverResponseRaw.value as ResponseValue | null),
-              responseType: serverResponseRaw.responseType ?? "free_text",
-              textResponse: serverResponseRaw.textResponse ?? text,
-            }
-          : serverResponseRaw;
+        const normalizedResponse = {
+          ...serverResponseRaw,
+          value: options?.forceValueZero
+            ? serverResponseRaw.value === null
+              ? 0
+              : (serverResponseRaw.value as ResponseValue | null)
+            : (serverResponseRaw.value as ResponseValue | null),
+          responseType: "free_text" as ResponseType,
+          textResponse: serverResponseRaw.textResponse ?? text,
+        };
 
-        syncParticipantResponseFromServer(serverResponse);
+        syncParticipantResponseFromServer(normalizedResponse);
       }
       setEditingTextMap((prev) => ({ ...prev, [statementId]: text }));
       setEditingFreeTextIds((prev) => {
+        const next = new Set(prev);
+        next.delete(statementId);
+        return next;
+      });
+      setExpandedHistoryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(statementId);
+        return next;
+      });
+      setNeutralEditIds((prev) => {
         const next = new Set(prev);
         next.delete(statementId);
         return next;
@@ -2259,9 +2268,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 </div>
                                 <div className="mt-3 rounded-md border border-dashed border-border/70 bg-background px-3 py-2 shadow-inner">
                                   <div className="flex items-start gap-3">
-                                    <span className="mt-0.5 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 whitespace-nowrap">
+                                    {/* <span className="mt-0.5 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 whitespace-nowrap">
                                       自由記述
-                                    </span>
+                                    </span> */}
                                     <div className="flex flex-1 items-start justify-between gap-3">
                                       <p className="mb-0 flex-1 max-w-[440px] whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
                                         {response.textResponse?.trim().length
@@ -2517,14 +2526,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                   </div>
                                 )}
                               </div>
-                            );
-                          }
+                          );
+                        }
 
-                          return (
-                            <div
-                              key={item.key}
-                              className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                            >
+                        const isExpandedHistory = expandedHistoryIds.has(
+                          response.statementId,
+                        );
+                        const shouldShowResponseChoices =
+                          response.value !== 0 || isExpandedHistory;
+
+                        return (
+                          <div
+                            key={item.key}
+                            className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                          >
                               <div className="flex items-center justify-between gap-3">
                                 <p className="text-sm font-bold text-foreground">
                                   {response.statementText}
@@ -2544,71 +2559,73 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 {/* <p className="text-xs text-muted-foreground">
                                   回答をタップすると即変更されます
                                 </p> */}
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {RESPONSE_CHOICES.map((choice) => {
-                                    const isNeutralExpanded =
-                                      expandedHistoryIds.has(
-                                        response.statementId,
+                                {shouldShowResponseChoices && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {RESPONSE_CHOICES.map((choice) => {
+                                      const isNeutralExpanded =
+                                        expandedHistoryIds.has(
+                                          response.statementId,
+                                        );
+                                      const isNeutralSelected =
+                                        response.value === 0;
+                                      const isActiveValue =
+                                        response.value === choice.value;
+                                      const shouldHighlight =
+                                        choice.value === 0
+                                          ? isNeutralExpanded || isNeutralSelected
+                                          : !isNeutralExpanded && isActiveValue;
+                                      const isDisabled =
+                                        isPending ||
+                                        isUpdating ||
+                                        isLoading ||
+                                        (choice.value !== 0 && isActiveValue);
+
+                                      // 「わからない」の場合、展開状態に応じてラベルを変更
+                                      const displayLabel =
+                                        choice.value === 0
+                                          ? isNeutralExpanded
+                                            ? "わからない▲"
+                                            : "わからない▼"
+                                          : choice.label;
+
+                                      const handleClick =
+                                        choice.value === 0
+                                          ? () => handleToggleHistoryExpand(response)
+                                          : () =>
+                                              handleUpdateResponse(
+                                                response.statementId,
+                                                choice.value,
+                                              );
+
+                                      return (
+                                        <button
+                                          key={choice.value}
+                                          type="button"
+                                          onClick={handleClick}
+                                          disabled={isDisabled}
+                                          className={cn(
+                                            "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            shouldHighlight
+                                              ? choice.activeClass
+                                              : "border-dashed border-border/70 bg-transparent text-muted-foreground hover:bg-white hover:text-foreground",
+                                            (isPending || isUpdating) &&
+                                              "opacity-70",
+                                          )}
+                                        >
+                                          <span>{choice.emoji}</span>
+                                          <span>{displayLabel}</span>
+                                        </button>
                                       );
-                                    const isNeutralSelected =
-                                      response.value === 0;
-                                    const isActiveValue =
-                                      response.value === choice.value;
-                                    const shouldHighlight =
-                                      choice.value === 0
-                                        ? isNeutralExpanded || isNeutralSelected
-                                        : !isNeutralExpanded && isActiveValue;
-                                    const isDisabled =
-                                      isPending ||
-                                      isUpdating ||
-                                      isLoading ||
-                                      (choice.value !== 0 && isActiveValue);
-
-                                    // 「わからない」の場合、展開状態に応じてラベルを変更
-                                    const displayLabel =
-                                      choice.value === 0
-                                        ? isNeutralExpanded
-                                          ? "わからない▲"
-                                          : "わからない▼"
-                                        : choice.label;
-
-                                    const handleClick =
-                                      choice.value === 0
-                                        ? () => handleToggleHistoryExpand(response)
-                                        : () =>
-                                            handleUpdateResponse(
-                                              response.statementId,
-                                              choice.value,
-                                            );
-
-                                    return (
-                                      <button
-                                        key={choice.value}
-                                        type="button"
-                                        onClick={handleClick}
-                                        disabled={isDisabled}
-                                        className={cn(
-                                          "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                          shouldHighlight
-                                            ? choice.activeClass
-                                            : "border-dashed border-border/70 bg-transparent text-muted-foreground hover:bg-white hover:text-foreground",
-                                          (isPending || isUpdating) &&
-                                            "opacity-70",
-                                        )}
-                                      >
-                                        <span>{choice.emoji}</span>
-                                        <span>{displayLabel}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
+                                    })}
+                                  </div>
+                                )}
                                 {response.value === 0 && (
-                                  <div className="mt-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 shadow-inner">
+                                  // <div className="mt-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 shadow-inner">
                                     <div className="flex items-start justify-between gap-3">
                                       <div className="space-y-1">
-                                        <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+                                        {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
                                           自由記述
-                                        </span>
+                                        </span> */}
                                         <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                                           {response.textResponse?.trim().length
                                             ? response.textResponse
@@ -2623,12 +2640,21 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                           handleToggleHistoryExpand(response)
                                         }
                                         disabled={isPending || isUpdating}
+                                        aria-label={
+                                          isExpandedHistory
+                                            ? "編集を閉じる"
+                                            : "編集する"
+                                        }
                                       >
                                         <Pencil className="h-4 w-4" />
-                                        <span>編集する</span>
+                                        <span>
+                                          {isExpandedHistory
+                                            ? "編集を閉じる"
+                                            : "編集する"}
+                                        </span>
                                       </Button>
                                     </div>
-                                  </div>
+                                  // </div>
                                 )}
                               </div>
                               {neutralEditIds.has(response.statementId) && (
