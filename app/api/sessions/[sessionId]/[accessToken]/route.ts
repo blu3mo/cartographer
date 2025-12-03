@@ -250,7 +250,7 @@ export async function GET(
             strongNo: Math.round(strongNoPercent * 100) / 100,
             totalCount,
             freeTextCount: freeTextResponses.length,
-            freeTextSamples: freeTextResponses.slice(0, 5).map((response) => ({
+            freeTextSamples: freeTextResponses.map((response) => ({
               participantUserId: response.participantId,
               text: response.text ?? "",
             })),

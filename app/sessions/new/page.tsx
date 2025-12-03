@@ -1,26 +1,15 @@
-"use client";
+import type { Metadata } from "next";
 
-import axios from "axios";
-import { ArrowUpRight, Loader2, Sparkles } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { buildMetadata } from "@/lib/metadata";
 
-import { Button } from "@/components/ui/Button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { createAuthorizationHeader } from "@/lib/auth";
-import { useUserId } from "@/lib/useUserId";
+import NewSessionPage from "./client-page";
 
-type SuggestionField =
-  | "backgroundInfo"
-  | "recognitionFocus"
-  | "recognitionPurpose";
+export const metadata: Metadata = buildMetadata({
+  title: "セッションを作成 | 倍速会議",
+  description:
+    "チームでの合意形成に向けて、倍速会議で新しいセッションを作成します。",
+  url: "/sessions/new",
+});
 
 type Suggestion = {
   field: SuggestionField;

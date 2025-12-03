@@ -1,32 +1,33 @@
-"use client";
+import type { Metadata } from "next";
 
-import axios from "axios";
-import { ArrowLeft, Loader2, Printer } from "lucide-react";
-import { use, useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { buildMetadata, truncateForMeta } from "@/lib/metadata";
 
-import { Button } from "@/components/ui/Button";
-import { useUserId } from "@/lib/useUserId";
+import SessionReportPrintPage from "./client-page";
 
-type SessionReportStatus = "pending" | "generating" | "completed" | "failed";
+async function fetchReportMeta(
+  sessionId: string,
+  accessToken: string,
+  reportId: string,
+) {
+  const [{ requireSessionAdminToken }, { getSessionReportById }] =
+    await Promise.all([
+      import("@/lib/server/session-access"),
+      import("@/lib/server/session-reports"),
+    ]);
 
-interface SessionReport {
-  id: string;
-  sessionId: string;
-  version: number;
-  status: SessionReportStatus;
-  requestMarkdown: string;
-  contentMarkdown: string | null;
-  createdBy: string;
-  model: string;
-  errorMessage: string | null;
-  createdAt: string;
-  updatedAt: string;
-  completedAt: string | null;
+  const session = await requireSessionAdminToken(sessionId, accessToken).catch(
+    () => null,
+  );
+  const report = await getSessionReportById(reportId).catch(() => null);
+
+  if (!session || !report || report.sessionId !== sessionId) {
+    return null;
+  }
+
+  return { session, report };
 }
 
-export default function SessionReportPrintPage({
+export async function generateMetadata({
   params,
 }: {
   params: Promise<{
@@ -34,150 +35,42 @@ export default function SessionReportPrintPage({
     accessToken: string;
     reportId: string;
   }>;
+}): Promise<Metadata> {
+  const { sessionId, accessToken, reportId } = await params;
+  const meta = await fetchReportMeta(sessionId, accessToken, reportId);
+
+  if (!meta) {
+    return buildMetadata({
+      title: "レポートが見つかりません | 倍速会議",
+      description: "指定されたレポートは存在しないか、アクセス権がありません。",
+      url: `/sessions/${sessionId}/${accessToken}/reports/${reportId}/print`,
+    });
+  }
+
+  const versionLabel = `v${String(meta.report.version ?? 0).padStart(2, "0")}`;
+  const goal = meta.session.goal?.trim();
+  const description = goal
+    ? `「${meta.session.title}」のレポート${versionLabel}（印刷用）。目的: ${truncateForMeta(goal)}`
+    : `「${meta.session.title}」のレポート${versionLabel}（印刷用）。倍速会議で集計した結果を確認できます。`;
+
+  return buildMetadata({
+    title: `${meta.session.title} | レポート${versionLabel} | 倍速会議`,
+    description,
+    url: `/sessions/${sessionId}/${accessToken}/reports/${reportId}/print`,
+  });
+}
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ sessionId: string; accessToken: string; reportId: string }>;
 }) {
-  const { sessionId, accessToken, reportId } = use(params);
-  const { userId, isLoading: isUserLoading } = useUserId();
-  const [report, setReport] = useState<SessionReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isUserLoading || !userId) return;
-
-    const fetchReport = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(
-          `/api/sessions/${sessionId}/${accessToken}/reports/${reportId}`,
-          {
-            headers: { Authorization: `Bearer ${userId}` },
-          },
-        );
-        setReport(response.data.data as SessionReport);
-        setError(null);
-      } catch (err) {
-        console.error("Failed to load report:", err);
-        setError("レポートの取得に失敗しました。");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchReport();
-  }, [sessionId, accessToken, reportId, userId, isUserLoading]);
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-      </div>
-    );
-  }
-
-  if (error || !report) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
-        <p className="text-sm text-slate-500">
-          {error ?? "レポートが見つかりません。"}
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => window.history.back()}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          戻る
-        </Button>
-      </div>
-    );
-  }
-
+  const { sessionId, accessToken, reportId } = await params;
   return (
-    <div className="min-h-screen bg-white text-slate-900 print:bg-white">
-      <div className="mx-auto max-w-4xl px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0 print:space-y-6">
-        <div className="flex items-center justify-between gap-4 print:hidden">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => window.history.back()}
-            className="gap-1.5 text-xs"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            管理画面へ戻る
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            className="gap-1.5 text-xs"
-          >
-            <Printer className="h-4 w-4" />
-            印刷する
-          </Button>
-        </div>
-
-        <header className="space-y-2 text-center print:hidden">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
-            Session Report
-          </p>
-          <h1 className="text-3xl font-semibold">
-            セッションレポート v{String(report.version).padStart(2, "0")}
-          </h1>
-          <div className="flex justify-center gap-4 text-xs text-slate-500">
-            <span>Session ID: {sessionId}</span>
-            <span>Report ID: {report.id}</span>
-          </div>
-        </header>
-
-        {report.requestMarkdown ? (
-          <section className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-6 text-sm text-indigo-900 print:hidden">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
-              Admin Request
-            </p>
-            <p className="mt-2 whitespace-pre-wrap leading-relaxed">
-              {report.requestMarkdown}
-            </p>
-          </section>
-        ) : null}
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm print:border-0 print:bg-transparent print:p-0 print:shadow-none">
-          {report.status === "completed" && report.contentMarkdown ? (
-            <div className="markdown-body prose prose-slate max-w-none text-base leading-relaxed print:text-[12pt]">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {report.contentMarkdown}
-              </ReactMarkdown>
-            </div>
-          ) : report.status === "failed" ? (
-            <p className="text-sm text-rose-600">
-              レポート生成に失敗しました:{" "}
-              {report.errorMessage ?? "詳細は管理画面を確認してください。"}
-            </p>
-          ) : (
-            <p className="text-sm text-slate-500">
-              レポートはまだ完成していません。管理画面から進行状況を確認してください。
-            </p>
-          )}
-        </section>
-
-        <footer className="text-center text-[11px] uppercase tracking-[0.2em] text-slate-400 print:hidden">
-          <p>
-            Created:{" "}
-            {new Date(report.createdAt).toLocaleString("ja-JP", {
-              hour12: false,
-            })}
-            {report.completedAt
-              ? ` / Updated: ${new Date(report.completedAt).toLocaleString("ja-JP", { hour12: false })}`
-              : ""}
-          </p>
-        </footer>
-      </div>
-    </div>
+    <SessionReportPrintPage
+      sessionId={sessionId}
+      accessToken={accessToken}
+      reportId={reportId}
+    />
   );
 }
