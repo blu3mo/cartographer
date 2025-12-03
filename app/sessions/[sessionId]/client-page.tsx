@@ -197,6 +197,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const [loadingEditingSuggestions, setLoadingEditingSuggestions] = useState<
     Set<string>
   >(new Set());
+  const [neutralEditIds, setNeutralEditIds] = useState<Set<string>>(new Set());
+  const [neutralTextMap, setNeutralTextMap] = useState<Record<string, string>>(
+    {},
+  );
   const [individualReport, setIndividualReport] =
     useState<IndividualReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -1324,6 +1328,24 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     }
   };
 
+  const handleNeutralReanswer = (statementId: string) => {
+    setResponsesError(null);
+    setNeutralEditIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(statementId)) {
+        next.delete(statementId);
+      } else {
+        next.add(statementId);
+      }
+      return next;
+    });
+    setNeutralTextMap((prev) => ({
+      ...prev,
+      [statementId]: prev[statementId] ?? "",
+    }));
+    fetchEditingSuggestions(statementId);
+  };
+
   const handleSubmitReflection = async (overrideText?: string) => {
     if (!userId || isSubmittingReflection) return;
 
@@ -2245,42 +2267,162 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                   回答をタップすると即変更されます
                                 </p>
                                 <div className="mt-2 flex flex-wrap gap-2">
-                                  {RESPONSE_CHOICES.map((choice) => {
-                                    const isActive =
-                                      response.value === choice.value;
-                                    const isDisabled =
-                                      isPending ||
-                                      isUpdating ||
-                                      isLoading ||
-                                      isActive;
+                                    {RESPONSE_CHOICES.map((choice) => {
+                                      const isActive =
+                                        response.value === choice.value;
+                                      const isDisabled =
+                                        isPending ||
+                                        isUpdating ||
+                                        isLoading ||
+                                        isActive;
 
-                                    return (
-                                      <button
-                                        key={choice.value}
-                                        type="button"
-                                        onClick={() =>
-                                          handleUpdateResponse(
-                                            response.statementId,
-                                            choice.value,
-                                          )
-                                        }
-                                        disabled={isDisabled}
-                                        className={cn(
-                                          "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                          isActive
-                                            ? choice.activeClass
-                                            : choice.idleClass,
-                                          (isPending || isUpdating) &&
-                                            "opacity-70",
-                                        )}
-                                      >
-                                        <span>{choice.emoji}</span>
-                                        <span>{choice.label}</span>
-                                      </button>
+                                      const handleClick =
+                                        choice.value === 0
+                                          ? () =>
+                                              handleNeutralReanswer(
+                                                response.statementId,
+                                              )
+                                          : () =>
+                                              handleUpdateResponse(
+                                                response.statementId,
+                                                choice.value,
+                                              );
+
+                                      return (
+                                        <button
+                                          key={choice.value}
+                                          type="button"
+                                          onClick={handleClick}
+                                          disabled={isDisabled}
+                                          className={cn(
+                                            "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            isActive || neutralEditIds.has(response.statementId) && choice.value === 0
+                                              ? choice.activeClass
+                                              : choice.idleClass,
+                                            (isPending || isUpdating) &&
+                                              "opacity-70",
+                                            neutralEditIds.has(response.statementId) &&
+                                              choice.value === 0 &&
+                                              "ring-2 ring-amber-300",
+                                          )}
+                                        >
+                                          <span>{choice.emoji}</span>
+                                          <span>{choice.label}</span>
+                                        </button>
                                     );
                                   })}
                                 </div>
                               </div>
+                              {neutralEditIds.has(response.statementId) && (
+                                <div className="mt-3 space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3 shadow-inner">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <p className="text-xs font-semibold text-foreground">
+                                        「わからない」から再入力
+                                      </p>
+                                      <p className="text-[11px] text-amber-800">
+                                        選択肢を選ぶか、自由記述で補足してください。
+                                      </p>
+                                    </div>
+                                    {loadingEditingSuggestions.has(
+                                      response.statementId,
+                                    ) && (
+                                      <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                                    )}
+                                  </div>
+                                  {loadingEditingSuggestions.has(
+                                    response.statementId,
+                                  ) ? (
+                                    <div className="space-y-2">
+                                      <div className="h-9 rounded-md bg-muted animate-pulse" />
+                                      <div className="h-9 rounded-md bg-muted animate-pulse" />
+                                      <div className="h-9 rounded-md bg-muted animate-pulse" />
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {(editingSuggestionsMap[
+                                        response.statementId
+                                      ] ?? FALLBACK_SUGGESTIONS).map(
+                                        (suggestion) => (
+                                          <button
+                                            key={suggestion}
+                                            type="button"
+                                            onClick={() =>
+                                              handleSubmitFreeTextUpdate(
+                                                response.statementId,
+                                                suggestion,
+                                              )
+                                            }
+                                            disabled={isPending || isUpdating}
+                                            className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-left text-sm font-medium text-foreground transition-all hover:border-amber-300 hover:bg-amber-100 disabled:opacity-60"
+                                          >
+                                            {suggestion}
+                                          </button>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="space-y-2 pt-1">
+                                    <p className="text-xs font-semibold text-foreground">
+                                      自由記述を追加・修正
+                                    </p>
+                                    <textarea
+                                      value={neutralTextMap[response.statementId] ?? ""}
+                                      onChange={(event) =>
+                                        setNeutralTextMap((prev) => ({
+                                          ...prev,
+                                          [response.statementId]:
+                                            event.target.value,
+                                        }))
+                                      }
+                                      rows={3}
+                                      className="w-full resize-y rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2"
+                                      placeholder="わからない理由や補足を書いてください"
+                                      disabled={isPending || isUpdating}
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          setNeutralEditIds((prev) => {
+                                            const next = new Set(prev);
+                                            next.delete(response.statementId);
+                                            return next;
+                                          })
+                                        }
+                                        disabled={isPending || isUpdating}
+                                      >
+                                        閉じる
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleSubmitFreeTextUpdate(
+                                            response.statementId,
+                                            neutralTextMap[
+                                              response.statementId
+                                            ],
+                                          )
+                                        }
+                                        disabled={
+                                          isPending ||
+                                          isUpdating ||
+                                          (neutralTextMap[
+                                            response.statementId
+                                          ] ?? ""
+                                          ).trim().length === 0
+                                        }
+                                        isLoading={isUpdating}
+                                      >
+                                        自由記述を送信
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         }
