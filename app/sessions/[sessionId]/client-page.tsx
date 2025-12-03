@@ -157,6 +157,104 @@ const FALLBACK_SUGGESTIONS = [
 const SUGGESTIONS_TITLE = "AIのおすすめ";
 const SUGGESTIONS_DESCRIPTION = "参考文例から自由記述に切り替えられます。";
 
+type NeutralOptionsCardProps = {
+  isLoadingSuggestions: boolean;
+  suggestions: string[];
+  onSelectNeutral: () => void;
+  disableNeutralButton?: boolean;
+  disableSuggestions?: boolean;
+  onSelectSuggestion: (text: string) => void;
+  freeTextValue: string;
+  onChangeFreeText: (text: string) => void;
+  onSubmitFreeText: () => void;
+  disableFreeText?: boolean;
+  disableFreeTextSubmit?: boolean;
+  isSubmittingFreeText?: boolean;
+};
+
+function NeutralOptionsCard({
+  isLoadingSuggestions,
+  suggestions,
+  onSelectNeutral,
+  disableNeutralButton,
+  disableSuggestions,
+  onSelectSuggestion,
+  freeTextValue,
+  onChangeFreeText,
+  onSubmitFreeText,
+  disableFreeText,
+  disableFreeTextSubmit,
+  isSubmittingFreeText,
+}: NeutralOptionsCardProps) {
+  return (
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-foreground">その他の選択肢</p>
+        <button
+          type="button"
+          onClick={onSelectNeutral}
+          disabled={disableNeutralButton}
+          className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          （自分はこの質問に対して）確信が持てない・情報を把握していない
+        </button>
+      </div>
+
+      {isLoadingSuggestions ? (
+        <div className="space-y-2">
+          <div className="h-10 bg-muted rounded-md animate-pulse" />
+          <div className="h-10 bg-muted rounded-md animate-pulse" />
+          <div className="h-10 bg-muted rounded-md animate-pulse" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => onSelectSuggestion(suggestion)}
+              disabled={disableSuggestions}
+              className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="pt-3 border-t border-border/60 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground mb-1">
+            自由記述で回答する
+          </p>
+          <p className="text-xs text-muted-foreground">
+            選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
+          </p>
+        </div>
+        <textarea
+          value={freeTextValue}
+          onChange={(event) => onChangeFreeText(event.target.value)}
+          rows={4}
+          className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
+          disabled={disableFreeText}
+        />
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onSubmitFreeText}
+            disabled={disableFreeTextSubmit}
+            isLoading={isSubmittingFreeText}
+          >
+            自由記述を送信
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SessionPage({ sessionId }: { sessionId: string }) {
   const { userId, isLoading: userLoading } = useUserId();
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
@@ -2008,89 +2106,37 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
               <div className="mt-6 space-y-3">
                 {showAlternatives && (
-                  <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold text-foreground">
-                        その他の選択肢
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleSubmitResponse({
-                            responseType: "scale",
-                            value: 0,
-                          })
-                        }
-                        disabled={isLoading || isSubmittingFreeText}
-                        className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        （自分はこの質問に対して）確信が持てない・情報を把握していない
-                      </button>
-                    </div>
-
-                    {isLoadingSuggestions ? (
-                      <div className="space-y-2">
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {aiSuggestions.map((suggestion) => (
-                          <button
-                            key={suggestion}
-                            type="button"
-                            onClick={() => handleSuggestionClick(suggestion)}
-                            disabled={isLoading || isSubmittingFreeText}
-                            className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="pt-3 border-t border-border/60 space-y-3">
-                      <div ref={freeTextSectionRef} />
-                      <div>
-                        <p className="text-sm font-semibold text-foreground mb-1">
-                          自由記述で回答する
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
-                        </p>
-                      </div>
-                      <textarea
-                        value={freeTextInput}
-                        onChange={(event) =>
-                          setFreeTextInput(event.target.value)
-                        }
-                        rows={4}
-                        className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
-                        disabled={isLoading || isSubmittingFreeText}
-                      />
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() =>
-                            handleSubmitResponse({
-                              responseType: "free_text",
-                              textResponse: freeTextInput,
-                            })
-                          }
-                          disabled={
-                            isLoading ||
-                            isSubmittingFreeText ||
-                            freeTextInput.trim().length === 0
-                          }
-                          isLoading={isSubmittingFreeText}
-                        >
-                          自由記述を送信
-                        </Button>
-                      </div>
-                    </div>
+                  <div ref={freeTextSectionRef}>
+                    <NeutralOptionsCard
+                      isLoadingSuggestions={isLoadingSuggestions}
+                      suggestions={aiSuggestions}
+                      onSelectNeutral={() =>
+                        handleSubmitResponse({
+                          responseType: "scale",
+                          value: 0,
+                        })
+                      }
+                      disableNeutralButton={isLoading || isSubmittingFreeText}
+                      disableSuggestions={isLoading || isSubmittingFreeText}
+                      onSelectSuggestion={(text) =>
+                        handleSuggestionClick(text)
+                      }
+                      freeTextValue={freeTextInput}
+                      onChangeFreeText={(text) => setFreeTextInput(text)}
+                      onSubmitFreeText={() =>
+                        handleSubmitResponse({
+                          responseType: "free_text",
+                          textResponse: freeTextInput,
+                        })
+                      }
+                      disableFreeText={isLoading || isSubmittingFreeText}
+                      disableFreeTextSubmit={
+                        isLoading ||
+                        isSubmittingFreeText ||
+                        freeTextInput.trim().length === 0
+                      }
+                      isSubmittingFreeText={isSubmittingFreeText}
+                    />
                   </div>
                 )}
               </div>
@@ -2211,7 +2257,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     </span> */}
                                   </div>
                                 </div>
-                                <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2 shadow-inner">
+                                <div className="mt-3 rounded-md border border-dashed border-border/70 bg-background px-3 py-2 shadow-inner">
                                   <div className="flex items-start gap-3">
                                     <span className="mt-0.5 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 whitespace-nowrap">
                                       自由記述
@@ -2732,117 +2778,62 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                       </div>
                                     </div> */}
 
-                                    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
-                                      <div className="space-y-2">
-                                        <p className="text-sm font-semibold text-foreground">
-                                          その他の選択肢
-                                        </p>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleSubmitFreeTextUpdate(
-                                              response.statementId,
-                                              "（自分はこの質問に対して）確信が持てない・情報を把握していない",
-                                              { forceValueZero: true },
-                                            )
-                                          }
-                                          disabled={
-                                            isPending ||
-                                            isUpdating ||
-                                            isLoading ||
-                                            response.value === 0
-                                          }
-                                          className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                          （自分はこの質問に対して）確信が持てない・情報を把握していない
-                                        </button>
-                                      </div>
-
-                                      {loadingEditingSuggestions.has(
+                                    <NeutralOptionsCard
+                                      isLoadingSuggestions={loadingEditingSuggestions.has(
                                         response.statementId,
-                                      ) ? (
-                                        <div className="space-y-2">
-                                          <div className="h-10 bg-muted rounded-md animate-pulse" />
-                                          <div className="h-10 bg-muted rounded-md animate-pulse" />
-                                          <div className="h-10 bg-muted rounded-md animate-pulse" />
-                                        </div>
-                                      ) : (
-                                        <div className="space-y-3">
-                                          {(editingSuggestionsMap[
-                                            response.statementId
-                                          ] ?? FALLBACK_SUGGESTIONS).map(
-                                            (suggestion) => (
-                                              <button
-                                                key={suggestion}
-                                                type="button"
-                                                onClick={() =>
-                                                  handleSubmitFreeTextUpdate(
-                                                    response.statementId,
-                                                    suggestion,
-                                                  )
-                                                }
-                                                disabled={isPending || isUpdating}
-                                                className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                                              >
-                                                {suggestion}
-                                              </button>
-                                            ),
-                                          )}
-                                        </div>
                                       )}
-
-                                      <div className="pt-3 border-t border-border/60 space-y-3">
-                                        <div>
-                                          <p className="text-sm font-semibold text-foreground mb-1">
-                                            自由記述で回答する
-                                          </p>
-                                          <p className="text-xs text-muted-foreground">
-                                            選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
-                                          </p>
-                                        </div>
-                                        <textarea
-                                          value={
-                                            editingTextMap[response.statementId] ??
-                                            ""
-                                          }
-                                          onChange={(event) =>
-                                            setEditingTextMap((prev) => ({
-                                              ...prev,
-                                              [response.statementId]:
-                                                event.target.value,
-                                            }))
-                                          }
-                                          rows={4}
-                                          className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                          placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
-                                          disabled={isPending || isUpdating}
-                                        />
-                                        <div className="flex justify-end">
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() =>
-                                              handleSubmitFreeTextUpdate(
-                                                response.statementId,
-                                                editingTextMap[
-                                                  response.statementId
-                                                ],
-                                              )
-                                            }
-                                            disabled={
-                                              isPending ||
-                                              isUpdating ||
-                                              (editingTextMap[
-                                                response.statementId
-                                              ] ?? "").trim().length === 0
-                                            }
-                                            isLoading={isUpdating}
-                                          >
-                                            自由記述を送信
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </div>
+                                      suggestions={
+                                        editingSuggestionsMap[
+                                          response.statementId
+                                        ] ?? FALLBACK_SUGGESTIONS
+                                      }
+                                      onSelectNeutral={() =>
+                                        handleSubmitFreeTextUpdate(
+                                          response.statementId,
+                                          "（自分はこの質問に対して）確信が持てない・情報を把握していない",
+                                          { forceValueZero: true },
+                                        )
+                                      }
+                                      disableNeutralButton={
+                                        isPending ||
+                                        isUpdating ||
+                                        isLoading
+                                      }
+                                      disableSuggestions={
+                                        isPending || isUpdating || isLoading
+                                      }
+                                      onSelectSuggestion={(text) =>
+                                        handleSubmitFreeTextUpdate(
+                                          response.statementId,
+                                          text,
+                                        )
+                                      }
+                                      freeTextValue={
+                                        editingTextMap[response.statementId] ?? ""
+                                      }
+                                      onChangeFreeText={(text) =>
+                                        setEditingTextMap((prev) => ({
+                                          ...prev,
+                                          [response.statementId]: text,
+                                        }))
+                                      }
+                                      onSubmitFreeText={() =>
+                                        handleSubmitFreeTextUpdate(
+                                          response.statementId,
+                                          editingTextMap[response.statementId],
+                                        )
+                                      }
+                                      disableFreeText={
+                                        isPending || isUpdating || isLoading
+                                      }
+                                      disableFreeTextSubmit={
+                                        isPending ||
+                                        isUpdating ||
+                                        (editingTextMap[response.statementId] ??
+                                          "").trim().length === 0
+                                      }
+                                      isSubmittingFreeText={isUpdating}
+                                    />
                                   </div>
                                 )}
                               {/* {!expandedHistoryIds.has(response.statementId) &&
