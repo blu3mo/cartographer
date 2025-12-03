@@ -1189,13 +1189,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       return;
     }
 
-    if (currentResponse.responseType === "free_text") {
-      setResponsesError(
-        "自由記述の回答は下の編集フォームから更新してください。",
-      );
-      return;
-    }
-
     const previousSnapshot: ParticipantResponse = { ...currentResponse };
     const stubStatement: Statement = {
       id: statementId,
@@ -1323,6 +1316,71 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       });
     } catch (err) {
       console.error("Failed to update free text response:", err);
+      revertParticipantResponse(statementId, previousSnapshot);
+      if (axios.isAxiosError(err) && err.response?.data?.error) {
+        setResponsesError(
+          `回答の更新に失敗しました: ${err.response.data.error}`,
+        );
+      } else {
+        setResponsesError(
+          "回答の更新に失敗しました。時間をおいて再度お試しください。",
+        );
+      }
+    } finally {
+      removeUpdatingResponseId(statementId);
+    }
+  };
+
+  const handleConvertFreeTextToScale = async (
+    statementId: string,
+    value: ResponseValue,
+  ) => {
+    if (!userId) return;
+
+    const currentResponse = participantResponses.find(
+      (item) => item.statementId === statementId,
+    );
+
+    if (!currentResponse) return;
+
+    const previousSnapshot: ParticipantResponse = { ...currentResponse };
+    const stubStatement: Statement = {
+      id: statementId,
+      text: currentResponse.statementText,
+      orderIndex: currentResponse.orderIndex,
+      sessionId,
+    };
+
+    setResponsesError(null);
+    upsertParticipantResponse(stubStatement, {
+      responseType: "scale",
+      value,
+      textResponse: null,
+    });
+    addUpdatingResponseId(statementId);
+
+    try {
+      const res = await axios.post(
+        `/api/sessions/${sessionId}/responses`,
+        { statementId, value, responseType: "scale" },
+        { headers: createAuthorizationHeader(userId) },
+      );
+      const serverResponse = res.data?.response;
+      if (serverResponse) {
+        syncParticipantResponseFromServer(serverResponse);
+      }
+      setEditingFreeTextIds((prev) => {
+        const next = new Set(prev);
+        next.delete(statementId);
+        return next;
+      });
+      setNeutralEditIds((prev) => {
+        const next = new Set(prev);
+        next.delete(statementId);
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to convert free text to scale:", err);
       revertParticipantResponse(statementId, previousSnapshot);
       if (axios.isAxiosError(err) && err.response?.data?.error) {
         setResponsesError(
@@ -2163,6 +2221,41 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                       ? response.textResponse
                                       : "（記入なし）"}
                                   </p>
+                                </div>
+                                <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
+                                  <p className="text-xs font-semibold text-muted-foreground">
+                                    リッカード式の選択肢で回答し直す
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {RESPONSE_CHOICES.map((choice) => {
+                                      const isDisabled =
+                                        isPending ||
+                                        isUpdating ||
+                                        isLoading ||
+                                        choice.value === response.value;
+                                      return (
+                                        <button
+                                          key={choice.value}
+                                          type="button"
+                                          onClick={() =>
+                                            handleConvertFreeTextToScale(
+                                              response.statementId,
+                                              choice.value,
+                                            )
+                                          }
+                                          disabled={isDisabled}
+                                          className={cn(
+                                            "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            choice.idleClass,
+                                            isDisabled && "opacity-70",
+                                          )}
+                                        >
+                                          <span>{choice.emoji}</span>
+                                          <span>{choice.label}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                                 {isEditingFreeText && (
                                   <div className="mt-3 space-y-3 rounded-lg border border-indigo-100 bg-white/80 p-3 shadow-inner">
