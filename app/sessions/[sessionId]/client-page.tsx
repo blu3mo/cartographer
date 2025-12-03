@@ -2256,26 +2256,104 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                               response.statementId,
                             );
                             return (
-                              <div
-                                key={item.key}
-                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm ring-1 ring-transparent transition hover:ring-emerald-300"
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="space-y-1">
-                                    <p className="text-sm font-medium text-foreground">
-                                      {response.statementText}
-                                    </p>
-                                    {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
-                                      自由記述
-                                    </span> */}
-                                  </div>
-                                </div>
-                                <div className="mt-3 rounded-md border border-dashed border-border/70 bg-background px-3 py-2 shadow-inner">
-                                  <div className="flex items-start gap-3">
-                                    {/* <span className="mt-0.5 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 whitespace-nowrap">
-                                      自由記述
-                                    </span> */}
-                                    <div className="flex flex-1 items-start justify-between gap-3">
+                          <div
+                            key={item.key}
+                            className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm ring-1 ring-transparent transition hover:ring-emerald-300"
+                          >
+                            {/* {isExpandedHistory && (
+                              <div className="mb-2 flex justify-end">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setExpandedHistoryIds((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(response.statementId);
+                                      return next;
+                                    });
+                                    setEditingTextMap((prev) => ({
+                                      ...prev,
+                                      [response.statementId]:
+                                        response.textResponse ?? "",
+                                    }));
+                                  }}
+                                  disabled={isPending || isUpdating}
+                                >
+                                  閉じる
+                                </Button>
+                              </div>
+                            )} */}
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium text-foreground">
+                                  {response.statementText}
+                                </p>
+                                {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
+                                  自由記述
+                                </span> */}
+                              </div>
+                            </div>
+                            <div className="mt-3 rounded-md border border-dashed border-border/70 bg-background px-3 py-2 shadow-inner">
+                              <div className="flex items-start gap-3">
+                                {/* <span className="mt-0.5 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 whitespace-nowrap">
+                                  自由記述
+                                </span> */}
+                                <div className="flex flex-1 items-start justify-between gap-3">
+                                  {isExpandedHistory ? (
+                                    <div className="flex-1 space-y-2">
+                                      <textarea
+                                        value={editingText}
+                                        onChange={(event) =>
+                                          setEditingTextMap((prev) => ({
+                                            ...prev,
+                                            [response.statementId]:
+                                              event.target.value,
+                                          }))
+                                        }
+                                        rows={3}
+                                        className="w-full resize-y rounded-md border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2"
+                                        placeholder="内容を修正してください"
+                                        disabled={isPending || isUpdating}
+                                      />
+                                      <div className="flex justify-end gap-2">
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            setExpandedHistoryIds((prev) => {
+                                              const next = new Set(prev);
+                                              next.delete(response.statementId);
+                                              return next;
+                                            })
+                                          }
+                                          disabled={isPending || isUpdating}
+                                        >
+                                          編集を閉じる
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          onClick={() =>
+                                            handleSubmitFreeTextUpdate(
+                                              response.statementId,
+                                              editingText,
+                                            )
+                                          }
+                                          disabled={
+                                            isPending ||
+                                            isUpdating ||
+                                            editingText.trim().length === 0
+                                          }
+                                          isLoading={isUpdating}
+                                        >
+                                          更新する
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
                                       <p className="mb-0 flex-1 max-w-[440px] whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
                                         {response.textResponse?.trim().length
                                           ? response.textResponse.length > 120
@@ -2296,9 +2374,11 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                         <Pencil className="h-4 w-4" />
                                         <span>編集する</span>
                                       </Button>
-                                    </div>
-                                  </div>
+                                    </>
+                                  )}
                                 </div>
+                              </div>
+                            </div>
                                 {isExpandedHistory && (
                                   <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
                                     <div className="flex items-center justify-between">
@@ -2405,7 +2485,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                             )}
                                           </div>
                                         )}
-                                        <div className="mt-3 space-y-2 pt-2">
+                                        {/* <div className="mt-3 space-y-2 pt-2">
                                           <textarea
                                             value={editingText}
                                             onChange={(event) =>
@@ -2440,7 +2520,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                               自由記述を送信
                                             </Button>
                                           </div>
-                                        </div>
+                                        </div> */}
                                       </div>
                                     </div>
                                   </div>
