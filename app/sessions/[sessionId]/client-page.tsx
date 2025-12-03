@@ -2182,9 +2182,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                       <p className="text-sm font-medium text-foreground">
                                         {response.statementText}
                                       </p>
-                                    <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
+                                    {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
                                       自由記述
-                                    </span>
+                                    </span> */}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <Button
@@ -2204,10 +2204,15 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     </Button>
                                   </div>
                                 </div>
-                                <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2">
-                                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                                <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2 flex items-start gap-3">
+                                  <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 mt-0.5 whitespace-nowrap">
+                                    自由記述
+                                  </span>
+                                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground mb-0 max-w-[400px] break-words">
                                     {response.textResponse?.trim().length
-                                      ? response.textResponse
+                                      ? (response.textResponse.length > 120
+                                          ? response.textResponse.slice(0, 120) + "..."
+                                          : response.textResponse)
                                       : "（記入なし）"}
                                   </p>
                                 </div>
@@ -2477,53 +2482,57 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 </p>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                   {RESPONSE_CHOICES.map((choice) => {
-                                    const isActive =
-                                      response.value === choice.value;
-                                    const isExpandedNeutral =
-                                      choice.value === 0 &&
+                                    const isNeutralExpanded =
                                       expandedHistoryIds.has(
                                         response.statementId,
                                       );
+                                    const isActiveValue =
+                                      response.value === choice.value;
+                                    const shouldHighlight =
+                                      choice.value === 0
+                                        ? isNeutralExpanded
+                                        : !isNeutralExpanded && isActiveValue;
                                     const isDisabled =
                                       isPending ||
                                       isUpdating ||
                                       isLoading ||
-                                      (choice.value !== 0 && isActive);
+                                      (choice.value !== 0 && isActiveValue);
 
-                                      // 「わからない」の場合、展開状態に応じてラベルを変更
-                                      const displayLabel = choice.value === 0
-                                        ? expandedHistoryIds.has(response.statementId)
+                                    // 「わからない」の場合、展開状態に応じてラベルを変更
+                                    const displayLabel =
+                                      choice.value === 0
+                                        ? isNeutralExpanded
                                           ? "わからない▲"
                                           : "わからない▼"
                                         : choice.label;
 
-                                      const handleClick =
-                                        choice.value === 0
-                                          ? () => handleToggleHistoryExpand(response)
-                                          : () =>
-                                              handleUpdateResponse(
-                                                response.statementId,
-                                                choice.value,
-                                              );
+                                    const handleClick =
+                                      choice.value === 0
+                                        ? () => handleToggleHistoryExpand(response)
+                                        : () =>
+                                            handleUpdateResponse(
+                                              response.statementId,
+                                              choice.value,
+                                            );
 
-                                      return (
-                                        <button
-                                          key={choice.value}
-                                          type="button"
-                                          onClick={handleClick}
-                                          disabled={isDisabled}
+                                    return (
+                                      <button
+                                        key={choice.value}
+                                        type="button"
+                                        onClick={handleClick}
+                                        disabled={isDisabled}
                                         className={cn(
                                           "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                          isActive || isExpandedNeutral
+                                          shouldHighlight
                                             ? choice.activeClass
                                             : "border-dashed border-border/70 bg-transparent text-muted-foreground hover:bg-white hover:text-foreground",
                                           (isPending || isUpdating) &&
                                             "opacity-70",
                                         )}
-                                        >
-                                          <span>{choice.emoji}</span>
-                                          <span>{displayLabel}</span>
-                                        </button>
+                                      >
+                                        <span>{choice.emoji}</span>
+                                        <span>{displayLabel}</span>
+                                      </button>
                                     );
                                   })}
                                 </div>
