@@ -170,6 +170,7 @@ type NeutralOptionsCardProps = {
   disableFreeText?: boolean;
   disableFreeTextSubmit?: boolean;
   isSubmittingFreeText?: boolean;
+  hideFreeTextHeader?: boolean;
 };
 
 function NeutralOptionsCard({
@@ -185,6 +186,7 @@ function NeutralOptionsCard({
   disableFreeText,
   disableFreeTextSubmit,
   isSubmittingFreeText,
+  hideFreeTextHeader,
 }: NeutralOptionsCardProps) {
   return (
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
@@ -223,14 +225,16 @@ function NeutralOptionsCard({
       )}
 
       <div className="pt-3 border-t border-border/60 space-y-3">
-        <div>
-          <p className="text-sm font-semibold text-foreground mb-1">
-            自由記述で回答する
-          </p>
-          <p className="text-xs text-muted-foreground">
-            選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
-          </p>
-        </div>
+        {!hideFreeTextHeader && (
+          <div>
+            <p className="text-sm font-semibold text-foreground mb-1">
+              自由記述で回答する
+            </p>
+            <p className="text-xs text-muted-foreground">
+              選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
+            </p>
+          </div>
+        )}
         <textarea
           value={freeTextValue}
           onChange={(event) => onChangeFreeText(event.target.value)}
@@ -2352,7 +2356,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                               {SUGGESTIONS_DESCRIPTION}
                                             </p>
                                           </div> */}
-                                          （自分はこの質問に対して）確信が持てない・情報を把握していない
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleSubmitFreeTextUpdate(
+                                                response.statementId,
+                                                "（自分はこの質問に対して）確信が持てない・情報を把握していない",
+                                                { forceValueZero: true },
+                                              )
+                                            }
+                                            disabled={isPending || isUpdating || isLoading}
+                                            className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-left text-sm font-semibold text-amber-700 transition-all hover:border-amber-300 hover:bg-amber-50 disabled:opacity-60"
+                                          >
+                                            （自分はこの質問に対して）確信が持てない・情報を把握していない
+                                          </button>
                                         </div>
                                         {loadingEditingSuggestions.has(
                                           response.statementId,
@@ -2389,9 +2406,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                           </div>
                                         )}
                                         <div className="mt-3 space-y-2 pt-2">
-                                          <p className="text-xs font-semibold text-foreground">
-                                            自由記述で回答する
-                                          </p>
                                           <textarea
                                             value={editingText}
                                             onChange={(event) =>
@@ -2856,6 +2870,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                       disableSuggestions={
                                         isPending || isUpdating || isLoading
                                       }
+                                      hideFreeTextHeader
                                       onSelectSuggestion={(text) =>
                                         handleSubmitFreeTextUpdate(
                                           response.statementId,
