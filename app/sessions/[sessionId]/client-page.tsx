@@ -2511,7 +2511,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                             "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
                                             isActive
                                               ? choice.activeClass
-                                              : choice.idleClass,
+                                              : "border-dashed border-border/70 bg-transparent text-muted-foreground hover:bg-white hover:text-foreground",
                                             (isPending || isUpdating) &&
                                               "opacity-70",
                                           )}
