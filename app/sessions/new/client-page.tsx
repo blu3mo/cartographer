@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
-import { ArrowUpRight, Bot, Loader2, Sparkles } from "lucide-react";
+import { ArrowUpRight, Loader2, Sparkles } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -91,16 +91,10 @@ const inferFieldFromMessage = (message: string): SuggestionField => {
   return "recognitionFocus";
 };
 
-const SUGGESTION_TITLES: Record<SuggestionField, string> = {
-  recognitionPurpose: "目的がまだ曖昧です。もう少し詳しく教えてください",
-  recognitionFocus: "どの項目の認識をすり合わせたいか具体化しましょう",
-  backgroundInfo: "背景や状況をもう少し具体的に教えてください",
-};
-
 const renderSuggestionCard = (
   field: SuggestionField,
   suggestions: Suggestion[],
-  onClick: (field: SuggestionField) => void,
+  _onClick: (field: SuggestionField) => void,
 ) => {
   const fieldSuggestions = suggestions.filter(
     (suggestion) => suggestion.field === field,
@@ -124,12 +118,12 @@ const renderSuggestionCard = (
                     onClick={() => onClick(suggestion.field)}
                     className="w-full rounded-lg bg-blue-100/60 px-3 py-2 text-left transition hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   > */}
-                    <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-blue-700">
-                      {FIELD_META[suggestion.field]?.label ?? "参考"}
-                    </span>
-                    <span className="mt-1 block text-sm text-blue-900 leading-relaxed">
-                      {suggestion.message}
-                    </span>
+                  <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    {FIELD_META[suggestion.field]?.label ?? "参考"}
+                  </span>
+                  <span className="mt-1 block text-sm text-blue-900 leading-relaxed">
+                    {suggestion.message}
+                  </span>
                   {/* </button> */}
                 </li>
               ))}
@@ -224,8 +218,7 @@ function NewSessionContent() {
       );
 
       const normalizedSuggestions: Suggestion[] = (
-        response.data.suggestions ||
-        []
+        response.data.suggestions || []
       ).map((item) => {
         if (typeof item === "string") {
           return {
@@ -259,7 +252,7 @@ function NewSessionContent() {
         suggestionAbortRef.current.abort();
       }
     };
-  }, [backgroundInfo, recognitionFocus, recognitionPurpose, fetchSuggestions]);
+  }, [fetchSuggestions]);
 
   const handleSuggestionClick = (field: SuggestionField) => {
     const fieldMeta = FIELD_META[field];
