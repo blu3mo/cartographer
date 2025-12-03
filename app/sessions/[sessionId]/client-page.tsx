@@ -154,8 +154,6 @@ const FALLBACK_SUGGESTIONS = [
   "一部には賛成だが全体には反対",
   "今は判断できない",
 ];
-const SUGGESTIONS_TITLE = "AIのおすすめ";
-const SUGGESTIONS_DESCRIPTION = "参考文例から自由記述に切り替えられます。";
 
 type NeutralOptionsCardProps = {
   isLoadingSuggestions: boolean;
@@ -1268,10 +1266,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     });
   };
 
-  const handleScrollToCurrentQuestion = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   const handleInfoClick = () => {
     setShowAlternatives(true);
     requestAnimationFrame(() => {
@@ -1342,21 +1336,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     } finally {
       removeUpdatingResponseId(statementId);
     }
-  };
-
-  const handleStartFreeTextEdit = (response: ParticipantResponse) => {
-    setResponsesError(null);
-    setEditingFreeTextIds((prev) => {
-      const next = new Set(prev);
-      next.add(response.statementId);
-      return next;
-    });
-    setEditingTextMap((prev) => ({
-      ...prev,
-      [response.statementId]:
-        prev[response.statementId] ?? response.textResponse ?? "",
-    }));
-    fetchEditingSuggestions(response.statementId);
   };
 
   const handleCancelFreeTextEdit = (statementId: string) => {
@@ -1529,29 +1508,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     } finally {
       removeUpdatingResponseId(statementId);
     }
-  };
-
-  const handleNeutralReanswer = (statementId: string) => {
-    setResponsesError(null);
-    setNeutralEditIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(statementId)) {
-        next.delete(statementId);
-      } else {
-        next.add(statementId);
-      }
-      return next;
-    });
-    setExpandedHistoryIds((prev) => {
-      const next = new Set(prev);
-      next.add(statementId);
-      return next;
-    });
-    setNeutralTextMap((prev) => ({
-      ...prev,
-      [statementId]: prev[statementId] ?? "",
-    }));
-    fetchEditingSuggestions(statementId);
   };
 
   const handleToggleHistoryExpand = (response: ParticipantResponse) => {
@@ -2131,9 +2087,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                       }
                       disableNeutralButton={isLoading || isSubmittingFreeText}
                       disableSuggestions={isLoading || isSubmittingFreeText}
-                      onSelectSuggestion={(text) =>
-                        handleSuggestionClick(text)
-                      }
+                      onSelectSuggestion={(text) => handleSuggestionClick(text)}
                       freeTextValue={freeTextInput}
                       onChangeFreeText={(text) => setFreeTextInput(text)}
                       onSubmitFreeText={() =>
@@ -2193,7 +2147,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-2 pb-6 space-y-4">
-
                   {(responsesError || reflectionsError) && (
                     <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
                       {responsesError && (
@@ -2250,17 +2203,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 response.statementId,
                               );
                             const editSuggestions =
-                              editingSuggestionsMap[response.statementId] ??
-                              [];
+                              editingSuggestionsMap[response.statementId] ?? [];
                             const isExpandedHistory = expandedHistoryIds.has(
                               response.statementId,
                             );
                             return (
-                          <div
-                            key={item.key}
-                            className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm ring-1 ring-transparent transition hover:ring-emerald-300"
-                          >
-                            {/* {isExpandedHistory && (
+                              <div
+                                key={item.key}
+                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm ring-1 ring-transparent transition hover:ring-emerald-300"
+                              >
+                                {/* {isExpandedHistory && (
                               <div className="mb-2 flex justify-end">
                                 <Button
                                   type="button"
@@ -2284,101 +2236,113 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 </Button>
                               </div>
                             )} */}
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="space-y-1">
-                                <p className="text-sm font-medium text-foreground">
-                                  {response.statementText}
-                                </p>
-                                {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-medium text-foreground">
+                                      {response.statementText}
+                                    </p>
+                                    {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
                                   自由記述
                                 </span> */}
-                              </div>
-                            </div>
-                            <div className="mt-3 rounded-md border border-dashed border-border/70 bg-background px-3 py-2 shadow-inner">
-                              <div className="flex items-start gap-3">
-                                {/* <span className="mt-0.5 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 whitespace-nowrap">
-                                  自由記述
-                                </span> */}
-                                <div className="flex flex-1 items-start justify-between gap-3">
-                                  {isExpandedHistory ? (
-                                    <div className="flex-1 space-y-2">
-                                      <textarea
-                                        value={editingText}
-                                        onChange={(event) =>
-                                          setEditingTextMap((prev) => ({
-                                            ...prev,
-                                            [response.statementId]:
-                                              event.target.value,
-                                          }))
-                                        }
-                                        rows={3}
-                                        className="w-full resize-y rounded-md border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2"
-                                        placeholder="内容を修正してください"
-                                        disabled={isPending || isUpdating}
-                                      />
-                                      <div className="flex justify-end gap-2">
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() =>
-                                            setExpandedHistoryIds((prev) => {
-                                              const next = new Set(prev);
-                                              next.delete(response.statementId);
-                                              return next;
-                                            })
-                                          }
-                                          disabled={isPending || isUpdating}
-                                        >
-                                          編集を閉じる
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          onClick={() =>
-                                            handleSubmitFreeTextUpdate(
-                                              response.statementId,
-                                              editingText,
-                                            )
-                                          }
-                                          disabled={
-                                            isPending ||
-                                            isUpdating ||
-                                            editingText.trim().length === 0
-                                          }
-                                          isLoading={isUpdating}
-                                        >
-                                          更新する
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <p className="mb-0 flex-1 max-w-[440px] whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
-                                        {response.textResponse?.trim().length
-                                          ? response.textResponse.length > 120
-                                            ? `${response.textResponse.slice(0, 120)}...`
-                                            : response.textResponse
-                                          : "（記入なし）"}
-                                      </p>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleToggleHistoryExpand(response)}
-                                        disabled={isPending || isUpdating}
-                                        aria-label={
-                                          isExpandedHistory ? "編集を閉じる" : "編集する"
-                                        }
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                        <span>編集する</span>
-                                      </Button>
-                                    </>
-                                  )}
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
+                                <div className="mt-3 rounded-md border border-dashed border-border/70 bg-background px-3 py-2 shadow-inner">
+                                  <div className="flex items-start gap-3">
+                                    {/* <span className="mt-0.5 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 whitespace-nowrap">
+                                  自由記述
+                                </span> */}
+                                    <div className="flex flex-1 items-start justify-between gap-3">
+                                      {isExpandedHistory ? (
+                                        <div className="flex-1 space-y-2">
+                                          <textarea
+                                            value={editingText}
+                                            onChange={(event) =>
+                                              setEditingTextMap((prev) => ({
+                                                ...prev,
+                                                [response.statementId]:
+                                                  event.target.value,
+                                              }))
+                                            }
+                                            rows={3}
+                                            className="w-full resize-y rounded-md border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2"
+                                            placeholder="内容を修正してください"
+                                            disabled={isPending || isUpdating}
+                                          />
+                                          <div className="flex justify-end gap-2">
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                setExpandedHistoryIds(
+                                                  (prev) => {
+                                                    const next = new Set(prev);
+                                                    next.delete(
+                                                      response.statementId,
+                                                    );
+                                                    return next;
+                                                  },
+                                                )
+                                              }
+                                              disabled={isPending || isUpdating}
+                                            >
+                                              編集を閉じる
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              onClick={() =>
+                                                handleSubmitFreeTextUpdate(
+                                                  response.statementId,
+                                                  editingText,
+                                                )
+                                              }
+                                              disabled={
+                                                isPending ||
+                                                isUpdating ||
+                                                editingText.trim().length === 0
+                                              }
+                                              isLoading={isUpdating}
+                                            >
+                                              更新する
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <p className="mb-0 flex-1 max-w-[440px] whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
+                                            {response.textResponse?.trim()
+                                              .length
+                                              ? response.textResponse.length >
+                                                120
+                                                ? `${response.textResponse.slice(0, 120)}...`
+                                                : response.textResponse
+                                              : "（記入なし）"}
+                                          </p>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                              handleToggleHistoryExpand(
+                                                response,
+                                              )
+                                            }
+                                            disabled={isPending || isUpdating}
+                                            aria-label={
+                                              isExpandedHistory
+                                                ? "編集を閉じる"
+                                                : "編集する"
+                                            }
+                                          >
+                                            <Pencil className="h-4 w-4" />
+                                            <span>編集する</span>
+                                          </Button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
                                 {isExpandedHistory && (
                                   <div className="mt-3 rounded-md border border-dashed border-border/70 bg-white px-3 py-2 shadow-inner">
                                     <div className="flex items-center justify-between">
@@ -2445,7 +2409,11 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                                 { forceValueZero: true },
                                               )
                                             }
-                                            disabled={isPending || isUpdating || isLoading}
+                                            disabled={
+                                              isPending ||
+                                              isUpdating ||
+                                              isLoading
+                                            }
                                             className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-left text-sm font-semibold text-amber-700 transition-all hover:border-amber-300 hover:bg-amber-50 disabled:opacity-60"
                                           >
                                             （自分はこの質問に対して）確信が持てない・情報を把握していない
@@ -2461,28 +2429,28 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                           </div>
                                         ) : (
                                           <div className="mt-2 space-y-2">
-                                            {(editingSuggestionsMap[
-                                              response.statementId
-                                            ] ?? FALLBACK_SUGGESTIONS).map(
-                                              (suggestion) => (
-                                                <button
-                                                  key={suggestion}
-                                                  type="button"
-                                                  onClick={() =>
-                                                    handleSubmitFreeTextUpdate(
-                                                      response.statementId,
-                                                      suggestion,
-                                                    )
-                                                  }
-                                                  disabled={
-                                                    isPending || isUpdating
-                                                  }
-                                                  className="w-full rounded-md border border-border bg-card px-3 py-2 text-left text-sm font-medium text-foreground transition-all hover:border-indigo-200 hover:bg-indigo-50 disabled:opacity-60"
-                                                >
-                                                  {suggestion}
-                                                </button>
-                                              ),
-                                            )}
+                                            {(
+                                              editingSuggestionsMap[
+                                                response.statementId
+                                              ] ?? FALLBACK_SUGGESTIONS
+                                            ).map((suggestion) => (
+                                              <button
+                                                key={suggestion}
+                                                type="button"
+                                                onClick={() =>
+                                                  handleSubmitFreeTextUpdate(
+                                                    response.statementId,
+                                                    suggestion,
+                                                  )
+                                                }
+                                                disabled={
+                                                  isPending || isUpdating
+                                                }
+                                                className="w-full rounded-md border border-border bg-card px-3 py-2 text-left text-sm font-medium text-foreground transition-all hover:border-indigo-200 hover:bg-indigo-50 disabled:opacity-60"
+                                              >
+                                                {suggestion}
+                                              </button>
+                                            ))}
                                           </div>
                                         )}
                                         {/* <div className="mt-3 space-y-2 pt-2">
@@ -2620,20 +2588,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                   </div>
                                 )}
                               </div>
+                            );
+                          }
+
+                          const isExpandedHistory = expandedHistoryIds.has(
+                            response.statementId,
                           );
-                        }
+                          const shouldShowResponseChoices =
+                            response.value !== 0 || isExpandedHistory;
 
-                        const isExpandedHistory = expandedHistoryIds.has(
-                          response.statementId,
-                        );
-                        const shouldShowResponseChoices =
-                          response.value !== 0 || isExpandedHistory;
-
-                        return (
-                          <div
-                            key={item.key}
-                            className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                          >
+                          return (
+                            <div
+                              key={item.key}
+                              className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
+                            >
                               <div className="flex items-center justify-between gap-3">
                                 <p className="text-sm font-bold text-foreground">
                                   {response.statementText}
@@ -2666,7 +2634,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                         response.value === choice.value;
                                       const shouldHighlight =
                                         choice.value === 0
-                                          ? isNeutralExpanded || isNeutralSelected
+                                          ? isNeutralExpanded ||
+                                            isNeutralSelected
                                           : !isNeutralExpanded && isActiveValue;
                                       const isDisabled =
                                         isPending ||
@@ -2684,7 +2653,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
                                       const handleClick =
                                         choice.value === 0
-                                          ? () => handleToggleHistoryExpand(response)
+                                          ? () =>
+                                              handleToggleHistoryExpand(
+                                                response,
+                                              )
                                           : () =>
                                               handleUpdateResponse(
                                                 response.statementId,
@@ -2715,39 +2687,39 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 )}
                                 {response.value === 0 && (
                                   // <div className="mt-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 shadow-inner">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="space-y-1">
-                                        {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-1">
+                                      {/* <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
                                           自由記述
                                         </span> */}
-                                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                                          {response.textResponse?.trim().length
-                                            ? response.textResponse
-                                            : "（自分はこの質問に対して）確信が持てない・情報を把握していない"}
-                                        </p>
-                                      </div>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleToggleHistoryExpand(response)
-                                        }
-                                        disabled={isPending || isUpdating}
-                                        aria-label={
-                                          isExpandedHistory
-                                            ? "編集を閉じる"
-                                            : "編集する"
-                                        }
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                        <span>
-                                          {isExpandedHistory
-                                            ? "編集を閉じる"
-                                            : "編集する"}
-                                        </span>
-                                      </Button>
+                                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                                        {response.textResponse?.trim().length
+                                          ? response.textResponse
+                                          : "（自分はこの質問に対して）確信が持てない・情報を把握していない"}
+                                      </p>
                                     </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleToggleHistoryExpand(response)
+                                      }
+                                      disabled={isPending || isUpdating}
+                                      aria-label={
+                                        isExpandedHistory
+                                          ? "編集を閉じる"
+                                          : "編集する"
+                                      }
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                      <span>
+                                        {isExpandedHistory
+                                          ? "編集を閉じる"
+                                          : "編集する"}
+                                      </span>
+                                    </Button>
+                                  </div>
                                   // </div>
                                 )}
                               </div>
@@ -2783,9 +2755,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                         isPending ||
                                         isUpdating ||
                                         isLoading ||
-                                        neutralEditIds.has(
-                                          response.statementId,
-                                        )
+                                        neutralEditIds.has(response.statementId)
                                       }
                                     >
                                       通常の「わからない」で送信
@@ -2804,26 +2774,26 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     </div>
                                   ) : (
                                     <div className="space-y-2">
-                                      {(editingSuggestionsMap[
-                                        response.statementId
-                                      ] ?? FALLBACK_SUGGESTIONS).map(
-                                        (suggestion) => (
-                                          <button
-                                            key={suggestion}
-                                            type="button"
-                                            onClick={() =>
-                                              handleSubmitFreeTextUpdate(
-                                                response.statementId,
-                                                suggestion,
-                                              )
-                                            }
-                                            disabled={isPending || isUpdating}
-                                            className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-left text-sm font-medium text-foreground transition-all disabled:opacity-60"
-                                          >
-                                            {suggestion}
-                                          </button>
-                                        ),
-                                      )}
+                                      {(
+                                        editingSuggestionsMap[
+                                          response.statementId
+                                        ] ?? FALLBACK_SUGGESTIONS
+                                      ).map((suggestion) => (
+                                        <button
+                                          key={suggestion}
+                                          type="button"
+                                          onClick={() =>
+                                            handleSubmitFreeTextUpdate(
+                                              response.statementId,
+                                              suggestion,
+                                            )
+                                          }
+                                          disabled={isPending || isUpdating}
+                                          className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-left text-sm font-medium text-foreground transition-all disabled:opacity-60"
+                                        >
+                                          {suggestion}
+                                        </button>
+                                      ))}
                                     </div>
                                   )}
                                   <div className="space-y-2 pt-1">
@@ -2831,7 +2801,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                       自由記述を追加・修正
                                     </p>
                                     <textarea
-                                      value={neutralTextMap[response.statementId] ?? ""}
+                                      value={
+                                        neutralTextMap[response.statementId] ??
+                                        ""
+                                      }
                                       onChange={(event) =>
                                         setNeutralTextMap((prev) => ({
                                           ...prev,
@@ -2874,9 +2847,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                         disabled={
                                           isPending ||
                                           isUpdating ||
-                                          (neutralTextMap[
-                                            response.statementId
-                                          ] ?? ""
+                                          (
+                                            neutralTextMap[
+                                              response.statementId
+                                            ] ?? ""
                                           ).trim().length === 0
                                         }
                                         isLoading={isUpdating}
@@ -2943,9 +2917,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                         )
                                       }
                                       disableNeutralButton={
-                                        isPending ||
-                                        isUpdating ||
-                                        isLoading
+                                        isPending || isUpdating || isLoading
                                       }
                                       disableSuggestions={
                                         isPending || isUpdating || isLoading
@@ -2958,7 +2930,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                         )
                                       }
                                       freeTextValue={
-                                        editingTextMap[response.statementId] ?? ""
+                                        editingTextMap[response.statementId] ??
+                                        ""
                                       }
                                       onChangeFreeText={(text) =>
                                         setEditingTextMap((prev) => ({
@@ -2978,8 +2951,11 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                       disableFreeTextSubmit={
                                         isPending ||
                                         isUpdating ||
-                                        (editingTextMap[response.statementId] ??
-                                          "").trim().length === 0
+                                        (
+                                          editingTextMap[
+                                            response.statementId
+                                          ] ?? ""
+                                        ).trim().length === 0
                                       }
                                       isSubmittingFreeText={isUpdating}
                                     />
