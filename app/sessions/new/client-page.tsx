@@ -1,9 +1,9 @@
 "use client";
 
-import axios from "axios";
-import { ArrowUpRight, Loader2, Sparkles } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import axios from "axios";
+import { ArrowUpRight, Bot, Loader2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -91,6 +91,12 @@ const inferFieldFromMessage = (message: string): SuggestionField => {
   return "recognitionFocus";
 };
 
+const SUGGESTION_TITLES: Record<SuggestionField, string> = {
+  recognitionPurpose: "目的がまだ曖昧です。もう少し詳しく教えてください",
+  recognitionFocus: "どの項目の認識をすり合わせたいか具体化しましょう",
+  backgroundInfo: "背景や状況をもう少し具体的に教えてください",
+};
+
 const renderSuggestionCard = (
   field: SuggestionField,
   suggestions: Suggestion[],
@@ -113,15 +119,18 @@ const renderSuggestionCard = (
             <ul className="space-y-2">
               {fieldSuggestions.map((suggestion) => (
                 <li key={`${suggestion.field}-${suggestion.message}`}>
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => onClick(suggestion.field)}
                     className="w-full rounded-lg bg-blue-100/60 px-3 py-2 text-left transition hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  >
-                    <p className="text-sm leading-relaxed text-blue-900">
+                  > */}
+                    <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-blue-700">
+                      {FIELD_META[suggestion.field]?.label ?? "参考"}
+                    </span>
+                    <span className="mt-1 block text-sm text-blue-900 leading-relaxed">
                       {suggestion.message}
-                    </p>
-                  </button>
+                    </span>
+                  {/* </button> */}
                 </li>
               ))}
             </ul>
@@ -132,273 +141,361 @@ const renderSuggestionCard = (
   );
 };
 
-function SuggestionsLoader({
-  onSuggestions,
-}: {
-  onSuggestions: (suggestions: Suggestion[]) => void;
-}) {
-  const searchParams = useSearchParams();
-  const prompt = searchParams.get("prompt");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const buildGoalFromInputs = (focus: string, purpose: string) =>
+  `【何の認識を洗い出しますか？】${focus}\n【何のために洗い出しますか？】${purpose}`;
 
-  useEffect(() => {
-    if (!prompt) return;
-
-    const fetchSuggestions = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.post("/api/sessions/form-suggestions", {
-          prompt,
-        });
-        const messages = response.data?.suggestions ?? [];
-        const parsed: Suggestion[] = (messages as string[]).map((message) => ({
-          field: inferFieldFromMessage(message),
-          message,
-        }));
-        onSuggestions(parsed);
-      } catch (err) {
-        console.error("Failed to load suggestions:", err);
-        setError("提案の取得に失敗しました");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchSuggestions();
-  }, [prompt, onSuggestions]);
-
-  if (!prompt) return null;
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-blue-900">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        提案を読み込んでいます…
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <p className="text-sm text-red-600">
-        提案の読み込みに失敗しました。もう一度お試しください。
-      </p>
-    );
-  }
-  return null;
-}
-
-export default function NewSessionPage() {
+function NewSessionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { userId, isLoading } = useUserId();
-
+  const { userId, isLoading: userLoading } = useUserId();
   const [title, setTitle] = useState(searchParams.get("title") || "");
-  const [goal, setGoal] = useState(searchParams.get("purpose") || "");
-  const [context, setContext] = useState(searchParams.get("background") || "");
-  const [creating, setCreating] = useState(false);
+  const [backgroundInfo, setBackgroundInfo] = useState(
+    searchParams.get("background") || "",
+  );
+  const [recognitionFocus, setRecognitionFocus] = useState(
+    searchParams.get("topic") || "",
+  );
+  const [recognitionPurpose, setRecognitionPurpose] = useState(
+    searchParams.get("purpose") || "",
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  const handleApplySuggestion = useCallback((field: SuggestionField) => {
-    const meta = FIELD_META[field];
-    const element = document.getElementById(
-      meta.elementId,
-    ) as HTMLTextAreaElement | null;
-    element?.focus();
-  }, []);
-
-  const handleSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      if (!userId) return;
-
-      setCreating(true);
-      setError(null);
-
-      try {
-        const response = await axios.post(
-          "/api/sessions",
-          { title, goal, context },
-          {
-            headers: createAuthorizationHeader(userId),
-          },
-        );
-
-        const { id, adminAccessToken } = response.data.session;
-        router.push(`/sessions/${id}/${adminAccessToken}`);
-      } catch (err) {
-        console.error("Failed to create session:", err);
-        setError("セッションの作成に失敗しました。もう一度お試しください。");
-      } finally {
-        setCreating(false);
-      }
-    },
-    [userId, title, goal, context, router],
-  );
+  const [highlightedField, setHighlightedField] =
+    useState<SuggestionField | null>(null);
+  const lastFormStateRef = useRef<string>("");
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const suggestionAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey && event.key === "Enter") {
-        formRef.current?.requestSubmit();
-      }
+    document.title = "新しいセッションを作成 - 倍速会議";
+    return () => {
+      document.title = "倍速会議 - 認識を可視化し、合意形成を促進する";
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  if (isLoading || !userId) {
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const fetchSuggestions = useCallback(async () => {
+    const currentFormState = JSON.stringify({
+      backgroundInfo,
+      recognitionFocus,
+      recognitionPurpose,
+    });
+
+    if (currentFormState === lastFormStateRef.current) {
+      return;
+    }
+
+    lastFormStateRef.current = currentFormState;
+
+    if (
+      !backgroundInfo.trim() &&
+      !recognitionFocus.trim() &&
+      !recognitionPurpose.trim()
+    ) {
+      setSuggestions([]);
+      return;
+    }
+
+    try {
+      if (suggestionAbortRef.current) {
+        suggestionAbortRef.current.abort();
+      }
+      const controller = new AbortController();
+      suggestionAbortRef.current = controller;
+
+      const response = await axios.post<{
+        suggestions: Array<Suggestion | string>;
+      }>(
+        "/api/sessions/form-suggestions",
+        {
+          backgroundInfo,
+          recognitionFocus,
+          recognitionPurpose,
+        },
+        { signal: controller.signal },
+      );
+
+      const normalizedSuggestions: Suggestion[] = (
+        response.data.suggestions ||
+        []
+      ).map((item) => {
+        if (typeof item === "string") {
+          return {
+            field: inferFieldFromMessage(item),
+            message: item,
+          };
+        }
+        return {
+          field: inferFieldFromMessage(item.message),
+          ...item,
+        };
+      });
+
+      setSuggestions(normalizedSuggestions);
+    } catch (err) {
+      if ((err as { name?: string }).name === "CanceledError") {
+        return;
+      }
+      console.error("Failed to fetch suggestions:", err);
+    }
+  }, [backgroundInfo, recognitionFocus, recognitionPurpose]);
+
+  useEffect(() => {
+    const debounceHandle = setTimeout(() => {
+      void fetchSuggestions();
+    }, 350);
+
+    return () => {
+      clearTimeout(debounceHandle);
+      if (suggestionAbortRef.current) {
+        suggestionAbortRef.current.abort();
+      }
+    };
+  }, [backgroundInfo, recognitionFocus, recognitionPurpose, fetchSuggestions]);
+
+  const handleSuggestionClick = (field: SuggestionField) => {
+    const fieldMeta = FIELD_META[field];
+    if (!fieldMeta) return;
+
+    const target = document.getElementById(fieldMeta.elementId);
+    if (
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLInputElement
+    ) {
+      target.focus();
+    }
+
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    setHighlightedField(field);
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedField(null);
+    }, 2500);
+  };
+
+  const textareaClasses = (field: SuggestionField) =>
+    [
+      "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y",
+      highlightedField === field ? "ring-2 ring-blue-400 border-blue-400" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+  const renderFieldAid = (field: SuggestionField, fallback: string) => {
+    const hasSuggestions = suggestions.some(
+      (suggestion) => suggestion.field === field,
+    );
+    if (!hasSuggestions) {
+      return <p className="text-xs text-muted-foreground">{fallback}</p>;
+    }
+    return renderSuggestionCard(field, suggestions, handleSuggestionClick);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!userId) {
+      setError("User ID not available");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    const goal = buildGoalFromInputs(recognitionFocus, recognitionPurpose);
+
+    try {
+      const response = await axios.post(
+        "/api/sessions",
+        {
+          title: title.trim(),
+          context: backgroundInfo.trim(),
+          goal,
+        },
+        { headers: createAuthorizationHeader(userId) },
+      );
+
+      const sessionId = response.data.session.id;
+      const adminAccessToken = response.data.session.adminAccessToken;
+      router.push(`/sessions/${sessionId}/${adminAccessToken}`);
+    } catch (err) {
+      console.error("Failed to create session:", err);
+      setError("セッションの作成に失敗しました。もう一度お試しください。");
+      setIsSubmitting(false);
+      return;
+    }
+
+    setIsSubmitting(false);
+  };
+
+  if (userLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-white">
-      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-10 space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-            <Sparkles className="h-3.5 w-3.5" />
-            倍速会議で合意形成をはじめる
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-2xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight mb-2">
             新しいセッションを作成
           </h1>
-          <p className="text-base text-slate-600">
-            背景や目的を簡潔に入力すると、参加者の認識を集めやすくなります。
+          <p className="text-muted-foreground">
+            セッション情報をもとにAIが質問を生成します
           </p>
         </div>
 
-        <form
-          ref={formRef}
-          onSubmit={handleSubmit}
-          className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start"
-        >
-          <div className="space-y-6">
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle>セッション情報</CardTitle>
-                <CardDescription>
-                  参加者に共有される基本情報を入力してください。
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label
-                    className="text-sm font-medium text-slate-800"
-                    htmlFor="title"
-                  >
-                    タイトル
-                  </label>
-                  <Input
-                    id="title"
-                    required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="例: 24Q1 プロダクト戦略レビュー"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label
-                    className="text-sm font-medium text-slate-800"
-                    htmlFor="recognitionPurpose"
-                  >
-                    目的（ゴール）
-                  </label>
-                  <textarea
-                    id="recognitionPurpose"
-                    required
-                    value={goal}
-                    onChange={(e) => setGoal(e.target.value)}
-                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                    placeholder="例: チームで「今期やるべきこと」を合意し、OKRに落とし込む"
-                    rows={3}
-                  />
-                  <p className="text-xs text-slate-500">
-                    参加者が回答するときの判断基準になります。
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label
-                    className="text-sm font-medium text-slate-800"
-                    htmlFor="backgroundInfo"
-                  >
-                    背景・補足情報
-                  </label>
-                  <textarea
-                    id="backgroundInfo"
-                    value={context}
-                    onChange={(e) => setContext(e.target.value)}
-                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                    placeholder="例: メンバー構成やこれまでの議論経緯など"
-                    rows={5}
-                  />
-                  <p className="text-xs text-slate-500">
-                    参加者が「補足情報」を読むことで、回答の前提が揃いやすくなります。
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-500">
-                ⌘ + Enter で作成できます
+        <Card>
+          <CardHeader>
+            <CardTitle>セッション情報</CardTitle>
+            <CardDescription>
+              なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
+            </CardDescription>
+            <p className="text-xs text-muted-foreground space-y-1">
+              {/* <span className="block">
+                なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
+              </span> */}
+              <span className="block text-[11px] text-muted-foreground/80">
+                <a
+                  href="https://scrapbox.io/baisoku-kaigi/%E3%80%8C%E8%A3%9C%E8%B6%B3%E6%83%85%E5%A0%B1%E3%80%8D%E3%82%92%E3%81%9F%E3%81%8F%E3%81%95%E3%82%93%E6%9B%B8%E3%81%8F%E3%81%9F%E3%82%81%E3%81%AB%E9%9F%B3%E5%A3%B0%E5%85%A5%E5%8A%9B%E3%82%92%E6%B4%BB%E7%94%A8%E3%81%99%E3%82%8B"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 underline underline-offset-2"
+                >
+                  背景情報の入力には、AI音声入力がおすすめです
+                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                </a>
+              </span>
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label htmlFor="title" className="text-sm font-medium">
+                  セッションのタイトル
+                </label>
+                <Input
+                  type="text"
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  placeholder="例: 社内チャットツールの入れ替えに関する各メンバーの現状認識のすり合わせ"
+                />
+                <p className="text-xs text-muted-foreground">
+                  それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
+                </p>
               </div>
-              <Button type="submit" size="lg" disabled={creating}>
-                {creating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    作成中…
-                  </>
-                ) : (
-                  <>
-                    作成する
-                    <ArrowUpRight className="ml-1.5 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </div>
 
-            {error && (
-              <p className="text-sm text-red-600" role="alert">
-                {error}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <Card className="border-blue-100 bg-blue-50/60 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base text-blue-900">
-                  記入のヒント
-                </CardTitle>
-                <CardDescription className="text-sm text-blue-800">
-                  下書きを貼り付けると、項目別に改善ポイントを提案します。
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Suspense fallback={null}>
-                  <SuggestionsLoader onSuggestions={setSuggestions} />
-                </Suspense>
-                {[
+              <div className="space-y-2">
+                <label
+                  htmlFor="recognitionPurpose"
+                  className="text-sm font-medium"
+                >
+                  何のために参加者の認識を洗い出したいですか？
+                </label>
+                <textarea
+                  id="recognitionPurpose"
+                  value={recognitionPurpose}
+                  onChange={(e) => setRecognitionPurpose(e.target.value)}
+                  required
+                  rows={4}
+                  className={textareaClasses("recognitionPurpose")}
+                  placeholder="例: 導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にするため"
+                />
+                {renderFieldAid(
                   "recognitionPurpose",
-                  "recognitionFocus",
-                  "backgroundInfo",
-                ].map((field) =>
-                  renderSuggestionCard(
-                    field as SuggestionField,
-                    suggestions,
-                    handleApplySuggestion,
-                  ),
+                  "洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。",
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        </form>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="recognitionFocus"
+                  className="text-sm font-medium"
+                >
+                  そのためには、参加者の何の認識をすり合わせられると良いですか？
+                </label>
+                <textarea
+                  id="recognitionFocus"
+                  value={recognitionFocus}
+                  onChange={(e) => setRecognitionFocus(e.target.value)}
+                  required
+                  rows={4}
+                  className={textareaClasses("recognitionFocus")}
+                  placeholder="例: チャットツール入れ替えに向けた現状の使い方、課題、懸念点、導入後の期待"
+                />
+                {renderFieldAid(
+                  "recognitionFocus",
+                  "洗い出したいトピックや範囲を具体的に記載してください。",
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <label htmlFor="backgroundInfo" className="text-sm font-medium">
+                  背景情報（任意）
+                </label>
+                <textarea
+                  id="backgroundInfo"
+                  value={backgroundInfo}
+                  onChange={(e) => setBackgroundInfo(e.target.value)}
+                  rows={4}
+                  className={textareaClasses("backgroundInfo")}
+                  placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
+                />
+              </div>
+              {renderSuggestionCard(
+                "backgroundInfo",
+                suggestions,
+                handleSuggestionClick,
+              )}
+
+              {error && (
+                <Card className="border-destructive">
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-destructive">{error}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                isLoading={isSubmitting}
+                className="w-full"
+              >
+                <Sparkles className="h-4 w-4" />
+                セッションを作成
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
+  );
+}
+
+export default function NewSessionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <NewSessionContent />
+    </Suspense>
   );
 }
