@@ -214,6 +214,65 @@ export class PtolemyAgent {
       payload: { statementIds: [] },
     });
 
+    // Check if this is the first survey and if we already have statements (e.g. from preview)
+    const { count: surveyCount } = await this.supabase
+      .from("events")
+      .select("*", { count: "exact", head: true })
+      .eq("thread_id", context.thread.id)
+      .eq("type", "survey");
+
+    const lastOrderIndex = await this.getLastStatementOrderIndex(
+      context.session.id,
+    );
+
+    // If this is the first survey (count === 1 because we just created one)
+    // and we already have statements (lastOrderIndex > 0), use them.
+    if ((surveyCount === 1 || surveyCount === 0) && lastOrderIndex > 0) {
+      this.log(
+        instance,
+        "using existing statements (preview) for first survey",
+      );
+
+      const { data: existingStatements, error: fetchError } =
+        await this.supabase
+          .from("statements")
+          .select("id")
+          .eq("session_id", context.session.id)
+          .order("order_index", { ascending: true });
+
+      if (fetchError || !existingStatements) {
+        console.error(
+          "[Ptolemy] Failed to fetch existing statements:",
+          fetchError,
+        );
+        // Fallback to generation if fetch fails? Or just error out?
+        // Let's proceed to generation as fallback, or return error.
+        // Proceeding to generation might duplicate, but safer than crashing.
+      } else {
+        const statementIds = existingStatements.map((s) => s.id);
+
+        await this.supabase
+          .from("events")
+          .update({
+            payload: { statementIds },
+            progress: 0.5,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", surveyEventId);
+
+        await this.transition(instance.id, "COLLECTING_SURVEY", {
+          surveyEventId,
+          statementIds,
+        });
+        this.log(instance, "transitioned to COLLECTING_SURVEY (existing)", {
+          surveyEventId,
+          statementCount: statementIds.length,
+        });
+
+        return { status: "transitioned" };
+      }
+    }
+
     const [
       planMarkdown,
       latestAnalysisMarkdown,
