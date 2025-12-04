@@ -78,23 +78,39 @@ async function callLLM(
 }
 
 function extractJsonArray(text: string): string[] | null {
-  const match = text.match(/\[[\s\S]*\]/);
-  if (!match) {
-    return null;
+  // 優先: コードフェンス内のJSONを抽出
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+
+  // フェンス内がなければ、本文全体から最初の配列リテラルを拾う
+  const fallbackMatches = text.match(/\[[\s\S]*\]/g);
+  const candidates: string[] = [];
+
+  if (fencedMatch && fencedMatch[1]) {
+    candidates.push(fencedMatch[1]);
+  }
+  if (fallbackMatches) {
+    candidates.push(...fallbackMatches);
   }
 
-  try {
-    const parsed = JSON.parse(match[0]);
-    if (
-      Array.isArray(parsed) &&
-      parsed.every((item) => typeof item === "string")
-    ) {
-      return parsed;
+  for (const candidate of candidates) {
+    const trimmed = candidate.trim();
+    // 末尾の余計なカンマを削る軽いサニタイズ
+    const sanitized = trimmed.replace(/,\s*]/g, "]");
+    try {
+      const parsed = JSON.parse(sanitized);
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((item) => typeof item === "string")
+      ) {
+        return parsed;
+      }
+    } catch {
+      // 次の候補を試す
+      continue;
     }
-    return null;
-  } catch {
-    return null;
   }
+
+  return null;
 }
 
 export async function generatePlanMarkdown(input: {
