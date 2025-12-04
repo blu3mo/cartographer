@@ -110,6 +110,28 @@ function extractJsonArray(text: string): string[] | null {
     }
   }
 
+  // JSON配列が取れなかった場合のフォールバック:
+  // 行頭の箇条書き（- , *, ・, 1. など）を拾い、文として扱う
+  const bulletStatements = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) =>
+      /^(-|\*|・|\d+[\).\s]|[0-9]+\s)/.test(line),
+    )
+    .map((line) =>
+      line
+        .replace(/^(-|\*|・|\d+[\).\s]|[0-9]+\s)/, "")
+        .replace(/^\s*["“”]/, "")
+        .replace(/["“”]\s*$/, "")
+        .replace(/[;,]\s*$/, "")
+        .trim(),
+    )
+    .filter((line) => line.length > 0);
+
+  if (bulletStatements.length > 0) {
+    return bulletStatements;
+  }
+
   return null;
 }
 
