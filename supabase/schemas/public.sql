@@ -2,18 +2,22 @@
 create extension if not exists "pgcrypto";
 
 -- Sessions ------------------------------------------------------------------
+
 create table if not exists public.sessions (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   context text not null,
   is_public boolean not null default true,
   host_user_id uuid not null,
+  goal text not null default '',
+  admin_access_token uuid not null default gen_random_uuid(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create index if not exists sessions_host_user_idx on public.sessions (host_user_id);
 create index if not exists sessions_created_at_idx on public.sessions (created_at desc);
+create unique index if not exists sessions_admin_access_token_idx on public.sessions (admin_access_token);
 
 -- Statements ----------------------------------------------------------------
 create table if not exists public.statements (
@@ -46,7 +50,9 @@ create table if not exists public.responses (
   participant_user_id uuid not null,
   session_id uuid not null,
   statement_id uuid not null references public.statements(id) on delete cascade,
-  value integer not null,
+  value integer null,
+  response_type text not null default 'scale' check (response_type in ('scale', 'free_text')),
+  text_response text null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (participant_user_id, session_id, statement_id),
@@ -182,24 +188,3 @@ alter publication supabase_realtime add table public.event_threads;
 alter publication supabase_realtime add table public.agent_instances;
 alter publication supabase_realtime add table public.events;
 alter publication supabase_realtime add table public.responses;
-
--- Migration helpers --------------------------------------------------------
-alter table if exists public.sessions
-  add column if not exists goal text not null default '';
-
-alter table if exists public.sessions
-  add column if not exists admin_access_token uuid not null default gen_random_uuid();
-
-create unique index if not exists sessions_admin_access_token_idx 
-  on public.sessions (admin_access_token);
-
--- Migration: allow free-text responses alongside scale responses ----------
-alter table if exists public.responses
-  add column if not exists response_type text not null default 'scale'
-    check (response_type in ('scale', 'free_text'));
-
-alter table if exists public.responses
-  alter column value drop not null;
-
-alter table if exists public.responses
-  add column if not exists text_response text null;
