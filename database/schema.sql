@@ -13,7 +13,7 @@ create table if not exists events (
   -- Stream Identity
   -- The "Target" of the event. Applications define what this ID means.
   stream_id uuid not null,
-  stream_type text not null check (char_length(stream_type) > 0), -- e.g. 'session', 'user'
+  stream_type text not null check (char_length(stream_type) > 0 and stream_type ~ '^[A-Za-z0-9_]+$'), -- e.g. 'session', 'user'
 
   -- Concurrency Control
   -- Optimistic Locking: version must be sequential.
@@ -21,7 +21,7 @@ create table if not exists events (
 
   -- Payload
   -- The "Fact" itself.
-  type text not null check (char_length(type) > 0),        -- e.g. 'SessionCreated'
+  type text not null check (char_length(type) > 0 and type ~ '^[A-Za-z0-9_]+$'),        -- e.g. 'SessionCreated'
   payload jsonb not null check (jsonb_typeof(payload) = 'object'),    -- Domain Data
   meta jsonb not null default '{}'::jsonb check (jsonb_typeof(meta) = 'object'), -- Audit Metadata (IP, UserAgent, etc)
 
@@ -41,6 +41,26 @@ create table if not exists events (
   -- One version per stream.
   unique (stream_id, version)
 );
+
+-- Role-Based Access Control (RBAC) ------------------------------------------
+-- Instead of triggers, we use strict permissions.
+-- The application should connect as 'cartographer_app', not 'postgres'.
+
+do $$
+begin
+  if not exists (select from pg_catalog.pg_roles where rolname = 'cartographer_app') then
+    create role cartographer_app with login password 'password'; -- Change password in production
+  end if;
+end
+$$;
+
+-- Grant minimal permissions
+grant connect on database postgres to cartographer_app;
+grant usage on schema public to cartographer_app;
+grant select, insert on events to cartographer_app;
+
+-- Explicitly revoke harmful permissions (just in case)
+revoke update, delete, truncate on events from cartographer_app;
 
 -- Performance Indexes -------------------------------------------------------
 
