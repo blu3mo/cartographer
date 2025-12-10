@@ -139,3 +139,26 @@ npm run format     # Biome format
 139: - `cabal-gild`: フォーマッター
 140:
 141: VS Code で開発する場合、`Haskell` 拡張機能を入れ、ワークスペースのルートで開けば HLS が認識される設定になっています（`flake.nix` の `hlsCheck` 有効化済み）。
+
+## 8. 並行稼働環境 (Event Sourcing / Postgres 18)
+Supabase (5432) とは別に、純粋なイベントソーシング用の Postgres 18 をポート **5433** で起動します。
+この環境は `flake.nix` で完結しており、追加のインストールは不要です。
+
+### 起動方法
+以下のNixコマンド一発で、DBの初期化(`initdb`)・起動(`postgres`)・**スキーマ適用(`migrate`)の全て**が自動で行われます。
+
+```zsh
+# フォアグラウンドで起動
+nix run .#db-up
+```
+または、`nix develop` 済みのシェル内であれば単に：
+```zsh
+# `devShell` に入っているコマンド
+db-up
+```
+
+### 接続確認
+```zsh
+make db-shell
+```
+で `psql`に入れます。スキーマは起動時に自動適用されているので、すぐに利用可能です。
