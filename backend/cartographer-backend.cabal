@@ -1,0 +1,71 @@
+cabal-version: 3.0
+name: cartographer-backend
+version: 0.1.0.0
+synopsis: Haskell backend for Cartographer with Event Sourcing
+license: MIT
+author: Yui
+maintainer: yui@plural-reality.com
+build-type: Simple
+
+common common-options
+  default-language: GHC2021
+  default-extensions:
+    DataKinds
+    DeriveAnyClass
+    DerivingStrategies
+    DerivingVia
+    DuplicateRecordFields
+    LambdaCase
+    OverloadedStrings
+    RecordWildCards
+    TypeFamilies
+
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wmissing-export-lists
+    -Wmissing-home-modules
+    -Wpartial-fields
+    -Wredundant-constraints
+
+library
+  import: common-options
+  hs-source-dirs: src
+  exposed-modules: Lib
+  build-depends:
+    aeson,
+    base >=4.7 && <5,
+    bytestring,
+    containers,
+    hasql,
+    polysemy,
+    polysemy-plugin,
+    rel8,
+    servant-server,
+    text,
+    time,
+    uuid,
+    wai,
+    warp,
+
+executable cartographer-backend
+  import: common-options
+  hs-source-dirs: app
+  main-is: Main.hs
+  build-depends:
+    base,
+    cartographer-backend,
+    polysemy,
+    polysemy-plugin,
+
+test-suite cartographer-backend-test
+  import: common-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends:
+    base,
+    cartographer-backend,

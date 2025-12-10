@@ -1,0 +1,29 @@
+version: "0.5"
+
+processes:
+  db:
+    # Assuming standard Postgres port 5432.
+    # Users might use Supabase locally or a raw Postgres container.
+    # For now, we'll assume the user has a DB running or uses `supabase start` outside,
+    # OR we can add a check.
+    # If the user wants to run postgres via nix, we could do that, but usually external is more stable.
+    # Let's just put a placeholder "readiness check" or a simple echo.
+    command: "echo 'Database should be running...'; sleep 10000"
+    availability:
+      restart: "always"
+
+  backend:
+    command: "cd backend && cabal run"
+    availability:
+      restart: "on_failure"
+    depends_on:
+      db:
+        condition: process_healthy
+
+  frontend:
+    command: "npm run dev"
+    availability:
+      restart: "on_failure"
+    depends_on:
+      backend:
+        condition: process_started
