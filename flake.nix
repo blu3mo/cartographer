@@ -40,29 +40,29 @@
           pg_jsonschema = pkgs.callPackage ./nix/pg_jsonschema.nix {
             inherit (pkgs) buildPgrxExtension cargo-pgrx;
           };
-          postgresWithExtensions = pkgs.postgresql_16.withPackages (p: [ pg_jsonschema ]);
+          postgresWithExtensions = pkgs.postgresql_18.withPackages (p: [ pg_jsonschema ]);
 
         in
         {
           process-compose.default = {
             settings = {
               environment = {
-                PG16_BIN = "${postgresWithExtensions}/bin";
-                PG16_DATA = "./database/.data";
+                PG18_BIN = "${postgresWithExtensions}/bin";
+                PG18_DATA = "./database/.data";
               };
 
               processes = {
                 postgres = {
                   command = ''
-                    if [ ! -d "$PG16_DATA" ]; then
-                      echo "Initializing Postgres 16 data directory at $PG16_DATA..."
-                      $PG16_BIN/initdb -D "$PG16_DATA" -U postgres --auth=trust --no-locale --encoding=UTF8
+                    if [ ! -d "$PG18_DATA" ]; then
+                      echo "Initializing Postgres 18 data directory at $PG18_DATA..."
+                      $PG18_BIN/initdb -D "$PG18_DATA" -U postgres --auth=trust --no-locale --encoding=UTF8
                     fi
-                    $PG16_BIN/postgres -D "$PG16_DATA" -p 5433
+                    $PG18_BIN/postgres -D "$PG18_DATA" -p 5433
                   '';
                   readiness_probe = {
                     exec = {
-                      command = "$PG16_BIN/pg_isready -p 5433 -h localhost -U postgres";
+                      command = "$PG18_BIN/pg_isready -p 5433 -h localhost -U postgres";
                     };
                     initial_delay_seconds = 2;
                     period_seconds = 5;
@@ -78,7 +78,7 @@
                 migrate = {
                   command = ''
                     echo "Applying database/schema.sql..."
-                    $PG16_BIN/psql -h localhost -p 5433 -U postgres -d postgres -f database/schema.sql
+                    $PG18_BIN/psql -h localhost -p 5433 -U postgres -d postgres -f database/schema.sql
                   '';
                   depends_on = {
                     postgres = {
@@ -104,16 +104,14 @@
                 openssl
                 git
                 watchman
-
                 postgresWithExtensions
-
                 config.process-compose.default.outputs.package
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
 
             shellHook = ''
-              echo "Cartographer Dev Environment (Postgres 16 + Haskell)"
-              export PG16_BIN="${postgresWithExtensions}/bin"
+              echo "Cartographer Dev Environment (Postgres 18 + Haskell)"
+              export PG18_BIN="${postgresWithExtensions}/bin"
             '';
           };
         };

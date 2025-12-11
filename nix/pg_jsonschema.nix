@@ -1,6 +1,6 @@
 {
   buildPgrxExtension,
-  postgresql_16,
+  postgresql_18,
   fetchFromGitHub,
   cargo-pgrx,
 }:
@@ -8,7 +8,7 @@
 (buildPgrxExtension {
   pname = "pg_jsonschema";
   version = "0.3.3";
-  postgresql = postgresql_16;
+  postgresql = postgresql_18;
   src = fetchFromGitHub {
     owner = "supabase";
     repo = "pg_jsonschema";
