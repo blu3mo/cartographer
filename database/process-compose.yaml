@@ -4,17 +4,17 @@ processes:
   postgres:
     command: |
       # 1. Initialize DB if data dir does not exist
-      if [ ! -d "$PG18_DATA" ]; then
-        echo "Initializing Postgres 18 data directory at $PG18_DATA..."
-        $PG18_BIN/initdb -D "$PG18_DATA" -U postgres --auth=trust --no-locale --encoding=UTF8
+      if [ ! -d "$PG16_DATA" ]; then
+        echo "Initializing Postgres 16 data directory at $PG16_DATA..."
+        $PG16_BIN/initdb -D "$PG16_DATA" -U postgres --auth=trust --no-locale --encoding=UTF8
       fi
 
       # 2. Start Postgres on Port 5433 (to avoid conflict with Supabase 5432)
-      $PG18_BIN/postgres -D "$PG18_DATA" -p 5433
+      $PG16_BIN/postgres -D "$PG16_DATA" -p 5433
 
     readiness_probe:
       exec:
-        command: $PG18_BIN/pg_isready -p 5433 -h localhost -U postgres
+        command: $PG16_BIN/pg_isready -p 5433 -h localhost -U postgres
       initial_delay_seconds: 2
       period_seconds: 5
       timeout_seconds: 3
@@ -26,7 +26,7 @@ processes:
       echo "Waiting for Postgres to be ready..."
       # Wait is handled by depends_on
       echo "Applying database/schema.sql..."
-      $PG18_BIN/psql -h localhost -p 5433 -U postgres -d postgres -f database/schema.sql
+      $PG16_BIN/psql -h localhost -p 5433 -U postgres -d postgres -f database/schema.sql
     depends_on:
       postgres:
         condition: process_healthy

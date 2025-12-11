@@ -3,6 +3,7 @@
 
 create extension if not exists pg_jsonschema;
 
+
 --- MASTER DATA ----------------------------------------------------------------
 -- Lookup tables for strict type safety and zero-downtime consistency.
 -- Deployment Rule: ALWAYS insert into these tables BEFORE deploying new code.
@@ -26,7 +27,7 @@ create table if not exists event_types (
 create table if not exists events (
   -- Physical ID (Sorting & Idempotency)
   -- Uses native UUID v7 for Index Locality (Time-ordered insertions)
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key default uuidv7(),
 
   -- Stream Identity
   -- The "Target" of the event. Applications define what this ID means.
@@ -68,7 +69,7 @@ begin
   select schema into schema_json from event_types where name = new.type;
 
   -- Should allow schema evolution? For now, strict check against current schema.
-  -- Note: pg_jsonschema throws error if schema is invalid.
+  -- Uses pg_jsonschema extension for validation
   if not jsonb_matches_schema(schema_json, new.payload) then
      raise exception 'Event payload validation failed for type %: payload does not match registered schema.', new.type;
   end if;

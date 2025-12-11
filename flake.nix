@@ -18,10 +18,18 @@
         pkgs = import nixpkgs { inherit system; };
         lib = pkgs.lib;
 
+        # Custom package for pg_jsonschema
+        pg_jsonschema = pkgs.callPackage ./nix/pg_jsonschema.nix {
+          inherit (pkgs) buildPgrxExtension cargo-pgrx;
+        };
+
+        # Custom Postgres with extensions
+        postgresWithExtensions = pkgs.postgresql_16.withPackages (p: [ pg_jsonschema ]);
+
         # Runner script wrapper to ensure dependencies are available
         # It calls the external script `scripts/db-up.sh`
         dbUpScript = pkgs.writeShellScriptBin "db-up" ''
-          export PG18_BIN="${pkgs.postgresql_18}/bin"
+          export PG16_BIN="${postgresWithExtensions}/bin"
           export PATH="${pkgs.process-compose}/bin:$PATH"
           ${self}/scripts/db-up.sh
         '';
@@ -41,17 +49,13 @@
               git
               watchman
               biome
-
-              # Infrastructure for Parallel Migration (Postgres 18)
-              postgresql_18
-              process-compose # Added back explicitly
-
-              dbUpScript # Still exposed for convenience
+              postgresWithExtensions
+              dbUpScript
             ]
             ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
 
           shellHook = ''
-            export PG18_BIN="${pkgs.postgresql_18}/bin"
+            export PG16_BIN="${postgresWithExtensions}/bin"
           '';
         };
 
