@@ -188,3 +188,76 @@ alter publication supabase_realtime add table public.event_threads;
 alter publication supabase_realtime add table public.agent_instances;
 alter publication supabase_realtime add table public.events;
 alter publication supabase_realtime add table public.responses;
+
+-- Situation Analysis Reports ------------------------------------------------
+create table if not exists public.situation_analysis_reports (
+    id uuid primary key default gen_random_uuid(),
+    session_id uuid not null references public.sessions(id) on delete cascade,
+    content_markdown text not null,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists situation_reports_session_idx 
+  on public.situation_analysis_reports (session_id, created_at desc);
+
+-- Triggers
+
+CREATE OR REPLACE FUNCTION public.broadcast_table_changes()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+declare
+  topic text;
+begin
+  topic := coalesce(TG_ARGV[0], format('table:%s', TG_TABLE_NAME));
+  perform realtime.broadcast_changes(
+    topic,
+    TG_OP,
+    TG_OP,
+    TG_TABLE_NAME,
+    TG_TABLE_SCHEMA,
+    NEW,
+    OLD
+  );
+  return null;
+end;
+$function$
+;
+
+grant trigger on table "public"."agent_instances" to "anon";
+grant trigger on table "public"."agent_instances" to "authenticated";
+grant trigger on table "public"."agent_instances" to "service_role";
+grant trigger on table "public"."event_threads" to "anon";
+grant trigger on table "public"."event_threads" to "authenticated";
+grant trigger on table "public"."event_threads" to "service_role";
+grant trigger on table "public"."events" to "anon";
+grant trigger on table "public"."events" to "authenticated";
+grant trigger on table "public"."events" to "service_role";
+grant trigger on table "public"."individual_reports" to "anon";
+grant trigger on table "public"."individual_reports" to "authenticated";
+grant trigger on table "public"."individual_reports" to "service_role";
+grant trigger on table "public"."participant_reflections" to "anon";
+grant trigger on table "public"."participant_reflections" to "authenticated";
+grant trigger on table "public"."participant_reflections" to "service_role";
+grant trigger on table "public"."participants" to "anon";
+grant trigger on table "public"."participants" to "authenticated";
+grant trigger on table "public"."participants" to "service_role";
+grant trigger on table "public"."responses" to "anon";
+grant trigger on table "public"."responses" to "authenticated";
+grant trigger on table "public"."responses" to "service_role";
+grant trigger on table "public"."session_reports" to "anon";
+grant trigger on table "public"."session_reports" to "authenticated";
+grant trigger on table "public"."session_reports" to "service_role";
+grant trigger on table "public"."sessions" to "anon";
+grant trigger on table "public"."sessions" to "authenticated";
+grant trigger on table "public"."sessions" to "service_role";
+grant trigger on table "public"."situation_analysis_reports" to "anon";
+grant trigger on table "public"."situation_analysis_reports" to "authenticated";
+grant trigger on table "public"."situation_analysis_reports" to "service_role";
+grant trigger on table "public"."statements" to "anon";
+grant trigger on table "public"."statements" to "authenticated";
+grant trigger on table "public"."statements" to "service_role";
+CREATE TRIGGER broadcast_agent_instances AFTER INSERT OR DELETE OR UPDATE ON public.agent_instances FOR EACH ROW EXECUTE FUNCTION broadcast_table_changes('agent_instances');
+CREATE TRIGGER broadcast_event_threads AFTER INSERT OR DELETE OR UPDATE ON public.event_threads FOR EACH ROW EXECUTE FUNCTION broadcast_table_changes('event_threads');
+CREATE TRIGGER broadcast_responses AFTER INSERT OR DELETE OR UPDATE ON public.responses FOR EACH ROW EXECUTE FUNCTION broadcast_table_changes('responses');
