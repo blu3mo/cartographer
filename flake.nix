@@ -1,71 +1,103 @@
 {
-  description = "Cartographer dev environment (Next.js + Supabase + OpenRouter)";
+  description = "Cartographer dev environment (Next.js + Haskell + Supabase)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
-    flake-utils.url = "github:numtide/flake-utils";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    haskell-flake.url = "github:srid/haskell-flake";
+    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
   };
 
   outputs =
-    {
+    inputs@{
       self,
       nixpkgs,
-      flake-utils,
+      flake-parts,
+      ...
     }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-        lib = pkgs.lib;
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      imports = [
+        inputs.haskell-flake.flakeModule
+        inputs.process-compose-flake.flakeModule
+      ];
 
-        # Custom package for pg_jsonschema
-        pg_jsonschema = pkgs.callPackage ./nix/pg_jsonschema.nix {
-          inherit (pkgs) buildPgrxExtension cargo-pgrx;
-        };
-
-        # Custom Postgres with extensions
-        postgresWithExtensions = pkgs.postgresql_16.withPackages (p: [ pg_jsonschema ]);
-
-        # Runner script wrapper to ensure dependencies are available
-        # It calls the external script `scripts/db-up.sh`
-        dbUpScript = pkgs.writeShellScriptBin "db-up" ''
-          export PG16_BIN="${postgresWithExtensions}/bin"
-          export PATH="${pkgs.process-compose}/bin:$PATH"
-          ${self}/scripts/db-up.sh
-        '';
-      in
-      {
-        # 1. Dev Shell (nix develop)
-        devShells.default = pkgs.mkShell {
-          packages =
-            with pkgs;
-            [
-              nodejs_20
-              supabase-cli
-              python3
-              pkg-config
-              vips
-              openssl
-              git
-              watchman
-              biome
-              postgresWithExtensions
-              dbUpScript
-            ]
-            ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
-
-          shellHook = ''
+      perSystem =
+        {
+          self',
+          system,
+          lib,
+          config,
+          pkgs,
+          ...
+        }:
+        let
+          pg_jsonschema = pkgs.callPackage ./nix/pg_jsonschema.nix {
+            inherit (pkgs) buildPgrxExtension cargo-pgrx;
+          };
+          postgresWithExtensions = pkgs.postgresql_16.withPackages (p: [ pg_jsonschema ]);
+          # From Incoming: Runner script wrapper
+          # Ensure scripts/db-up.sh exists in your repo
+          dbUpScript = pkgs.writeShellScriptBin "db-up" ''
             export PG16_BIN="${postgresWithExtensions}/bin"
+            ${self}/scripts/db-up.sh
           '';
-        };
+        in
+        {
+          process-compose.default = {
+            settings = {
+              processes = {
+                db = {
+                  command = "${dbUpScript}/bin/db-up";
+                  availability = {
+                    restart = "always";
+                  };
+                  environment = {
+                    PG16_BIN = "${postgresWithExtensions}/bin";
+                  };
+                };
+              };
+            };
+          };
 
-        # 2. Apps (nix run)
-        apps.default = flake-utils.lib.mkApp {
-          drv = dbUpScript;
+          devShells.default = pkgs.mkShell {
+            name = "cartographer-dev-shell";
+
+            nativeBuildInputs =
+              with pkgs;
+              [
+                nodejs_20
+                supabase-cli
+                biome
+                pkg-config
+                vips
+                openssl
+                git
+                watchman
+
+                postgresWithExtensions
+                dbUpScript
+
+                config.process-compose.default.outputs.package
+              ]
+              ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
+
+            shellHook = ''
+              echo "Cartographer Dev Environment (Postgres 18 + Haskell)"
+              export PG18_BIN="${postgresWithExtensions}/bin"
+            '';
+          };
+
+          apps.db-up = {
+            type = "app";
+            program = "${dbUpScript}/bin/db-up";
+          };
+
         };
-        apps.db-up = flake-utils.lib.mkApp {
-          drv = dbUpScript;
-        };
-      }
-    );
+    };
 }

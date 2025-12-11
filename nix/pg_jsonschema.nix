@@ -5,7 +5,7 @@
   cargo-pgrx,
 }:
 
-buildPgrxExtension {
+(buildPgrxExtension {
   pname = "pg_jsonschema";
   version = "0.3.3";
   postgresql = postgresql_16;
@@ -19,4 +19,9 @@ buildPgrxExtension {
   cargoHash = "sha256-LutCrn4HRFyh+NkPNH2Zi9ko+Ickv0geaAQXYw0AzTw=";
   # 0.16.0 is available in nixpkgs and compatible with 0.16.1
   inherit cargo-pgrx;
-}
+}).overrideAttrs
+  (old: {
+    meta = (old.meta or { }) // {
+      broken = false;
+    };
+  })

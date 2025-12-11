@@ -6,11 +6,11 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PG16_DATA="$PROJECT_ROOT/database/.data"
 
-# Check if PG18_BIN is set (by flake), if not, try to find it or fail
+# Check if PG16_BIN is set (by flake), if not, try to find it or fail
 if [ -z "$PG16_BIN" ]; then
   echo "PG16_BIN is not set. Please run this inside the nix devShell."
   # Optional fallback if using global install
-  # export PG18_BIN=$(dirname $(which postgres))
+  # export PG16_BIN=$(dirname $(which postgres))
   exit 1
 fi
 
