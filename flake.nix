@@ -41,24 +41,49 @@
             inherit (pkgs) buildPgrxExtension cargo-pgrx;
           };
           postgresWithExtensions = pkgs.postgresql_16.withPackages (p: [ pg_jsonschema ]);
-          # From Incoming: Runner script wrapper
-          # Ensure scripts/db-up.sh exists in your repo
-          dbUpScript = pkgs.writeShellScriptBin "db-up" ''
-            export PG16_BIN="${postgresWithExtensions}/bin"
-            ${self}/scripts/db-up.sh
-          '';
+
         in
         {
           process-compose.default = {
             settings = {
+              environment = {
+                PG16_BIN = "${postgresWithExtensions}/bin";
+                PG16_DATA = "./database/.data";
+              };
+
               processes = {
-                db = {
-                  command = "${dbUpScript}/bin/db-up";
+                postgres = {
+                  command = ''
+                    if [ ! -d "$PG16_DATA" ]; then
+                      echo "Initializing Postgres 16 data directory at $PG16_DATA..."
+                      $PG16_BIN/initdb -D "$PG16_DATA" -U postgres --auth=trust --no-locale --encoding=UTF8
+                    fi
+                    $PG16_BIN/postgres -D "$PG16_DATA" -p 5433
+                  '';
+                  readiness_probe = {
+                    exec = {
+                      command = "$PG16_BIN/pg_isready -p 5433 -h localhost -U postgres";
+                    };
+                    initial_delay_seconds = 2;
+                    period_seconds = 5;
+                    timeout_seconds = 3;
+                    success_threshold = 1;
+                    failure_threshold = 5;
+                  };
                   availability = {
                     restart = "always";
                   };
-                  environment = {
-                    PG16_BIN = "${postgresWithExtensions}/bin";
+                };
+
+                migrate = {
+                  command = ''
+                    echo "Applying database/schema.sql..."
+                    $PG16_BIN/psql -h localhost -p 5433 -U postgres -d postgres -f database/schema.sql
+                  '';
+                  depends_on = {
+                    postgres = {
+                      condition = "process_healthy";
+                    };
                   };
                 };
               };
@@ -81,23 +106,16 @@
                 watchman
 
                 postgresWithExtensions
-                dbUpScript
 
                 config.process-compose.default.outputs.package
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
 
             shellHook = ''
-              echo "Cartographer Dev Environment (Postgres 18 + Haskell)"
-              export PG18_BIN="${postgresWithExtensions}/bin"
+              echo "Cartographer Dev Environment (Postgres 16 + Haskell)"
+              export PG16_BIN="${postgresWithExtensions}/bin"
             '';
           };
-
-          apps.db-up = {
-            type = "app";
-            program = "${dbUpScript}/bin/db-up";
-          };
-
         };
     };
 }
