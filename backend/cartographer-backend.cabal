@@ -4,11 +4,11 @@ version: 0.1.0.0
 synopsis: Haskell backend for Cartographer with Event Sourcing
 license: MIT
 author: Yui
-maintainer: yui@plural-reality.com
+maintainer: nishimura@plural-reality.com
 build-type: Simple
 
 common common-options
-  default-language: GHC2021
+  default-language: GHC2024
   default-extensions:
     DataKinds
     DeriveAnyClass
@@ -16,6 +16,8 @@ common common-options
     DerivingVia
     DuplicateRecordFields
     LambdaCase
+    NoFieldSelectors
+    OverloadedRecordDot
     OverloadedStrings
     RecordWildCards
     TypeFamilies
@@ -36,30 +38,30 @@ library
   hs-source-dirs: src
   exposed-modules: Lib
   build-depends:
-    aeson,
+    aeson <3,
     base >=4.7 && <5,
-    bytestring,
-    containers,
-    hasql,
-    polysemy,
-    polysemy-plugin,
-    rel8,
-    servant-server,
-    text,
-    time,
-    uuid,
-    wai,
-    warp,
+    bytestring <1,
+    containers <1,
+    hasql <2,
+    polysemy <2,
+    polysemy-plugin <1,
+    rel8 <2,
+    servant-server <1,
+    text <3,
+    time <2,
+    uuid <2,
+    wai <4,
+    warp <4,
 
 executable cartographer-backend
   import: common-options
   hs-source-dirs: app
   main-is: Main.hs
   build-depends:
-    base,
+    base <5,
     cartographer-backend,
-    polysemy,
-    polysemy-plugin,
+    polysemy <2,
+    polysemy-plugin <1,
 
 test-suite cartographer-backend-test
   import: common-options
@@ -67,5 +69,5 @@ test-suite cartographer-backend-test
   hs-source-dirs: test
   main-is: Spec.hs
   build-depends:
-    base,
+    base <5,
     cartographer-backend,

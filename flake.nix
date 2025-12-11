@@ -89,7 +89,7 @@
 
                 # 2. Backend (Haskell)
                 backend = {
-                  command = "cd backend && cabal run";
+                  command = "${lib.getExe self'.packages.cartographer-backend}";
                   depends_on.db = {
                     condition = "process_started";
                   };
@@ -144,6 +144,7 @@
             type = "app";
             program = "${dbUpScript}/bin/db-up";
           };
+
         };
     };
 }
