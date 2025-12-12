@@ -36,19 +36,7 @@ common common-options
 library
   import: common-options
   hs-source-dirs: src
-  exposed-modules:
-    Lib
-    Domain.Types
-    Infrastructure.DB.Model
-    Feature.User.API
-    Feature.User.Handler
-    Feature.User.Repository
-    Feature.Blog.API
-    Feature.Blog.Handler
-    Feature.Blog.Repository
-    Web.API
-    Web.Handler
-    Foundation
+  exposed-modules: Lib
   build-depends:
     aeson >=2.0 && <3,
     base >=4.7 && <5,
