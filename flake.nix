@@ -36,33 +36,42 @@
           pkgs,
           ...
         }:
-        let
-          pg_jsonschema = pkgs.callPackage ./nix/pg_jsonschema.nix {
-            inherit (pkgs) buildPgrxExtension cargo-pgrx;
-          };
-          postgresWithExtensions = pkgs.postgresql_18.withPackages (p: [ pg_jsonschema ]);
-
-        in
         {
           process-compose.default = {
             settings = {
               environment = {
-                PG18_BIN = "${postgresWithExtensions}/bin";
-                PG18_DATA = "./database/.data";
+                M36_DB_DIR = "./database/m36_data";
+                M36_PORT = "6543";
               };
 
               processes = {
-                postgres = {
+                project-m36 = {
                   command = ''
-                    if [ ! -d "$PG18_DATA" ]; then
-                      echo "Initializing Postgres 18 data directory at $PG18_DATA..."
-                      $PG18_BIN/initdb -D "$PG18_DATA" -U postgres --auth=trust --no-locale --encoding=UTF8
+                    # Initialize database directory if not exists
+                    if [ ! -d "$M36_DB_DIR" ]; then
+                      echo "Initializing Project M36 data directory at $M36_DB_DIR..."
+                      mkdir -p "$M36_DB_DIR"
                     fi
-                    $PG18_BIN/postgres -D "$PG18_DATA" -p 5433
+
+                    # Start Project M36 Server
+                    # --database-name maps to a directory
+                    # --port sets the listening port
+                    # We start it in background to check readiness, but process-compose handles foreground processes better.
+                    # M36 doesn't have a simple "init and exit" mode like initdb + single-user.
+                    # So we will run the server, and have a separate 'setup' process or use wait_for logic.
+
+                    # Simpler approach: Run the server. The schema application will be a separate 'oneshot' process (or manual for now).
+                    # Actually, we can use a wrapper to apply schema on start if we want.
+
+                    ${pkgs.haskellPackages.project-m36.bin}/bin/project-m36-server \
+                      --database-directory "$M36_DB_DIR" \
+                      --port "$M36_PORT" \
+                      --fsync
                   '';
                   readiness_probe = {
                     exec = {
-                      command = "$PG18_BIN/pg_isready -p 5433 -h localhost -U postgres";
+                      # tutd check to connect to the server
+                      command = "${pkgs.haskellPackages.project-m36.bin}/bin/tutd -p $M36_PORT -h localhost -e ':showrelvar false'";
                     };
                     initial_delay_seconds = 2;
                     period_seconds = 5;
@@ -75,15 +84,18 @@
                   };
                 };
 
-                migrate = {
+                # Auto-apply schema (depends on project-m36 being ready)
+                m36-schema-apply = {
                   command = ''
-                    echo "Applying database/schema.sql..."
-                    $PG18_BIN/psql -h localhost -p 5433 -U postgres -d postgres -f database/schema.sql
+                    echo "Applying TutorialD schema..."
+                    ${pkgs.haskellPackages.project-m36.bin}/bin/tutd -p $M36_PORT -h localhost -f database/schema.ud
                   '';
                   depends_on = {
-                    postgres = {
-                      condition = "process_healthy";
-                    };
+                    project-m36.condition = "process_healthy";
+                  };
+                  availability = {
+                    restart = "on_failure";
+                    max_restarts = 5;
                   };
                 };
               };
@@ -104,15 +116,11 @@
                 openssl
                 git
                 watchman
-                postgresWithExtensions
+                haskellPackages.project-m36
+                # postgresWithExtensions # Removed
                 config.process-compose.default.outputs.package
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
-
-            shellHook = ''
-              echo "Cartographer Dev Environment (Postgres 18 + Haskell)"
-              export PG18_BIN="${postgresWithExtensions}/bin"
-            '';
           };
         };
     };

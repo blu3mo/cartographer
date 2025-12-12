@@ -17,7 +17,7 @@ create table if not exists event_types (
   -- Schema Registry: Must be a valid JSON Schema.
   -- We validate the schema itself by checking if it can validate an empty object (or anything).
   -- If the schema is invalid, this function throws an error.
-  schema jsonb not null
+  schema jsonb not null check (jsonschema_is_valid(schema::json))
 );
 
 --- EVENT STORE --------------------------------------------------------------
@@ -65,13 +65,17 @@ create table if not exists events (
 create or replace function validate_event_payload() returns trigger as $$
 declare
   schema_json jsonb;
+  errors text[];
 begin
   select schema into schema_json from event_types where name = new.type;
 
-  -- Should allow schema evolution? For now, strict check against current schema.
-  -- Uses pg_jsonschema extension for validation
-  if not jsonb_matches_schema(schema_json, new.payload) then
-     raise exception 'Event payload validation failed for type %: payload does not match registered schema.', new.type;
+  -- Validation Logic
+  -- 1. pg_jsonschema functions require the schema to be of type 'json', not 'jsonb'.
+  -- 2. strict check against current schema (Schema Evolution is managed by creating new types).
+  if not jsonb_matches_schema(schema_json::json, new.payload) then
+     -- Retrieve detailed validation errors for better debugging
+     errors := jsonschema_validation_errors(schema_json::json, new.payload::json);
+     raise exception 'Event payload validation failed for type [%]. Errors: %', new.type, array_to_string(errors, ' / ');
   end if;
 
   return new;
