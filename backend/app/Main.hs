@@ -1,24 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
-
 module Main (main) where
 
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Logger (runStdoutLoggingT)
-import Database.Persist.Postgresql (createPostgresqlPool, runMigration)
-import Database.Persist.Sql (runSqlPool)
-import Network.Wai.Handler.Warp (run)
-import Servant (Proxy(..), serve, hoistServer)
-
--- Imports from our library
-import Foundation (Env(..), runApp)
-import Infrastructure.DB.Model (migrateAll)
-import Web.API (API)
-import Web.Handler (server)
-
--- Import implementations to ensure instances are available
-import Feature.User.Repository ()
-import Feature.Blog.Repository ()
+import Lib
 
 import System.Environment (getEnv)
 import qualified Data.ByteString.Char8 as BS
