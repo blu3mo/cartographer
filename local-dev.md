@@ -94,4 +94,71 @@ npm run format     # Biome format
 
 ---
 
-必要なら、Nix シェルに `pnpm`/`yarn`、`psql` の補助関数、`direnv` 連携なども追加できます。要望があればこのドキュメントに反映します。
+97: 必要なら、Nix シェルに `pnpm`/`yarn`、`psql` の補助関数、`direnv` 連携なども追加できます。要望があればこのドキュメントに反映します。
+98:
+99: ---
+100:
+101: ## 8. Haskell バックエンド開発（New）
+102:
+103: Haskell バックエンドの開発環境も `flake.nix` に統合されました。
+104:
+105: ### 起動方法（Process Compose 推奨）
+106: すべてのサービス（Frontend, Backend, DB）を一括管理できます。
+107:
+108: ```zsh
+109: nix run
+110: # または
+111: nix run .#default
+112: ```
+113: これにより、TUI（テキストUI）が立ち上がり、以下のプロセスが管理されます：
+114: - `db`: データベース（外部で動いている前提、または接続チェック）
+115: - `backend`: Haskell サーバー (`cabal run`)
+116: - `frontend`: Next.js (`npm run dev`)
+117:
+118: ### 個別に開発する場合
+119: `nix develop` でシェルに入った後：
+120:
+121: **Backend (Haskell)**
+122: ```zsh
+123: cd backend
+124: cabal build
+125: cabal run
+126: # またはホットリロード（要設定）
+127: # ghcid
+128: ```
+129:
+130: **Frontend (Node.js)**
+131: ```zsh
+132: npm run dev
+133: ```
+134:
+135: ### 開発ツール
+136: `nix develop` 環境には以下が含まれています：
+137: - `ghc`, `cabal`: コンパイラとビルドツール
+138: - `haskell-language-server (hls)`: VS Code などのエディタ用
+139: - `cabal-gild`: フォーマッター
+140:
+141: VS Code で開発する場合、`Haskell` 拡張機能を入れ、ワークスペースのルートで開けば HLS が認識される設定になっています（`flake.nix` の `hlsCheck` 有効化済み）。
+
+## 8. 並行稼働環境 (Event Sourcing / Postgres 18)
+Supabase (5432) とは別に、純粋なイベントソーシング用の Postgres 18 をポート **5433** で起動します。
+この環境は `flake.nix` で完結しており、追加のインストールは不要です。
+
+### 起動方法
+以下のNixコマンド一発で、DBの初期化(`initdb`)・起動(`postgres`)・**スキーマ適用(`migrate`)の全て**が自動で行われます。
+
+```zsh
+# フォアグラウンドで起動
+nix run .#db-up
+```
+または、`nix develop` 済みのシェル内であれば単に：
+```zsh
+# `devShell` に入っているコマンド
+db-up
+```
+
+### 接続確認
+```zsh
+make db-shell
+```
+で `psql`に入れます。スキーマは起動時に自動適用されているので、すぐに利用可能です。

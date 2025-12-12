@@ -46,3 +46,6 @@ next-env.d.ts
 /result
 /infra/supabase/bundle
 /.direnv
+/backend/dist-newstyle
+
+/database/.data

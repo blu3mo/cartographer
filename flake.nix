@@ -1,45 +1,98 @@
 {
-  description = "Cartographer dev environment (Next.js + Supabase + OpenRouter)";
+  description = "Cartographer dev environment (Next.js + Haskell + Supabase)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
-    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    haskell-flake.url = "github:srid/haskell-flake";
+    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
   };
 
   outputs =
-    {
+    inputs@{
       self,
       nixpkgs,
-      flake-utils,
+      flake-parts,
+      ...
     }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-        lib = pkgs.lib;
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          packages =
-            with pkgs;
-            [
-              nodejs_20
-              supabase-cli
-              postgresql
-              python3
-              pkg-config
-              vips
-              openssl
-              git
-              watchman
-              biome
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      imports = [
+        inputs.haskell-flake.flakeModule
+        inputs.process-compose-flake.flakeModule
+      ];
 
-            ]
-            ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
+      perSystem =
+        {
+          self',
+          system,
+          lib,
+          config,
+          pkgs,
+          ...
+        }:
+        {
+          haskellProjects.default = {
+            devShell = {
+              enable = true;
+              tools = hp: {
+                inherit (pkgs)
+                  nodejs_20
+                  biome
+                  ;
 
-          # 任意: 自動 npm インストールをしたい場合はここに shellHook を置く
-          # （以前提案の lockfile ハッシュ判定版を入れられます）
+                cabal-gild = hp.cabal-gild;
+                haskell-language-server = hp.haskell-language-server;
+              };
+              hlsCheck.enable = true;
+            };
+            projectRoot = ./backend;
+            autoWire = [
+              "packages"
+              "apps"
+              "checks"
+            ];
+          };
+
+          process-compose.default = {
+            settings = {
+              processes = {
+                backend = {
+                  command = "${lib.getExe self'.packages.cartographer-backend}";
+                };
+
+                frontend = {
+                  command = "npm run dev";
+                };
+              };
+            };
+          };
+
+          devShells.default = pkgs.mkShell {
+            name = "cartographer-dev-shell";
+            inputsFrom = [
+              config.haskellProjects.default.outputs.devShell
+            ];
+
+            nativeBuildInputs =
+              with pkgs;
+              [
+                nodejs_20
+                supabase-cli
+                biome
+                pkg-config
+                vips
+                openssl
+                git
+                watchman
+              ]
+              ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
+          };
         };
-      }
-    );
+    };
 }
