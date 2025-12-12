@@ -36,22 +36,41 @@ common common-options
 library
   import: common-options
   hs-source-dirs: src
-  exposed-modules: Lib
+  exposed-modules:
+    Lib
+    Domain.Types
+    Infrastructure.DB.Model
+    Feature.User.API
+    Feature.User.Handler
+    Feature.User.Repository
+    Feature.Blog.API
+    Feature.Blog.Handler
+    Feature.Blog.Repository
+    Web.API
+    Web.Handler
+    Foundation
   build-depends:
-    aeson <3,
+    aeson,
     base >=4.7 && <5,
-    bytestring <1,
-    containers <1,
-    hasql <2,
-    polysemy <2,
-    polysemy-plugin <1,
-    rel8 <2,
-    servant-server <1,
-    text <3,
-    time <2,
-    uuid <2,
-    wai <4,
-    warp <4,
+    bytestring,
+    containers,
+    esqueleto,
+    fast-logger,
+    monad-logger,
+    mtl,
+    persistent,
+    persistent-postgresql,
+    persistent-template,
+    resource-pool,
+    servant,
+    servant-server,
+    text,
+    time,
+    unliftio,
+    unliftio-core,
+    uuid,
+    wai,
+    warp,
 
 executable cartographer-backend
   import: common-options
@@ -60,8 +79,11 @@ executable cartographer-backend
   build-depends:
     base <5,
     cartographer-backend,
-    polysemy <2,
-    polysemy-plugin <1,
+    monad-logger,
+    persistent,
+    persistent-postgresql,
+    servant-server,
+    warp,
 
 test-suite cartographer-backend-test
   import: common-options
