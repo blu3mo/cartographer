@@ -20,13 +20,23 @@ import Web.Handler (server)
 import Feature.User.Repository ()
 import Feature.Blog.Repository ()
 
+import System.Environment (getEnv)
+import qualified Data.ByteString.Char8 as BS
+import Configuration.Dotenv (loadFile, defaultConfig, onMissingFile)
+
 main :: IO ()
 main = do
+  onMissingFile (loadFile defaultConfig) (return ())
   putStrLn "Starting Cartographer Backend..."
 
   -- 1. Load Configuration
-  -- For simplicity, hardcoding connection string. In production, use env vars.
-  let connStr = "host=localhost dbname=postgres user=postgres password=your-super-secret-and-long-postgres-password port=54322"
+  dbHost <- getEnv "DB_HOST"
+  dbName <- getEnv "DB_NAME"
+  dbUser <- getEnv "DB_USER"
+  dbPassword <- getEnv "DB_PASSWORD"
+  dbPort <- getEnv "DB_PORT"
+
+  let connStr = BS.pack $ "host=" <> dbHost <> " dbname=" <> dbName <> " user=" <> dbUser <> " password=" <> dbPassword <> " port=" <> dbPort
   
   -- 2. Create DB Pool
   -- running in LoggingT IO to support persistent logging
