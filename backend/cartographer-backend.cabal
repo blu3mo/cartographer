@@ -72,6 +72,9 @@ executable cartographer-backend
     persistent-postgresql >=2.13 && <3,
     servant-server >=0.19 && <0.21,
     warp >=3.3 && <4,
+    bytestring >=0.10 && <0.13,
+    text >=1.2 && <3,
+    dotenv >=0.11 && <0.13,
 
 test-suite cartographer-backend-test
   import: common-options
