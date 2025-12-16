@@ -85,7 +85,7 @@ function extractJsonArray(text: string): string[] | null {
   const fallbackMatches = text.match(/\[[\s\S]*\]/g);
   const candidates: string[] = [];
 
-  if (fencedMatch && fencedMatch[1]) {
+  if (fencedMatch?.[1]) {
     candidates.push(fencedMatch[1]);
   }
   if (fallbackMatches) {
@@ -106,7 +106,6 @@ function extractJsonArray(text: string): string[] | null {
       }
     } catch {
       // 次の候補を試す
-      continue;
     }
   }
 
@@ -115,12 +114,10 @@ function extractJsonArray(text: string): string[] | null {
   const bulletStatements = text
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) =>
-      /^(-|\*|・|\d+[\).\s]|[0-9]+\s)/.test(line),
-    )
+    .filter((line) => /^(-|\*|・|\d+[).\s]|[0-9]+\s)/.test(line))
     .map((line) =>
       line
-        .replace(/^(-|\*|・|\d+[\).\s]|[0-9]+\s)/, "")
+        .replace(/^(-|\*|・|\d+[).\s]|[0-9]+\s)/, "")
         .replace(/^\s*["“”]/, "")
         .replace(/["“”]\s*$/, "")
         .replace(/[;,]\s*$/, "")
