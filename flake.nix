@@ -119,7 +119,7 @@
             devShell = {
               enable = true;
               tools = hp: {
-                cabal-gild = hp.cabal-gild;
+                cabal-gild = pkgs.haskellPackages.cabal-gild;
                 haskell-language-server = hp.haskell-language-server;
               };
 
@@ -203,7 +203,7 @@
                 openssl
                 git
                 watchman
-                haskellPackages.project-m36 # Provides tutd, project-m36-server
+                config.haskellProjects.default.outputs.finalPackages.project-m36 # Provides tutd, project-m36-server
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
           };
