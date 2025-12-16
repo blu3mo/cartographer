@@ -33,6 +33,9 @@ setupSchema ctx =
     --   _ -> context
     -- Correctly, DatabaseContextExpr logic is more complex to simulate purely without session.
     -- For now, commenting out the invalid usage as we rely on exportTutorialD for this task.
+    -- Correctly, DatabaseContextExpr logic is more complex to simulate purely without session.
+    -- For now, commenting out the invalid usage as we rely on exportTutorialD for this task.
+    execScript :: DatabaseContext -> String -> DatabaseContext
     execScript context _ = context
 
 -- Let's redefine. We want to export Tutorial D.
