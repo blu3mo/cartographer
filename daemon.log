@@ -1,0 +1,13 @@
+nohup: ignoring input
+accepted connection from pid 7902, user codespace
+accepted connection from pid 8973, user codespace
+accepted connection from pid 33389, user codespace
+accepted connection from pid 34413, user codespace
+accepted connection from pid 36168, user codespace
+unexpected Nix daemon error: [31;1merror:[0m interrupted by the user
+accepted connection from pid 46624, user codespace
+unexpected Nix daemon error: [31;1merror:[0m interrupted by the user
+accepted connection from pid 57634, user codespace
+unexpected Nix daemon error: [31;1merror:[0m interrupted by the user
+accepted connection from pid 70802, user codespace
+unexpected Nix daemon error: [31;1merror:[0m interrupted by the user

@@ -10,6 +10,10 @@
       url = "github:fumieval/barbies-th/46c7b8c68634b219ff12e7966983f9b46a5976d4";
       flake = false;
     };
+    project-m36 = {
+      url = "github:kotto5/project-m36";
+      flake = false;
+    };
   };
 
   outputs =
@@ -85,6 +89,8 @@
                   ver = "0.1.11";
                   sha256 = "sha256-U9mHuHAA0v74dKB2w2kLGx9dBKU6w8CRObtYQF97Gao=";
                 } { };
+
+                project-m36 = self.callCabal2nix "project-m36" inputs.project-m36 { };
 
                 scotty = self.callHackageDirect {
                   pkg = "scotty";

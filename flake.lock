@@ -96,13 +96,30 @@
         "type": "github"
       }
     },
+    "project-m36": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1765881880,
+        "narHash": "sha256-PpGZWR32+Oo/HEBn4TZBkJlp46eqL+hjzhhBa+Hf+lo=",
+        "owner": "kotto5",
+        "repo": "project-m36",
+        "rev": "bea3cfe0ccee21769b91eef5d7f349dc3346b10a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "kotto5",
+        "repo": "project-m36",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "barbies-th": "barbies-th",
         "flake-parts": "flake-parts",
         "haskell-flake": "haskell-flake",
         "nixpkgs": "nixpkgs",
-        "process-compose-flake": "process-compose-flake"
+        "process-compose-flake": "process-compose-flake",
+        "project-m36": "project-m36"
       }
     }
   },
