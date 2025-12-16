@@ -9,6 +9,7 @@ where
 
 import Data.Proxy
 import Network.Wai.Handler.Warp qualified as Warp
+import ProjectM36.Client (Connection, SessionId)
 import Servant
 
 -- | Simple API definition
@@ -19,11 +20,11 @@ server :: Server API
 server = return "OK"
 
 -- | Boilerplate to turn the API type into a standard WAI Application
-app :: Application
-app = serve (Proxy :: Proxy API) server
+app :: SessionId -> Connection -> Application
+app sessionId conn = serve (Proxy :: Proxy API) server
 
 -- | Entry point
-startApp :: IO ()
-startApp = do
+startApp :: SessionId -> Connection -> IO ()
+startApp sessionId conn = do
   putStrLn "Starting Cartographer Backend on port 8081..."
-  Warp.run 8081 app
+  Warp.run 8081 (app sessionId conn)

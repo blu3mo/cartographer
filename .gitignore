@@ -49,3 +49,7 @@ next-env.d.ts
 /backend/dist-newstyle
 
 /database/.data
+dist-newstyle
+dist
+
+*.log

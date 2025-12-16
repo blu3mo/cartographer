@@ -1,65 +1,67 @@
 module Cartographer.Database where
 
-import Cartographer.Domain
-import Data.Text (Text)
-import Data.Text qualified as T
-import ProjectM36.Base
-import ProjectM36.Client
+import Cartographer.Domain as Domain
+import Control.Monad (void)
+import Data.Proxy (Proxy (..))
+import ProjectM36.Client as M36
 
-setupSchema :: DatabaseContext -> DatabaseContext
-setupSchema ctx =
-  -- In a real scenario, we might use registerAtomFunction or similar.
-  -- But for Tutorial D export, we generate strings.
-  -- Actually, `deriveAtomable` generates `Atomable` instances which allow using Haskell types in M36.
-  -- To "export schema", we need to define the Data Types in Tutorial D.
-  -- The `project-m36` library has `toMakeDatabaseContextExpr` or similar?
-  -- Or strictly speaking, we might need to manually define the mapping if we want to dump Tutorial D text.
-  -- But wait, `Atomable` makes it possible to use values. It doesn't automatically create types in DB unless we execute "Data ...".
+-- | Initialize the database connection and schema
+-- Returns a session ID and connection for use in the application
+initDatabase :: IO (M36.SessionId, M36.Connection)
+initDatabase = do
+  -- Connect in-process with persistence to "data/m36"
+  -- This allows data to survive restarts.
+  let connInfo = InProcessConnectionInfo (Persistence "data/m36") emptyNotificationCallback []
+  eConn <- connectProjectM36 connInfo
+  case eConn of
+    Left err -> error $ "Failed to connect to M36: " ++ show err
+    Right conn -> do
+      -- Create a session on the default branch "master"
+      eSessionId <- createSessionAtHead conn "master"
+      case eSessionId of
+        Left err -> error $ "Failed to create session: " ++ show err
+        Right sessionId -> do
+          syncSchema sessionId conn
+          return (sessionId, conn)
 
-  -- For this task "Haskell-First Schema", we want to generate:
-  -- "data SessionStatus = Draft | Open | Closed"
+-- | Sync the Haskell domain schema with the database
+-- This effectively performs "Code-First Migration" by registering types
+-- and defining necessary relations if they don't exist.
+syncSchema :: M36.SessionId -> M36.Connection -> IO ()
+syncSchema sessionId conn = do
+  -- 1. Register Domain Types
+  -- We attempt to register all types. If they already exist, M36 returns an error,
+  -- which we log as a warning but proceed (idempotent-ish).
+  let types =
+        [ toAddTypeExpr (Proxy @SessionStatus),
+          toAddTypeExpr (Proxy @QuestionType),
+          toAddTypeExpr (Proxy @Domain.SessionId),
+          toAddTypeExpr (Proxy @Domain.UserId),
+          toAddTypeExpr (Proxy @Domain.QuestionId),
+          toAddTypeExpr (Proxy @CartographerEvent)
+        ]
 
-  -- Since we derived Generic, we can potentially inspect it or just rely on manual mapping for now as per plan?
-  -- Plan said: "Setup Schema... execScript"
+  mapM_ (executeExpr sessionId conn) types
 
-  execScript ctx "data SessionStatus = Draft | Open | Closed"
-  where
-    -- And so on.
+  -- 2. Define "events" RelVar
+  -- Schema: { session_id :: SessionId, order_index :: Int, event :: CartographerEvent }
+  -- We include `order_index` to strictly order events within a session.
+  let eventsAttrs =
+        attributesFromList
+          [ Attribute "session_id" (toAtomType (Proxy @Domain.SessionId)),
+            Attribute "order_index" IntAtomType,
+            Attribute "event" (toAtomType (Proxy @CartographerEvent))
+          ]
 
-    -- But to make it robust, we should arguably generate this string from the Type Rep, but that requires more meta-programming.
-    -- Given the requirements, I will implement explicit setup for now.
+  let defineEvents = Define "events" eventsAttrs
+  executeExpr sessionId conn defineEvents
 
-    -- execScript context script = case executeDatabaseContextExpr context (DatabaseContextExpr script) of
-    --   _ -> context
-    -- Correctly, DatabaseContextExpr logic is more complex to simulate purely without session.
-    -- For now, commenting out the invalid usage as we rely on exportTutorialD for this task.
-    -- Correctly, DatabaseContextExpr logic is more complex to simulate purely without session.
-    -- For now, commenting out the invalid usage as we rely on exportTutorialD for this task.
-    execScript :: DatabaseContext -> String -> DatabaseContext
-    execScript context _ = context
+  return ()
 
--- Let's redefine. We want to export Tutorial D.
-exportTutorialD :: IO ()
-exportTutorialD = do
-  putStrLn ":loadexample basic" -- Or start empty
-  putStrLn "data SessionStatus = Draft | Open | Closed"
-  putStrLn "data QuestionType = FreeText | LikertScale Integer"
-
-  -- Relationships?
-  -- "create relvar sessions {id SessionId, status SessionStatus, ...}"
-  -- We haven't defined the RelVars in Domain yet, only Value Types.
-  -- The User Request: "3. Schema Definition & Export... create relvar events ..."
-
-  -- I need to define the intended schema for 'events'.
-  -- "SessionCreated SessionId Text Text" -> Event
-  -- Event structure implies: event_id, aggregate_id, event_type, payload?
-  -- Or just specific relvars?
-  -- M36 is strictly relational.
-  -- Event Sourcing in M36: one big 'events' relvar?
-  -- "data CartographerEvent = ..."
-  -- If we use M36 for event sourcing, we store the ADT value in an atom?
-  -- `create relvar events {id UUID, event CartographerEvent, saved_at DateTime}`
-  -- Using `Atomable`, `CartographerEvent` can be a column type!
-
-  putStrLn "data CartographerEvent = SessionCreated SessionId Text Text | QuestionAdded SessionId QuestionId Text QuestionType | AnswerPosted SessionId QuestionId Text"
-  putStrLn "create relvar events {event_id UUID, event CartographerEvent, timestamp DateTime}"
+-- | Helper to execute a Context Expression and print errors softly
+executeExpr :: M36.SessionId -> M36.Connection -> DatabaseContextExpr -> IO ()
+executeExpr sid conn expr = do
+  res <- executeDatabaseContextExpr sid conn expr
+  case res of
+    Left err -> putStrLn $ "Schema Sync Info: " ++ show err
+    Right _ -> return ()

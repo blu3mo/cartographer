@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "backend/src"
+      component: "lib:cartographer-backend"
+
+    - path: "backend/app/Main.hs"
+      component: "cartographer-backend:exe:cartographer-backend"
+
+    - path: "backend/test"
+      component: "cartographer-backend:test:cartographer-backend-test"

@@ -20,7 +20,9 @@ module Cartographer.Domain where
 
 import Codec.Winery (Serialise)
 import Control.DeepSeq (NFData)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
+import Data.Time (UTCTime)
 import Data.UUID (UUID)
 import GHC.Generics
 import ProjectM36.Client
@@ -30,9 +32,55 @@ import ProjectM36.Client
 -- So the test basically verifies that `Atomable` derivation works as expected for M36.
 
 data SessionStatus = Draft | Open | Closed
-  deriving (Show, Eq, Generic, NFData, Serialise, Atomable)
+  deriving (Show, Eq, Generic, NFData, Serialise, Atomable, FromJSON, ToJSON)
 
 data QuestionType = FreeText | LikertScale Integer
-  deriving (Show, Eq, Generic, NFData, Serialise, Atomable)
+  deriving (Show, Eq, Generic, NFData, Serialise, Atomable, FromJSON, ToJSON)
 
--- I will NOT implement SessionId/QuestionId yet to keep focus on Status.
+newtype SessionId = SessionId UUID
+  deriving (Show, Eq, Generic, NFData, Serialise, Atomable, FromJSON, ToJSON)
+
+newtype UserId = UserId UUID
+  deriving (Show, Eq, Generic, NFData, Serialise, Atomable, FromJSON, ToJSON)
+
+newtype QuestionId = QuestionId UUID
+  deriving (Show, Eq, Generic, NFData, Serialise, Atomable, FromJSON, ToJSON)
+
+data CartographerEvent
+  = SessionCreated
+      { sessionId :: SessionId,
+        hostId :: UserId,
+        title :: Text,
+        context :: Text,
+        goal :: Text,
+        createdAt :: UTCTime
+      }
+  | QuestionAdded
+      { sessionId :: SessionId,
+        questionId :: QuestionId,
+        questionText :: Text,
+        questionType :: QuestionType
+      }
+  | SessionClosed
+      { sessionId :: SessionId,
+        closedAt :: UTCTime
+      }
+  | ParticipantJoined
+      { sessionId :: SessionId,
+        participantId :: UserId,
+        participantName :: Text
+      }
+  deriving (Show, Eq, Generic, NFData, Serialise, Atomable, FromJSON, ToJSON)
+
+-- | API Request/Response Types
+data CreateSessionRequest = CreateSessionRequest
+  { title :: Text,
+    context :: Text,
+    goal :: Text
+  }
+  deriving (Show, Eq, Generic, FromJSON, ToJSON)
+
+data CreateSessionResponse = CreateSessionResponse
+  { sessionId :: SessionId
+  }
+  deriving (Show, Eq, Generic, FromJSON, ToJSON)

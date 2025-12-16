@@ -10,6 +10,10 @@
       url = "github:fumieval/barbies-th/46c7b8c68634b219ff12e7966983f9b46a5976d4";
       flake = false;
     };
+    project-m36-src = {
+      url = "github:agentm/project-m36";
+      flake = false;
+    };
   };
 
   outputs =
@@ -44,6 +48,8 @@
           haskellProjects.default = {
             basePackages = pkgs.haskell.packages.ghc96.override {
               overrides = self: super: {
+                project-m36 = self.callCabal2nix "project-m36" inputs.project-m36-src { };
+
                 curryer-rpc = self.callHackageDirect {
                   pkg = "curryer-rpc";
                   ver = "0.4.0";
@@ -121,6 +127,7 @@
               tools = hp: {
                 cabal-gild = pkgs.haskellPackages.cabal-gild;
                 haskell-language-server = hp.haskell-language-server;
+                fourmolu = hp.fourmolu;
               };
 
               hlsCheck.enable = false;
@@ -157,6 +164,7 @@
               };
               curryer-rpc = {
                 jailbreak = true;
+                check = false;
               };
               project-m36 = {
                 jailbreak = true;
@@ -203,9 +211,15 @@
                 openssl
                 git
                 watchman
+                libpq.pg_config
                 config.haskellProjects.default.outputs.finalPackages.project-m36 # Provides tutd, project-m36-server
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
+
+            # Ensure pg_config is available for postgresql-libpq
+            shellHook = ''
+              export PATH="${pkgs.postgresql}/bin:$PATH"
+            '';
           };
         };
     };
