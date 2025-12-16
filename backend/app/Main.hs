@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
+
 module Main (main) where
 
 import Cartographer.Database (exportTutorialD)
@@ -44,5 +47,4 @@ runServer = do
     let api = Proxy @API
     -- hoistServer allows us to transform AppM to Handler
     let app = serve api $ hoistServer api (runApp env) server
-
     liftIO $ run 8081 app
