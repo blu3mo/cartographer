@@ -363,11 +363,9 @@ function NewSessionContent() {
     }
 
     try {
-      const response = await axios.post(
-        "/api/sessions",
-        payload,
-        { headers: createAuthorizationHeader(userId) },
-      );
+      const response = await axios.post("/api/sessions", payload, {
+        headers: createAuthorizationHeader(userId),
+      });
 
       const sessionId = response.data.session.id;
       const adminAccessToken = response.data.session.adminAccessToken;
@@ -541,12 +539,13 @@ function NewSessionContent() {
                       生成された質問プレビュー
                     </CardTitle>
                     <CardDescription>
-                      YES/NO で回答される想定のステートメントです。内容だけ確認してください。
+                      YES/NO
+                      で回答される想定のステートメントです。内容だけ確認してください。
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
-                      {previewQuestions.map((q, index) => (
+                      {previewQuestions.map((q, _index) => (
                         <div
                           key={q}
                           className="rounded-lg border border-border/60 bg-white shadow-sm"
