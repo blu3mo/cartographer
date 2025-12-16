@@ -49,6 +49,14 @@
                 cabal-gild = hp.cabal-gild;
                 haskell-language-server = hp.haskell-language-server;
               };
+
+              # Add project-m36 tools to the dev shell
+              # Note: project-m36 package usually provides 'tutd' and 'project-m36-server'
+              # We might need to get them from pkgs if not in hp, or rely on haskellPackages
+              # For now, let's assume we can get them from the haskell packages or root pkgs.
+              # Actually, haskell-flake 'tools' are for build tools.
+              # Let's add them to nativeBuildInputs in the main devShell below.
+
               hlsCheck.enable = true;
             };
             projectRoot = ./backend;
@@ -57,6 +65,12 @@
               "apps"
               "checks"
             ];
+            settings = {
+              barbies-th = {
+                check = false;
+                broken = false;
+              };
+            };
           };
 
           process-compose.default = {
@@ -90,6 +104,7 @@
                 openssl
                 git
                 watchman
+                haskellPackages.project-m36 # Provides tutd, project-m36-server
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
           };
