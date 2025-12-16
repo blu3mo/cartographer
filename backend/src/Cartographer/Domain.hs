@@ -18,6 +18,8 @@ module Cartographer.Domain where
 -- The "Refactor" step is where I might organize things.
 -- Actually, let's define the types.
 
+import Codec.Winery (Serialise)
+import Control.DeepSeq (NFData)
 import Data.Text (Text)
 import Data.UUID (UUID)
 import GHC.Generics
@@ -28,9 +30,9 @@ import ProjectM36.Client
 -- So the test basically verifies that `Atomable` derivation works as expected for M36.
 
 data SessionStatus = Draft | Open | Closed
-  deriving (Show, Eq, Generic, Atomable)
+  deriving (Show, Eq, Generic, NFData, Serialise, Atomable)
 
 data QuestionType = FreeText | LikertScale Integer
-  deriving (Show, Eq, Generic, Atomable)
+  deriving (Show, Eq, Generic, NFData, Serialise, Atomable)
 
 -- I will NOT implement SessionId/QuestionId yet to keep focus on Status.

@@ -29,12 +29,11 @@ setupSchema ctx =
     -- But to make it robust, we should arguably generate this string from the Type Rep, but that requires more meta-programming.
     -- Given the requirements, I will implement explicit setup for now.
 
-    execScript ctx script = case executeDatabaseContextExpr ctx (DatabaseContextExpr script) of
-      -- This logic is tricky because `executeDatabaseContextExpr` returns logic, not new context directly without running on a base.
-      -- Actually `interpretDatabaseContextExpr` works on a context.
-      -- But for "exporting", we just want the script.
-      -- So `setupSchema` might just be `[Text]`.
-      _ -> ctx
+    -- execScript context script = case executeDatabaseContextExpr context (DatabaseContextExpr script) of
+    --   _ -> context
+    -- Correctly, DatabaseContextExpr logic is more complex to simulate purely without session.
+    -- For now, commenting out the invalid usage as we rely on exportTutorialD for this task.
+    execScript context _ = context
 
 -- Let's redefine. We want to export Tutorial D.
 exportTutorialD :: IO ()
