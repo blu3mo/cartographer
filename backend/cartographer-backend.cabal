@@ -88,3 +88,8 @@ test-suite cartographer-backend-test
   build-depends:
     base >=4.7 && <5,
     cartographer-backend,
+    hspec >=2.7 && <3,
+    hspec-discover >=2.7 && <3,
+    project-m36,
+
+  build-tool-depends: hspec-discover:hspec-discover

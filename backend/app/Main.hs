@@ -1,13 +1,20 @@
 module Main (main) where
 
+import Cartographer.Database (exportTutorialD)
+import Configuration.Dotenv (defaultConfig, loadFile, onMissingFile)
+import Data.ByteString.Char8 qualified as BS
 import Lib
-
-import System.Environment (getEnv)
-import qualified Data.ByteString.Char8 as BS
-import Configuration.Dotenv (loadFile, defaultConfig, onMissingFile)
+import System.Environment (getArgs, getEnv)
 
 main :: IO ()
 main = do
+  args <- getArgs
+  case args of
+    ["--export-schema"] -> exportTutorialD
+    _ -> runServer
+
+runServer :: IO ()
+runServer = do
   onMissingFile (loadFile defaultConfig) (return ())
   putStrLn "Starting Cartographer Backend..."
 
@@ -19,16 +26,16 @@ main = do
   dbPort <- getEnv "DB_PORT"
 
   let connStr = BS.pack $ "host=" <> dbHost <> " dbname=" <> dbName <> " user=" <> dbUser <> " password=" <> dbPassword <> " port=" <> dbPort
-  
+
   -- 2. Create DB Pool
   -- running in LoggingT IO to support persistent logging
   runStdoutLoggingT $ do
     pool <- createPostgresqlPool connStr 10
-    
+
     -- 3. Run Migrations
     liftIO $ runStdoutLoggingT $ flip runSqlPool pool $ do
-        runMigration migrateAll
-    
+      runMigration migrateAll
+
     -- 4. Construct Env
     let env = Env pool
 
@@ -37,5 +44,5 @@ main = do
     let api = Proxy @API
     -- hoistServer allows us to transform AppM to Handler
     let app = serve api $ hoistServer api (runApp env) server
-    
+
     liftIO $ run 8081 app

@@ -2,10 +2,14 @@
   description = "Cartographer dev environment (Next.js + Haskell + Supabase)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskell-flake.url = "github:srid/haskell-flake";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
+    barbies-th = {
+      url = "github:fumieval/barbies-th/46c7b8c68634b219ff12e7966983f9b46a5976d4";
+      flake = false;
+    };
   };
 
   outputs =
@@ -41,23 +45,36 @@
             devShell = {
               enable = true;
               tools = hp: {
-                inherit (pkgs)
-                  nodejs_20
-                  biome
-                  ;
-
                 cabal-gild = hp.cabal-gild;
                 haskell-language-server = hp.haskell-language-server;
               };
 
-              # Add project-m36 tools to the dev shell
-              # Note: project-m36 package usually provides 'tutd' and 'project-m36-server'
-              # We might need to get them from pkgs if not in hp, or rely on haskellPackages
-              # For now, let's assume we can get them from the haskell packages or root pkgs.
-              # Actually, haskell-flake 'tools' are for build tools.
-              # Let's add them to nativeBuildInputs in the main devShell below.
-
               hlsCheck.enable = true;
+            };
+            packages = {
+              barbies.source = "2.1.1.0";
+              barbies-th.source = inputs.barbies-th;
+              winery.source = "1.5";
+            };
+            settings = {
+              barbies = {
+                jailbreak = true;
+              };
+              barbies-th.broken = false;
+              winery = {
+                broken = false;
+                jailbreak = true;
+                check = false;
+              };
+              curryer-rpc = {
+                jailbreak = true;
+                check = false;
+              };
+              project-m36 = {
+                jailbreak = true;
+                check = false;
+                custom = pkg: pkgs.haskell.lib.disableParallelBuilding pkg;
+              };
             };
             projectRoot = ./backend;
             autoWire = [
@@ -65,12 +82,13 @@
               "apps"
               "checks"
             ];
-            settings = {
-              barbies-th = {
-                check = false;
-                broken = false;
-              };
-            };
+          };
+
+          apps.export-schema = {
+            type = "app";
+            program = "${pkgs.writeShellScript "export-schema" ''
+              ${lib.getExe self'.packages.cartographer-backend} --export-schema
+            ''}";
           };
 
           process-compose.default = {
