@@ -1,10 +1,5 @@
 cradle:
-  cabal:
-    - path: "backend/src"
-      component: "lib:cartographer-backend"
-
-    - path: "backend/app/Main.hs"
-      component: "cartographer-backend:exe:cartographer-backend"
-
-    - path: "backend/test"
-      component: "cartographer-backend:test:cartographer-backend-test"
+  bios:
+    program: "./hie-bios.sh"
+    # ghc-with-packagesを直接指定
+    with-ghc: "/nix/store/kgkjh0b4mycaf8j1vhg1vhgc8wh3xpsh-ghc-9.6.7-with-packages/bin/ghc"

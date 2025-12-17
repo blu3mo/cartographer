@@ -27,6 +27,8 @@ import Data.UUID (UUID)
 import GHC.Generics
 import ProjectM36.Client (Atomable)
 
+
+
 -- Logic is in derivation. If I derived wrong, it would fail.
 -- But `deriving (Atomable)` is standard.
 -- So the test basically verifies that `Atomable` derivation works as expected for M36.

@@ -54,6 +54,11 @@
                 haskell-language-server = hp.haskell-language-server;
                 fourmolu = hp.fourmolu;
               };
+              # project-m36をdevShellのGHCパッケージDBに含める
+              # これによりHLS/cabalが再ビルドを試みなくなる
+              extraLibraries = hp: {
+                project-m36 = hp.project-m36;
+              };
 
               hlsCheck.enable = false;
             };
@@ -144,6 +149,23 @@
             # Ensure pg_config is available for postgresql-libpq
             shellHook = ''
               export PATH="${pkgs.postgresql}/bin:$PATH"
+
+              # ghc-with-packagesのパッケージDBを指すGHC環境ファイルを生成
+              # これによりHLS/cabalがNixでビルドされたパッケージを使用する
+              ghc_with_pkgs=$(echo $nativeBuildInputs | tr ' ' '\n' | grep 'ghc-.*-with-packages' | head -1)
+              if [ -n "$ghc_with_pkgs" ]; then
+                ghc_pkg_db="$ghc_with_pkgs/lib/ghc-$(ghc --numeric-version)/lib/package.conf.d"
+                ghc_version=$(ghc --numeric-version)
+                env_file=".ghc.environment.$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]')-$ghc_version"
+
+                echo "clear-package-db" > "$env_file"
+                echo "global-package-db" >> "$env_file"
+                echo "package-db $ghc_pkg_db" >> "$env_file"
+
+                echo "✓ Generated $env_file (using ghc-with-packages)"
+              else
+                echo "⚠ Could not find ghc-with-packages in nativeBuildInputs"
+              fi
             '';
           };
         };
