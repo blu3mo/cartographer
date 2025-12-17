@@ -25,7 +25,7 @@ import Data.Text (Text)
 import Data.Time (UTCTime)
 import Data.UUID (UUID)
 import GHC.Generics
-import ProjectM36.Client
+import ProjectM36.Client (Atomable)
 
 -- Logic is in derivation. If I derived wrong, it would fail.
 -- But `deriving (Atomable)` is standard.

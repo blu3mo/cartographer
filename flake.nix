@@ -6,14 +6,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskell-flake.url = "github:srid/haskell-flake";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
-    barbies-th = {
-      url = "github:fumieval/barbies-th/46c7b8c68634b219ff12e7966983f9b46a5976d4";
-      flake = false;
-    };
-    project-m36-src = {
-      url = "github:agentm/project-m36";
-      flake = false;
-    };
+    project-m36.url = "github:plural-reality/project-m36";
   };
 
   outputs =
@@ -44,83 +37,15 @@
           pkgs,
           ...
         }:
+        let
+          # project-m36 の lib を使って override を構築
+          m36lib = inputs.project-m36.lib;
+          fullOverrides = m36lib.composeOverrides m36lib.m36Overrides (m36lib.mkPkgsDependentOverrides pkgs);
+        in
         {
           haskellProjects.default = {
             basePackages = pkgs.haskell.packages.ghc96.override {
-              overrides = self: super: {
-                project-m36 = self.callCabal2nix "project-m36" inputs.project-m36-src { };
-
-                curryer-rpc = self.callHackageDirect {
-                  pkg = "curryer-rpc";
-                  ver = "0.4.0";
-                  sha256 = "sha256-rGNTiZBJjDA1HpXoxQIsupvgQ5HpYh0U8JZVTdVDnIk=";
-                } { };
-
-                streamly = self.callHackageDirect {
-                  pkg = "streamly";
-                  ver = "0.10.1";
-                  sha256 = "sha256-9tWZ/8YteD9ljhEmj8oYKIAyFcbQflX0D20j/NTe3qM=";
-                } { };
-
-                streamly-core = self.callHackageDirect {
-                  pkg = "streamly-core";
-                  ver = "0.2.2";
-                  sha256 = "sha256-Ggo5ius3dp/TJFfrZSk31A6gSZHA6kLMtxFKe9MIvqQ=";
-                } { };
-
-                streamly-bytestring = self.callHackageDirect {
-                  pkg = "streamly-bytestring";
-                  ver = "0.2.2";
-                  sha256 = "sha256-E/sMAvaJ5zGYwb5KAXa2KQo3FqyB+T2mRO6zOTCXpoY=";
-                } { };
-
-                lockfree-queue = self.callHackageDirect {
-                  pkg = "lockfree-queue";
-                  ver = "0.2.4";
-                  sha256 = "sha256-h1s/tiBq5Gzl8FtenQacmxJp7zPJPnmZXtKDPvxTSa4=";
-                } { };
-
-                unicode-data = self.callHackageDirect {
-                  pkg = "unicode-data";
-                  ver = "0.2.0";
-                  sha256 = "14crb68g79yyw87fgh49z2fn4glqx0zr53v6mapihaxzkikhkkc3";
-                } { };
-
-                barbies-th = self.callHackageDirect {
-                  pkg = "barbies-th";
-                  ver = "0.1.11";
-                  sha256 = "sha256-U9mHuHAA0v74dKB2w2kLGx9dBKU6w8CRObtYQF97Gao=";
-                } { };
-
-                scotty = self.callHackageDirect {
-                  pkg = "scotty";
-                  ver = "0.22";
-                  sha256 = "sha256-DY4lKmAmqGTrzKq93Mft9bu9Qc0QcsEVpKzgoWcBL2I=";
-                } { };
-
-                wai = self.callHackageDirect {
-                  pkg = "wai";
-                  ver = "3.2.4";
-                  sha256 = "sha256-NARmVhT5G1eMdtMM1xp7RFpevunThAB4tltCMih+qu8=";
-                } { };
-
-                wai-extra = self.callHackageDirect {
-                  pkg = "wai-extra";
-                  ver = "3.1.14";
-                  sha256 = "sha256-wMI9eTituRbMvYvbcA9pgIwFxkbdL1+2Xw78lghfWaU=";
-                } { };
-
-                foldable1-classes-compat = pkgs.haskell.lib.dontCheck (
-                  pkgs.haskell.lib.doJailbreak (
-                    pkgs.haskell.packages.ghc94.callCabal2nix "foldable1-classes-compat" (pkgs.fetchzip {
-                      url = "https://hackage.haskell.org/package/foldable1-classes-compat-0.1/foldable1-classes-compat-0.1.tar.gz";
-                      sha256 = "sha256-Om6/w38G4ZaBZAGzlFb6ElvU4BCU3aOCXogpIZsm4RE=";
-                    }) { }
-                  )
-                );
-
-                lattices = pkgs.haskell.lib.addBuildDepend super.lattices self.foldable1-classes-compat;
-              };
+              overrides = fullOverrides;
             };
             devShell = {
               enable = true;

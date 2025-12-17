@@ -11,7 +11,7 @@ initDatabase :: IO (M36.SessionId, M36.Connection)
 initDatabase = do
   -- Connect in-process with persistence to "data/m36"
   -- This allows data to survive restarts.
-  let connInfo = InProcessConnectionInfo (Persistence "data/m36") emptyNotificationCallback []
+  let connInfo = InProcessConnectionInfo (CrashSafePersistence "data/m36") emptyNotificationCallback [] basicDatabaseContext
   eConn <- connectProjectM36 connInfo
   case eConn of
     Left err -> error $ "Failed to connect to M36: " ++ show err
@@ -47,11 +47,10 @@ syncSchema sessionId conn = do
   -- Schema: { session_id :: SessionId, order_index :: Int, event :: CartographerEvent }
   -- We include `order_index` to strictly order events within a session.
   let eventsAttrs =
-        attributesFromList
-          [ Attribute "session_id" (toAtomType (Proxy @Domain.SessionId)),
-            Attribute "order_index" IntAtomType,
-            Attribute "event" (toAtomType (Proxy @CartographerEvent))
-          ]
+        [ NakedAttributeExpr (Attribute "session_id" (toAtomType (Proxy @Domain.SessionId))),
+          NakedAttributeExpr (Attribute "order_index" IntAtomType),
+          NakedAttributeExpr (Attribute "event" (toAtomType (Proxy @CartographerEvent)))
+        ]
 
   let defineEvents = Define "events" eventsAttrs
   executeExpr sessionId conn defineEvents
