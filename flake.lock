@@ -102,7 +102,24 @@
         "flake-parts": "flake-parts",
         "haskell-flake": "haskell-flake",
         "nixpkgs": "nixpkgs",
-        "process-compose-flake": "process-compose-flake"
+        "process-compose-flake": "process-compose-flake",
+        "winery": "winery"
+      }
+    },
+    "winery": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1732329065,
+        "narHash": "sha256-CDFOD4B6cJgAe3ebTVF21/eCJtbHMEzmKF3b/XxMOw4=",
+        "owner": "fumieval",
+        "repo": "winery",
+        "rev": "2d6976bc822f6d2c2d590703b9470cb9e62191a5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "fumieval",
+        "repo": "winery",
+        "type": "github"
       }
     }
   },

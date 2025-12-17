@@ -39,6 +39,10 @@ library
   exposed-modules:
     Cartographer.Database
     Cartographer.Domain
+    Cartographer.Event
+    Cartographer.EventStore
+    Feature.Session.API
+    Feature.Session.Handler
     Lib
 
   build-depends:

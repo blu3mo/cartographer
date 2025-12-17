@@ -10,6 +10,10 @@
       url = "github:fumieval/barbies-th/46c7b8c68634b219ff12e7966983f9b46a5976d4";
       flake = false;
     };
+    winery = {
+      url = "github:fumieval/winery";
+      flake = false;
+    };
   };
 
   outputs =
@@ -85,6 +89,8 @@
                   ver = "0.1.11";
                   sha256 = "sha256-U9mHuHAA0v74dKB2w2kLGx9dBKU6w8CRObtYQF97Gao=";
                 } { };
+
+                winery = self.callCabal2nix "winery" inputs.winery { };
 
                 scotty = self.callHackageDirect {
                   pkg = "scotty";
