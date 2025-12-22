@@ -40,7 +40,18 @@ library
   exposed-modules:
     Cartographer.Database
     Cartographer.Domain
+    Domain.Types
+    Feature.Blog.API
+    Feature.Blog.Handler
+    Feature.Blog.Repository
+    Feature.User.API
+    Feature.User.Handler
+    Feature.User.Repository
+    Foundation
+    Infrastructure.DB.Model
     Lib
+    Web.API
+    Web.Handler
 
   build-depends:
     aeson >=2.0 && <3,
