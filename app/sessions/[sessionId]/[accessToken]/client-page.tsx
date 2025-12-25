@@ -282,6 +282,7 @@ export default function AdminPage({
   const [reportCopyStatus, setReportCopyStatus] = useState<
     "idle" | "copied" | "error"
   >("idle");
+  const [showReportCustomization, setShowReportCustomization] = useState(false);
 
   const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
 
@@ -994,36 +995,62 @@ export default function AdminPage({
               </CardHeader>
               <CardContent className="space-y-6">
                 {canEdit ? (
-                  <form
-                    onSubmit={handleCreateReport}
-                    className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-inner"
-                  >
-                    <Button
-                      type="submit"
-                      size="lg"
-                      disabled={creatingReport}
-                      isLoading={creatingReport}
-                      className="w-full justify-center gap-2 rounded-2xl py-6 text-base shadow-lg shadow-slate-900/10"
-                    >
-                      <FileText className="h-4 w-4" />
-                      新しいレポートを生成
-                    </Button>
-                    <label
-                      htmlFor="reportRequest"
-                      className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                    >
-                      レポートに対するリクエスト（任意）
-                    </label>
-                    <textarea
-                      id="reportRequest"
-                      value={reportRequest}
-                      onChange={(event) => setReportRequest(event.target.value)}
-                      rows={3}
-                      maxLength={1200}
-                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                    />
-                  </form>
+                  <div className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-inner">
+                    <form onSubmit={handleCreateReport} className="space-y-4">
+                      <Button
+                        type="submit"
+                        size="lg"
+                        disabled={creatingReport}
+                        isLoading={creatingReport}
+                        className="w-full justify-center gap-2 rounded-2xl py-6 text-base shadow-lg shadow-slate-900/10"
+                      >
+                        <FileText className="h-4 w-4" />
+                        新しいレポートを生成
+                      </Button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowReportCustomization(!showReportCustomization)
+                        }
+                        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                      >
+                        <span className="text-xs font-medium">
+                          レポートのまとめ方を指示する（任意）
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${
+                            showReportCustomization ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {showReportCustomization && (
+                        <div className="space-y-2">
+                          <label
+                            htmlFor="reportRequest"
+                            className="text-xs font-medium text-slate-600"
+                          >
+                            AIへの指示
+                          </label>
+                          <textarea
+                            id="reportRequest"
+                            value={reportRequest}
+                            onChange={(event) =>
+                              setReportRequest(event.target.value)
+                            }
+                            rows={3}
+                            maxLength={1200}
+                            className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                            placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」「論理的な構成で説明してほしい」"
+                          />
+                          <p className="text-xs text-slate-500">
+                            分析の観点、レポートのトーン、まとめ方など、生成時の指示を記載できます。
+                          </p>
+                        </div>
+                      )}
+                    </form>
+                  </div>
                 ) : (
                   <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
                     レポート生成はセッションのホストのみ利用できます。
