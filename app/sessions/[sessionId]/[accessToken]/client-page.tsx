@@ -20,6 +20,7 @@ import {
   SquareArrowOutUpRight,
   Trash2,
   X,
+  Zap,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -170,7 +171,7 @@ const REPORT_STATUS_META: Record<
   },
 };
 
-type ReportTemplateType = "empathy" | "logical" | "freeform";
+type ReportTemplateType = "empathy" | "logical" | "psychopath" | "freeform";
 type ReportModeType = "auto" | "custom";
 
 interface ReportTemplate {
@@ -205,6 +206,17 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
     samplePreview:
       "## エグゼクティブサマリー\n\n本セッションでは、参加者間で以下の3つの重要な対立軸が確認されました：\n\n1. **施策Aの優先順位**：賛成67%、反対33%\n2. **予算配分の方針**：意見が二分（賛成48%、反対52%）\n3. **実施時期**：即時実施派と段階的実施派が対立\n\n## 推奨アクション\n\n1. 施策Aについては支持が過半数を超えているため、早急に実行計画を策定すべき\n2. 予算配分については追加の議論が必要。次回セッションで数値根拠を提示し、再検討を推奨",
     color: "bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-900",
+  },
+  {
+    id: "psychopath",
+    name: "サイコパスモード",
+    icon: Zap,
+    description: "論理重視・矛盾を鋭く指摘",
+    prompt:
+      "感情的な共感や寄り添いは一切廃してください。論理、事実、真実のみでレポートを構成してください。参加者が矛盾した意見を持っている場合は、個人名を明示しながら鋭くその点を指摘してください。曖昧な表現は避け、明確で容赦のない分析を行ってください。",
+    samplePreview:
+      "## 分析結果\n\n本セッションにおける参加者の回答には、複数の論理的矛盾が検出された。\n\n### 矛盾の指摘\n\n**田中太郎氏**は設問3で「予算削減が必要」と回答しているにもかかわらず、設問7では「全部署への予算増額」に賛成している。この2つの立場は論理的に両立しない。\n\n**佐藤花子氏**は「迅速な意思決定が重要」と主張する一方で、「全員の合意形成を最優先すべき」とも述べている。迅速性と全員合意は多くの場合トレードオフの関係にあり、両方を同時に達成することは現実的ではない。\n\n### 結論\n\n参加者の多くは自身の意見の一貫性を保てていない。感情的な反応に基づく場当たり的な回答が目立つ。",
+    color: "bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-900",
   },
   {
     id: "freeform",
@@ -1156,9 +1168,21 @@ export default function AdminPage({
                                 </div>
                               </div>
                             </>
+                          ) : selectedReportStyle === "psychopath" ? (
+                            <>
+                              <Zap className="h-5 w-5 text-purple-600" />
+                              <div className="text-left">
+                                <div className="text-base font-semibold text-slate-900">
+                                  サイコパスモード
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                  論理重視・矛盾を鋭く指摘
+                                </div>
+                              </div>
+                            </>
                           ) : (
                             <>
-                              <Settings className="h-5 w-5 text-purple-600" />
+                              <Settings className="h-5 w-5 text-slate-600" />
                               <div className="text-left">
                                 <div className="text-base font-semibold text-slate-900">
                                   自由記述
