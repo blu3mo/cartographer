@@ -584,13 +584,13 @@ export default function AdminPage({
 
   const shareQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
   const fullscreenQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${FULLSCREEN_QR_SIZE}x${FULLSCREEN_QR_SIZE}&data=${encodeURIComponent(
-        shareUrl,
-      )}`
+      shareUrl,
+    )}`
     : null;
 
   const handleSaveSettings = async (event: React.FormEvent) => {
@@ -623,11 +623,11 @@ export default function AdminPage({
       setData((prev) =>
         prev
           ? {
-              ...prev,
-              title: updated.title,
-              context: updated.context,
-              goal: updated.goal,
-            }
+            ...prev,
+            title: updated.title,
+            context: updated.context,
+            goal: updated.goal,
+          }
           : prev,
       );
       setSettingsMessage("セッション情報を更新しました。");
@@ -681,9 +681,9 @@ export default function AdminPage({
       setThreadData((prev) =>
         prev
           ? {
-              ...prev,
-              thread: updatedThread,
-            }
+            ...prev,
+            thread: updatedThread,
+          }
           : prev,
       );
     } catch (err) {
@@ -950,7 +950,7 @@ export default function AdminPage({
       .filter(
         (item) =>
           item.statement.responses.totalCount +
-            item.statement.responses.freeTextCount >
+          item.statement.responses.freeTextCount >
           0,
       )
       .sort((a, b) => {
@@ -967,7 +967,7 @@ export default function AdminPage({
       .filter(
         (item) =>
           item.statement.responses.totalCount +
-            item.statement.responses.freeTextCount >
+          item.statement.responses.freeTextCount >
           0,
       )
       .sort((a, b) => {
@@ -984,7 +984,7 @@ export default function AdminPage({
       .filter(
         (item) =>
           item.statement.responses.totalCount +
-            item.statement.responses.freeTextCount >
+          item.statement.responses.freeTextCount >
           0,
       )
       .sort((a, b) => {
@@ -1071,10 +1071,9 @@ export default function AdminPage({
                   />
                   <MonitoringMetric
                     label="回答進行中"
-                    value={`${
-                      participantSummary.inProgressCount +
+                    value={`${participantSummary.inProgressCount +
                       participantSummary.notStartedCount
-                    }人`}
+                      }人`}
                   />
                 </div>
 
@@ -1103,10 +1102,10 @@ export default function AdminPage({
                       セッションレポート
                     </CardTitle>
                     <CardDescription>
-                      参加者の回答やをもとに洞察レポートを生成します
+                      参加者の回答や意見をもとに、洞察レポートを生成します
                     </CardDescription>
                   </div>
-                  {selectedReport ? (
+                  {/* {selectedReport ? (
                     <div className="text-right">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
                         最新の状態
@@ -1115,7 +1114,7 @@ export default function AdminPage({
                         v{String(selectedReport.version).padStart(2, "0")}
                       </p>
                     </div>
-                  ) : null}
+                  ) : null} */}
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1253,191 +1252,185 @@ export default function AdminPage({
                           </p>
                         </div>
 
-                            <div className="flex gap-4">
-                              {/* 左側: テンプレートリスト */}
-                              <div className="flex-1 space-y-3">
-                                {/* 自動生成 */}
+                        <div className="flex gap-4">
+                          {/* 左側: テンプレートリスト */}
+                          <div className="flex-1 space-y-3">
+                            {/* 自動生成 */}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTemplate(null)}
+                              disabled={creatingReport}
+                              className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition ${selectedTemplate === null
+                                  ? "border-blue-300 bg-blue-50"
+                                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                                } ${creatingReport
+                                  ? "cursor-not-allowed opacity-50"
+                                  : "cursor-pointer"
+                                }`}
+                            >
+                              <div className="rounded-lg bg-white p-2 shadow-sm">
+                                <FileText className="h-5 w-5 text-slate-700" />
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="text-base font-semibold text-slate-900">
+                                  自動生成
+                                </h3>
+                                <p className="mt-1 text-sm text-slate-600">
+                                  標準的な分析レポート
+                                </p>
+                              </div>
+                            </button>
+
+                            {REPORT_TEMPLATES.filter(
+                              (t) => t.id !== "freeform",
+                            ).map((template) => {
+                              const Icon = template.icon;
+                              const isSelected =
+                                selectedTemplate === template.id;
+                              return (
                                 <button
+                                  key={template.id}
                                   type="button"
-                                  onClick={() => setSelectedTemplate(null)}
+                                  onClick={() =>
+                                    handleSelectTemplate(template.id)
+                                  }
                                   disabled={creatingReport}
-                                  className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition ${
-                                    selectedTemplate === null
+                                  className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition ${isSelected
                                       ? "border-blue-300 bg-blue-50"
                                       : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                                  } ${
-                                    creatingReport
+                                    } ${creatingReport
                                       ? "cursor-not-allowed opacity-50"
                                       : "cursor-pointer"
-                                  }`}
+                                    }`}
                                 >
                                   <div className="rounded-lg bg-white p-2 shadow-sm">
-                                    <FileText className="h-5 w-5 text-slate-700" />
+                                    <Icon className="h-5 w-5 text-slate-700" />
                                   </div>
                                   <div className="flex-1">
                                     <h3 className="text-base font-semibold text-slate-900">
-                                      自動生成
+                                      {template.name}
                                     </h3>
                                     <p className="mt-1 text-sm text-slate-600">
-                                      標準的な分析レポート
+                                      {template.description}
                                     </p>
                                   </div>
                                 </button>
+                              );
+                            })}
 
-                                {REPORT_TEMPLATES.filter(
-                                  (t) => t.id !== "freeform",
-                                ).map((template) => {
-                                  const Icon = template.icon;
-                                  const isSelected =
-                                    selectedTemplate === template.id;
-                                  return (
-                                    <button
-                                      key={template.id}
-                                      type="button"
-                                      onClick={() =>
-                                        handleSelectTemplate(template.id)
-                                      }
-                                      disabled={creatingReport}
-                                      className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition ${
-                                        isSelected
-                                          ? "border-blue-300 bg-blue-50"
-                                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                                      } ${
-                                        creatingReport
-                                          ? "cursor-not-allowed opacity-50"
-                                          : "cursor-pointer"
-                                      }`}
-                                    >
-                                      <div className="rounded-lg bg-white p-2 shadow-sm">
-                                        <Icon className="h-5 w-5 text-slate-700" />
-                                      </div>
-                                      <div className="flex-1">
-                                        <h3 className="text-base font-semibold text-slate-900">
-                                          {template.name}
-                                        </h3>
-                                        <p className="mt-1 text-sm text-slate-600">
-                                          {template.description}
-                                        </p>
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-
-                                {/* 自由記述は区切り線の下に表示 */}
-                                <div className="border-t border-slate-300 pt-3">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleSelectTemplate("freeform")
-                                    }
-                                    disabled={creatingReport}
-                                    className={`flex w-full items-start gap-4 rounded-2xl border-2 border-dashed p-4 text-left transition ${
-                                      selectedTemplate === "freeform"
-                                        ? "border-purple-400 bg-purple-50"
-                                        : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
-                                    } ${
-                                      creatingReport
-                                        ? "cursor-not-allowed opacity-50"
-                                        : "cursor-pointer"
-                                    }`}
-                                  >
-                                    <div className="rounded-lg bg-white p-2 shadow-sm">
-                                      <Settings className="h-5 w-5 text-slate-700" />
-                                    </div>
-                                    <div className="flex-1">
-                                      <h3 className="text-base font-semibold text-slate-900">
-                                        自由記述
-                                      </h3>
-                                      <p className="mt-1 text-sm text-slate-600">
-                                        自由に指示を記載
-                                      </p>
-                                    </div>
-                                  </button>
+                            {/* 自由記述は区切り線の下に表示 */}
+                            <div className="border-t border-slate-300 pt-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleSelectTemplate("freeform")
+                                }
+                                disabled={creatingReport}
+                                className={`flex w-full items-start gap-4 rounded-2xl border-2 border-dashed p-4 text-left transition ${selectedTemplate === "freeform"
+                                    ? "border-purple-400 bg-purple-50"
+                                    : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
+                                  } ${creatingReport
+                                    ? "cursor-not-allowed opacity-50"
+                                    : "cursor-pointer"
+                                  }`}
+                              >
+                                <div className="rounded-lg bg-white p-2 shadow-sm">
+                                  <Settings className="h-5 w-5 text-slate-700" />
                                 </div>
-                              </div>
+                                <div className="flex-1">
+                                  <h3 className="text-base font-semibold text-slate-900">
+                                    自由記述
+                                  </h3>
+                                  <p className="mt-1 text-sm text-slate-600">
+                                    自由に指示を記載
+                                  </p>
+                                </div>
+                              </button>
+                            </div>
+                          </div>
 
-                              {/* 右側: レポートプレビュー */}
-                              <div className="flex-1">
-                                <div className="sticky top-0 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                  <div className="flex items-center justify-between">
-                                    <label
-                                      htmlFor="templatePrompt"
-                                      className="text-sm font-medium text-slate-700"
-                                    >
-                                      {selectedTemplate === "freeform"
-                                        ? "プロンプト"
-                                        : "レポートプレビュー"}
-                                    </label>
-                                    {selectedTemplate !== "freeform" && selectedTemplate !== null && (
-                                      <div className="group relative">
-                                        <Info className="h-4 w-4 cursor-help text-slate-400 transition hover:text-slate-600" />
-                                        <div className="invisible absolute right-0 top-6 z-10 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700 shadow-lg opacity-0 transition-all group-hover:visible group-hover:opacity-100">
-                                          <div className="mb-1 font-semibold text-slate-900">
-                                            AIへの指示プロンプト:
-                                          </div>
-                                          {
-                                            REPORT_TEMPLATES.find(
-                                              (t) => t.id === selectedTemplate,
-                                            )?.prompt
-                                          }
-                                        </div>
+                          {/* 右側: レポートプレビュー */}
+                          <div className="flex-1">
+                            <div className="sticky top-0 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <div className="flex items-center justify-between">
+                                <label
+                                  htmlFor="templatePrompt"
+                                  className="text-sm font-medium text-slate-700"
+                                >
+                                  {selectedTemplate === "freeform"
+                                    ? "プロンプト"
+                                    : "レポートプレビュー"}
+                                </label>
+                                {selectedTemplate !== "freeform" && selectedTemplate !== null && (
+                                  <div className="group relative">
+                                    <Info className="h-4 w-4 cursor-help text-slate-400 transition hover:text-slate-600" />
+                                    <div className="invisible absolute right-0 top-6 z-10 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700 shadow-lg opacity-0 transition-all group-hover:visible group-hover:opacity-100">
+                                      <div className="mb-1 font-semibold text-slate-900">
+                                        AIへの指示プロンプト:
                                       </div>
-                                    )}
+                                      {
+                                        REPORT_TEMPLATES.find(
+                                          (t) => t.id === selectedTemplate,
+                                        )?.prompt
+                                      }
+                                    </div>
                                   </div>
-                                  {selectedTemplate === "freeform" ? (
-                                      <>
-                                        <textarea
-                                          id="templatePrompt"
-                                          value={customPrompt}
-                                          onChange={(e) =>
-                                            setCustomPrompt(e.target.value)
-                                          }
-                                          rows={8}
-                                          maxLength={5000}
-                                          placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                                          className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                        />
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-xs text-slate-500">
-                                            {customPrompt.length} / 5000
-                                          </span>
-                                          <Button
-                                            type="button"
-                                            onClick={handleConfirmTemplate}
-                                            disabled={
-                                              creatingReport ||
-                                              !customPrompt.trim()
-                                            }
-                                            size="sm"
-                                          >
-                                            決定
-                                          </Button>
-                                        </div>
-                                      </>
-                                    ) : selectedTemplate ? (
-                                      <>
-                                        <div className="min-h-[200px] whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700">
-                                          {
-                                            REPORT_TEMPLATES.find(
-                                              (t) => t.id === selectedTemplate,
-                                            )?.samplePreview
-                                          }
-                                        </div>
-                                        <div className="flex justify-end">
-                                          <Button
-                                            type="button"
-                                            onClick={handleConfirmTemplate}
-                                            disabled={creatingReport}
-                                            size="sm"
-                                          >
-                                            決定
-                                          </Button>
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <div className="min-h-[200px] whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700">
-                                          {`## セッション分析レポート
+                                )}
+                              </div>
+                              {selectedTemplate === "freeform" ? (
+                                <>
+                                  <textarea
+                                    id="templatePrompt"
+                                    value={customPrompt}
+                                    onChange={(e) =>
+                                      setCustomPrompt(e.target.value)
+                                    }
+                                    rows={8}
+                                    maxLength={5000}
+                                    placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                                    className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                                  />
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-slate-500">
+                                      {customPrompt.length} / 5000
+                                    </span>
+                                    <Button
+                                      type="button"
+                                      onClick={handleConfirmTemplate}
+                                      disabled={
+                                        creatingReport ||
+                                        !customPrompt.trim()
+                                      }
+                                      size="sm"
+                                    >
+                                      決定
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : selectedTemplate ? (
+                                <>
+                                  <div className="min-h-[200px] whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700">
+                                    {
+                                      REPORT_TEMPLATES.find(
+                                        (t) => t.id === selectedTemplate,
+                                      )?.samplePreview
+                                    }
+                                  </div>
+                                  <div className="flex justify-end">
+                                    <Button
+                                      type="button"
+                                      onClick={handleConfirmTemplate}
+                                      disabled={creatingReport}
+                                      size="sm"
+                                    >
+                                      決定
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="min-h-[200px] whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700">
+                                    {`## セッション分析レポート
 
 本セッションでは、参加者の回答データに基づいて以下の分析を行いました。
 
@@ -1448,22 +1441,22 @@ export default function AdminPage({
 ### 次のステップ
 
 今後の議論では、対立点についてさらなる対話を深めることで、相互理解を促進することが推奨されます。`}
-                                        </div>
-                                        <div className="flex justify-end">
-                                          <Button
-                                            type="button"
-                                            onClick={handleConfirmTemplate}
-                                            disabled={creatingReport}
-                                            size="sm"
-                                          >
-                                            決定
-                                          </Button>
-                                        </div>
-                                      </>
-                                    )}
                                   </div>
-                                </div>
+                                  <div className="flex justify-end">
+                                    <Button
+                                      type="button"
+                                      onClick={handleConfirmTemplate}
+                                      disabled={creatingReport}
+                                      size="sm"
+                                    >
+                                      決定
+                                    </Button>
+                                  </div>
+                                </>
+                              )}
                             </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1513,19 +1506,19 @@ export default function AdminPage({
                               );
                             })}
                           </select>
-                          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600">
+                          {/* <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600">
                             <span
                               className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
                             />
                             {REPORT_STATUS_META[selectedReport.status].label}
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-500">
+                          </span> */}
+                          {/* <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-500">
                             {isViewingLatestReport
                               ? "最新バージョンを表示中"
                               : latestReport
-                                ? `最新: v${String(latestReport.version).padStart(2, "0")}`
+                                ? `本レポートの最新はv${String(latestReport.version).padStart(2, "0")}`
                                 : "最新バージョン情報なし"}
-                          </span>
+                          </span> */}
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -1572,7 +1565,7 @@ export default function AdminPage({
                     {selectedReport.requestMarkdown ? (
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm text-indigo-900">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
-                          レポート生成のリクエスト
+                          このレポートを生成するために使用したリクエスト
                         </p>
                         <p className="mt-1 whitespace-pre-wrap leading-relaxed">
                           {selectedReport.requestMarkdown}
@@ -1585,7 +1578,7 @@ export default function AdminPage({
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                              Version
+                              バージョン
                             </p>
                             <p className="text-xl font-semibold text-slate-900">
                               v{String(selectedReport.version).padStart(2, "0")}
@@ -1606,7 +1599,7 @@ export default function AdminPage({
 
                         <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
                           {selectedReport.status === "completed" &&
-                          selectedReport.contentMarkdown ? (
+                            selectedReport.contentMarkdown ? (
                             <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                 {selectedReport.contentMarkdown}
@@ -2024,11 +2017,10 @@ export default function AdminPage({
 
                     {(settingsMessage || settingsError) && (
                       <div
-                        className={`rounded-xl px-3 py-2 text-xs ${
-                          settingsError
+                        className={`rounded-xl px-3 py-2 text-xs ${settingsError
                             ? "bg-red-50 text-red-600"
                             : "bg-emerald-50 text-emerald-700"
-                        }`}
+                          }`}
                       >
                         {settingsError ?? settingsMessage}
                       </div>
@@ -2081,11 +2073,10 @@ export default function AdminPage({
                   onClick={canEdit ? handleToggleShouldProceed : undefined}
                   disabled={togglingProceed || !canEdit}
                   aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                    threadData?.thread?.shouldProceed
+                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${threadData?.thread?.shouldProceed
                       ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
                       : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                  } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
+                    } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -2101,11 +2092,10 @@ export default function AdminPage({
                     <div className="flex items-center gap-3">
                       <div
                         aria-hidden="true"
-                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${
-                          threadData?.thread?.shouldProceed
+                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${threadData?.thread?.shouldProceed
                             ? "border-emerald-300 bg-emerald-500/90 justify-end"
                             : "border-amber-300 bg-amber-200/90 justify-start"
-                        }`}
+                          }`}
                       >
                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
                           {threadData?.thread?.shouldProceed ? (
@@ -2191,11 +2181,11 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
   const progressRatio =
     participant.totalStatements > 0
       ? Math.min(
-          100,
-          Math.round(
-            (participant.answeredCount / participant.totalStatements) * 100,
-          ),
-        )
+        100,
+        Math.round(
+          (participant.answeredCount / participant.totalStatements) * 100,
+        ),
+      )
       : 0;
 
   return (
@@ -2337,11 +2327,10 @@ function StatementHighlightColumn({
 function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-        shouldProceed
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${shouldProceed
           ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
           : "bg-amber-50 text-amber-600 border border-amber-200"
-      }`}
+        }`}
     >
       {shouldProceed ? (
         <>
@@ -2507,9 +2496,8 @@ function ThreadEventBubble({
 
   return (
     <div
-      className={`flex gap-3 ${
-        isHostMessage ? "justify-end" : "justify-start"
-      }`}
+      className={`flex gap-3 ${isHostMessage ? "justify-end" : "justify-start"
+        }`}
     >
       {!isHostMessage && (
         <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
@@ -2517,9 +2505,8 @@ function ThreadEventBubble({
         </div>
       )}
       <div
-        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${
-          isHostMessage ? "items-end" : "items-start"
-        }`}
+        className={`flex max-w-[min(640px,85%)] flex-col gap-2 ${isHostMessage ? "items-end" : "items-start"
+          }`}
       >
         <div
           className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
@@ -2531,19 +2518,17 @@ function ThreadEventBubble({
           </span>
         </div>
         <div
-          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${
-            isHostMessage
+          className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${isHostMessage
               ? "border-indigo-100 bg-indigo-50/80"
               : "border-slate-200 bg-white/90"
-          }`}
+            }`}
         >
           <div className="flex flex-col gap-0">
             {content.content}
             {toggleButton && (
               <div
-                className={`flex ${
-                  isHostMessage ? "justify-end" : "justify-start"
-                } ${content.hasFade ? "-mt-1" : "mt-2"}`}
+                className={`flex ${isHostMessage ? "justify-end" : "justify-start"
+                  } ${content.hasFade ? "-mt-1" : "mt-2"}`}
               >
                 {toggleButton}
               </div>
