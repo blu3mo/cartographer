@@ -125,7 +125,7 @@ export default function SessionReportPrintPage({
         {report.requestMarkdown ? (
           <section className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-6 text-sm text-indigo-900 print:hidden">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
-              Admin Request
+              レポート生成のリクエスト
             </p>
             <p className="mt-2 whitespace-pre-wrap leading-relaxed">
               {report.requestMarkdown}

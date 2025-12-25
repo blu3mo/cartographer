@@ -1291,7 +1291,7 @@ export default function AdminPage({
                     {selectedReport.requestMarkdown ? (
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm text-indigo-900">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
-                          Admin Request
+                          レポート生成のリクエスト
                         </p>
                         <p className="mt-1 whitespace-pre-wrap leading-relaxed">
                           {selectedReport.requestMarkdown}
