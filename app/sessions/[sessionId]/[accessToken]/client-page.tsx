@@ -3,16 +3,19 @@
 import axios from "axios";
 import {
   Bot,
+  Brain,
   Check,
   ChevronDown,
   ChevronUp,
   Copy,
   FileText,
+  Heart,
   Loader2,
   Maximize2,
   Pause,
   Play,
   Send,
+  Settings,
   SquareArrowOutUpRight,
   Trash2,
   X,
@@ -166,6 +169,54 @@ const REPORT_STATUS_META: Record<
   },
 };
 
+type ReportTemplateType = "standard" | "empathy" | "logical" | "custom";
+
+interface ReportTemplate {
+  id: ReportTemplateType;
+  name: string;
+  icon: typeof FileText;
+  description: string;
+  prompt: string;
+  color: string;
+}
+
+const REPORT_TEMPLATES: ReportTemplate[] = [
+  {
+    id: "standard",
+    name: "標準レポート",
+    icon: FileText,
+    description: "論理的かつ中立的な分析",
+    prompt: "",
+    color: "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900",
+  },
+  {
+    id: "empathy",
+    name: "共感重視",
+    icon: Heart,
+    description: "感情的ケアを重視した表現",
+    prompt:
+      "参加者の感情や心理的な側面に配慮し、共感的で温かみのある表現を用いてレポートをまとめてください。対立よりも相互理解を促す視点で記述し、前向きな雰囲気を作ることを意識してください。",
+    color: "bg-pink-50 border-pink-200 hover:bg-pink-100 text-pink-900",
+  },
+  {
+    id: "logical",
+    name: "論理重視",
+    icon: Brain,
+    description: "ビジネス・意思決定向けの分析",
+    prompt:
+      "論理的で明確な構成を重視し、意思決定に必要な情報を簡潔にまとめてください。データや数値、合意・対立のポイントを明確に示し、次のアクションにつながる提言を含めてください。",
+    color: "bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-900",
+  },
+  {
+    id: "custom",
+    name: "カスタム",
+    icon: Settings,
+    description: "自由に指示を記載",
+    prompt: "",
+    color: "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900",
+  },
+];
+
 const EVENT_TYPE_META: Record<
   ThreadEventType,
   { label: string; accent: string; badge: string }
@@ -282,7 +333,10 @@ export default function AdminPage({
   const [reportCopyStatus, setReportCopyStatus] = useState<
     "idle" | "copied" | "error"
   >("idle");
-  const [showReportCustomization, setShowReportCustomization] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<ReportTemplateType | null>(null);
+  const [customPrompt, setCustomPrompt] = useState("");
 
   const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
 
@@ -661,19 +715,41 @@ export default function AdminPage({
     }
   };
 
-  const handleCreateReport = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
+  const handleOpenReportModal = () => {
+    setShowReportModal(true);
+    setSelectedTemplate(null);
+    setCustomPrompt("");
+  };
+
+  const handleCloseReportModal = () => {
+    setShowReportModal(false);
+    setSelectedTemplate(null);
+    setCustomPrompt("");
+  };
+
+  const handleSelectTemplate = (templateId: ReportTemplateType) => {
+    setSelectedTemplate(templateId);
+    if (templateId !== "custom") {
+      handleGenerateReport(templateId);
+    }
+  };
+
+  const handleGenerateReport = async (templateId: ReportTemplateType) => {
     if (!userId) return;
     if (creatingReport) return;
+
+    const template = REPORT_TEMPLATES.find((t) => t.id === templateId);
+    if (!template) return;
+
+    const finalPrompt =
+      templateId === "custom" ? customPrompt : template.prompt;
 
     try {
       setCreatingReport(true);
       const response = await axios.post(
         `/api/sessions/${sessionId}/${accessToken}/reports`,
         {
-          requestMarkdown: reportRequest,
+          requestMarkdown: finalPrompt,
         },
         {
           headers: { Authorization: `Bearer ${userId}` },
@@ -686,8 +762,8 @@ export default function AdminPage({
         return [created, ...others];
       });
       setSelectedReportId(created.id);
-      setReportRequest("");
       setReportsError(null);
+      handleCloseReportModal();
     } catch (err) {
       console.error("Failed to start session report generation:", err);
       setReportsError("レポート生成の開始に失敗しました。");
@@ -996,64 +1072,119 @@ export default function AdminPage({
               <CardContent className="space-y-6">
                 {canEdit ? (
                   <div className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-inner">
-                    <form onSubmit={handleCreateReport} className="space-y-4">
-                      <Button
-                        type="submit"
-                        size="lg"
-                        disabled={creatingReport}
-                        isLoading={creatingReport}
-                        className="w-full justify-center gap-2 rounded-2xl py-6 text-base shadow-lg shadow-slate-900/10"
-                      >
-                        <FileText className="h-4 w-4" />
-                        新しいレポートを生成
-                      </Button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowReportCustomization(!showReportCustomization)
-                        }
-                        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                      >
-                        <span className="text-xs font-medium">
-                          レポートのまとめ方を指示する（任意）
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            showReportCustomization ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
-
-                      {showReportCustomization && (
-                        <div className="space-y-2">
-                          <label
-                            htmlFor="reportRequest"
-                            className="text-xs font-medium text-slate-600"
-                          >
-                            AIへの指示
-                          </label>
-                          <textarea
-                            id="reportRequest"
-                            value={reportRequest}
-                            onChange={(event) =>
-                              setReportRequest(event.target.value)
-                            }
-                            rows={3}
-                            maxLength={1200}
-                            className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-                            placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」「論理的な構成で説明してほしい」"
-                          />
-                          <p className="text-xs text-slate-500">
-                            分析の観点、レポートのトーン、まとめ方など、生成時の指示を記載できます。
-                          </p>
-                        </div>
-                      )}
-                    </form>
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={handleOpenReportModal}
+                      disabled={creatingReport}
+                      className="w-full justify-center gap-2 rounded-2xl py-6 text-base shadow-lg shadow-slate-900/10"
+                    >
+                      <FileText className="h-4 w-4" />
+                      新しいレポートを生成
+                    </Button>
                   </div>
                 ) : (
                   <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
                     レポート生成はセッションのホストのみ利用できます。
+                  </div>
+                )}
+
+                {showReportModal && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+                    onClick={handleCloseReportModal}
+                  >
+                    <div
+                      className="relative w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={handleCloseReportModal}
+                        className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-2xl font-semibold text-slate-900">
+                            レポートの生成方法を選択
+                          </h2>
+                          <p className="mt-2 text-sm text-slate-600">
+                            目的に合わせてレポートのスタイルを選択できます
+                          </p>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {REPORT_TEMPLATES.map((template) => {
+                            const Icon = template.icon;
+                            return (
+                              <button
+                                key={template.id}
+                                type="button"
+                                onClick={() =>
+                                  handleSelectTemplate(template.id)
+                                }
+                                disabled={creatingReport}
+                                className={`flex flex-col items-start gap-3 rounded-2xl border p-6 text-left transition ${template.color} ${
+                                  creatingReport
+                                    ? "cursor-not-allowed opacity-50"
+                                    : "cursor-pointer"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="rounded-xl bg-white p-2 shadow-sm">
+                                    <Icon className="h-5 w-5" />
+                                  </div>
+                                  <h3 className="text-lg font-semibold">
+                                    {template.name}
+                                  </h3>
+                                </div>
+                                <p className="text-sm opacity-80">
+                                  {template.description}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {selectedTemplate === "custom" && (
+                          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <label
+                              htmlFor="customPrompt"
+                              className="text-sm font-medium text-slate-700"
+                            >
+                              カスタム指示を入力
+                            </label>
+                            <textarea
+                              id="customPrompt"
+                              value={customPrompt}
+                              onChange={(e) => setCustomPrompt(e.target.value)}
+                              rows={4}
+                              maxLength={1200}
+                              placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                onClick={() =>
+                                  handleGenerateReport("custom")
+                                }
+                                disabled={
+                                  creatingReport || !customPrompt.trim()
+                                }
+                                isLoading={creatingReport}
+                                size="sm"
+                              >
+                                生成する
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
