@@ -169,7 +169,8 @@ const REPORT_STATUS_META: Record<
   },
 };
 
-type ReportTemplateType = "standard" | "empathy" | "logical" | "custom";
+type ReportTemplateType = "empathy" | "logical" | "freeform";
+type ReportModeType = "auto" | "custom";
 
 interface ReportTemplate {
   id: ReportTemplateType;
@@ -181,14 +182,6 @@ interface ReportTemplate {
 }
 
 const REPORT_TEMPLATES: ReportTemplate[] = [
-  {
-    id: "standard",
-    name: "標準レポート",
-    icon: FileText,
-    description: "論理的かつ中立的な分析",
-    prompt: "",
-    color: "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900",
-  },
   {
     id: "empathy",
     name: "共感重視",
@@ -208,8 +201,8 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
     color: "bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-900",
   },
   {
-    id: "custom",
-    name: "カスタム",
+    id: "freeform",
+    name: "自由記述",
     icon: Settings,
     description: "自由に指示を記載",
     prompt: "",
@@ -334,6 +327,7 @@ export default function AdminPage({
     "idle" | "copied" | "error"
   >("idle");
   const [showReportModal, setShowReportModal] = useState(false);
+  const [reportMode, setReportMode] = useState<ReportModeType | null>(null);
   const [selectedTemplate, setSelectedTemplate] =
     useState<ReportTemplateType | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
@@ -717,32 +711,53 @@ export default function AdminPage({
 
   const handleOpenReportModal = () => {
     setShowReportModal(true);
+    setReportMode(null);
     setSelectedTemplate(null);
     setCustomPrompt("");
   };
 
   const handleCloseReportModal = () => {
     setShowReportModal(false);
+    setReportMode(null);
     setSelectedTemplate(null);
     setCustomPrompt("");
   };
 
+  const handleSelectMode = (mode: ReportModeType) => {
+    setReportMode(mode);
+    if (mode === "auto") {
+      // 自動生成の場合はそのまま標準レポート生成
+      handleGenerateReport(null);
+    }
+  };
+
   const handleSelectTemplate = (templateId: ReportTemplateType) => {
     setSelectedTemplate(templateId);
-    if (templateId !== "custom") {
+    if (templateId !== "freeform") {
       handleGenerateReport(templateId);
     }
   };
 
-  const handleGenerateReport = async (templateId: ReportTemplateType) => {
+  const handleGenerateReport = async (
+    templateId: ReportTemplateType | null,
+  ) => {
     if (!userId) return;
     if (creatingReport) return;
 
-    const template = REPORT_TEMPLATES.find((t) => t.id === templateId);
-    if (!template) return;
+    let finalPrompt = "";
 
-    const finalPrompt =
-      templateId === "custom" ? customPrompt : template.prompt;
+    if (templateId === null) {
+      // 自動生成（標準レポート）
+      finalPrompt = "";
+    } else if (templateId === "freeform") {
+      // 自由記述
+      finalPrompt = customPrompt;
+    } else {
+      // テンプレート指定
+      const template = REPORT_TEMPLATES.find((t) => t.id === templateId);
+      if (!template) return;
+      finalPrompt = template.prompt;
+    }
 
     try {
       setCreatingReport(true);
@@ -1107,27 +1122,23 @@ export default function AdminPage({
                       </button>
 
                       <div className="space-y-6">
-                        <div>
-                          <h2 className="text-2xl font-semibold text-slate-900">
-                            レポートの生成方法を選択
-                          </h2>
-                          <p className="mt-2 text-sm text-slate-600">
-                            目的に合わせてレポートのスタイルを選択できます
-                          </p>
-                        </div>
+                        {!reportMode ? (
+                          <>
+                            <div>
+                              <h2 className="text-2xl font-semibold text-slate-900">
+                                レポートの生成方法を選択
+                              </h2>
+                              <p className="mt-2 text-sm text-slate-600">
+                                標準レポートを生成するか、カスタマイズするかを選べます
+                              </p>
+                            </div>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          {REPORT_TEMPLATES.map((template) => {
-                            const Icon = template.icon;
-                            return (
+                            <div className="grid gap-4 sm:grid-cols-2">
                               <button
-                                key={template.id}
                                 type="button"
-                                onClick={() =>
-                                  handleSelectTemplate(template.id)
-                                }
+                                onClick={() => handleSelectMode("auto")}
                                 disabled={creatingReport}
-                                className={`flex flex-col items-start gap-3 rounded-2xl border p-6 text-left transition ${template.color} ${
+                                className={`flex flex-col items-start gap-3 rounded-2xl border p-6 text-left transition bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-900 ${
                                   creatingReport
                                     ? "cursor-not-allowed opacity-50"
                                     : "cursor-pointer"
@@ -1135,53 +1146,130 @@ export default function AdminPage({
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="rounded-xl bg-white p-2 shadow-sm">
-                                    <Icon className="h-5 w-5" />
+                                    <FileText className="h-5 w-5" />
                                   </div>
                                   <h3 className="text-lg font-semibold">
-                                    {template.name}
+                                    自動生成
                                   </h3>
                                 </div>
                                 <p className="text-sm opacity-80">
-                                  {template.description}
+                                  標準的な分析レポートを生成
                                 </p>
                               </button>
-                            );
-                          })}
-                        </div>
 
-                        {selectedTemplate === "custom" && (
-                          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                            <label
-                              htmlFor="customPrompt"
-                              className="text-sm font-medium text-slate-700"
-                            >
-                              カスタム指示を入力
-                            </label>
-                            <textarea
-                              id="customPrompt"
-                              value={customPrompt}
-                              onChange={(e) => setCustomPrompt(e.target.value)}
-                              rows={4}
-                              maxLength={1200}
-                              placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                            />
-                            <div className="flex justify-end">
-                              <Button
+                              <button
                                 type="button"
-                                onClick={() =>
-                                  handleGenerateReport("custom")
-                                }
-                                disabled={
-                                  creatingReport || !customPrompt.trim()
-                                }
-                                isLoading={creatingReport}
-                                size="sm"
+                                onClick={() => handleSelectMode("custom")}
+                                disabled={creatingReport}
+                                className={`flex flex-col items-start gap-3 rounded-2xl border p-6 text-left transition bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-900 ${
+                                  creatingReport
+                                    ? "cursor-not-allowed opacity-50"
+                                    : "cursor-pointer"
+                                }`}
                               >
-                                生成する
-                              </Button>
+                                <div className="flex items-center gap-3">
+                                  <div className="rounded-xl bg-white p-2 shadow-sm">
+                                    <Settings className="h-5 w-5" />
+                                  </div>
+                                  <h3 className="text-lg font-semibold">
+                                    カスタム
+                                  </h3>
+                                </div>
+                                <p className="text-sm opacity-80">
+                                  目的に合わせてスタイルを選択
+                                </p>
+                              </button>
                             </div>
-                          </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => setReportMode(null)}
+                                className="mb-4 flex items-center gap-2 text-sm text-slate-600 transition hover:text-slate-900"
+                              >
+                                <ChevronDown className="h-4 w-4 rotate-90" />
+                                戻る
+                              </button>
+                              <h2 className="text-2xl font-semibold text-slate-900">
+                                レポートスタイルを選択
+                              </h2>
+                              <p className="mt-2 text-sm text-slate-600">
+                                目的に合わせてレポートのスタイルを選択できます
+                              </p>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              {REPORT_TEMPLATES.map((template) => {
+                                const Icon = template.icon;
+                                return (
+                                  <button
+                                    key={template.id}
+                                    type="button"
+                                    onClick={() =>
+                                      handleSelectTemplate(template.id)
+                                    }
+                                    disabled={creatingReport}
+                                    className={`flex flex-col items-start gap-3 rounded-2xl border p-6 text-left transition ${template.color} ${
+                                      creatingReport
+                                        ? "cursor-not-allowed opacity-50"
+                                        : "cursor-pointer"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className="rounded-xl bg-white p-2 shadow-sm">
+                                        <Icon className="h-5 w-5" />
+                                      </div>
+                                      <h3 className="text-lg font-semibold">
+                                        {template.name}
+                                      </h3>
+                                    </div>
+                                    <p className="text-sm opacity-80">
+                                      {template.description}
+                                    </p>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {selectedTemplate === "freeform" && (
+                              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <label
+                                  htmlFor="customPrompt"
+                                  className="text-sm font-medium text-slate-700"
+                                >
+                                  カスタム指示を入力
+                                </label>
+                                <textarea
+                                  id="customPrompt"
+                                  value={customPrompt}
+                                  onChange={(e) =>
+                                    setCustomPrompt(e.target.value)
+                                  }
+                                  rows={4}
+                                  maxLength={1200}
+                                  placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                                  className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                                />
+                                <div className="flex justify-end">
+                                  <Button
+                                    type="button"
+                                    onClick={() =>
+                                      handleGenerateReport("freeform")
+                                    }
+                                    disabled={
+                                      creatingReport || !customPrompt.trim()
+                                    }
+                                    isLoading={creatingReport}
+                                    size="sm"
+                                  >
+                                    生成する
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
