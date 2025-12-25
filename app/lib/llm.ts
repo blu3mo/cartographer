@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.5-pro";
+const MODEL = "google/gemini-3-flash-preview";
 
 interface LLMMessage {
   role: "system" | "user" | "assistant";

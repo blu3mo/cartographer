@@ -101,7 +101,7 @@ create table if not exists public.session_reports (
   request_markdown text not null default '',
   content_markdown text null,
   prompt_snapshot jsonb not null default '{}'::jsonb,
-  model text not null default 'google/gemini-2.5-pro',
+  model text not null default 'google/gemini-3-flash-preview',
   token_usage jsonb null,
   error_message text null,
   created_by uuid not null,
