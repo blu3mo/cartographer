@@ -12,14 +12,17 @@ common common-options
   default-extensions:
     DataKinds
     DeriveAnyClass
+    DeriveGeneric
     DerivingStrategies
     DerivingVia
     DuplicateRecordFields
+    GADTs
     LambdaCase
     NoFieldSelectors
     OverloadedRecordDot
     OverloadedStrings
     RecordWildCards
+    StrictData
     TypeApplications
     TypeFamilies
 
@@ -33,25 +36,18 @@ common common-options
     -Wmissing-home-modules
     -Wpartial-fields
     -Wredundant-constraints
+    -fplugin=Polysemy.Plugin
 
 library
   import: common-options
   hs-source-dirs: src
   exposed-modules:
-    Cartographer.Database
-    Cartographer.Domain
     Domain.Types
-    Feature.Blog.API
-    Feature.Blog.Handler
-    Feature.Blog.Repository
-    Feature.User.API
-    Feature.User.Handler
-    Feature.User.Repository
-    Foundation
-    Infrastructure.DB.Model
-    Lib
+    Effect.User
+    Implementation.User
     Web.API
-    Web.Handler
+    Web.Orphans
+    Web.Server
 
   build-depends:
     aeson >=2.0 && <3,
@@ -67,6 +63,7 @@ library
     persistent-postgresql >=2.13 && <3,
     persistent-template >=2.12 && <3,
     polysemy >=1.9 && <2,
+    polysemy-plugin >=0.4 && <0.5,
     project-m36,
     resource-pool >=0.2 && <0.5,
     servant >=0.19 && <0.21,
@@ -92,6 +89,8 @@ executable cartographer-backend
     monad-logger >=0.3 && <0.4,
     persistent >=2.14 && <3,
     persistent-postgresql >=2.13 && <3,
+    polysemy >=1.9 && <2,
+    polysemy-plugin >=0.4 && <0.5,
     servant-server >=0.19 && <0.21,
     text >=1.2 && <3,
     warp >=3.3 && <4,
@@ -106,6 +105,8 @@ test-suite cartographer-backend-test
     cartographer-backend,
     hspec >=2.7 && <3,
     hspec-discover >=2.7 && <3,
+    polysemy >=1.9 && <2,
+    polysemy-plugin >=0.4 && <0.5,
     project-m36,
 
   build-tool-depends: hspec-discover:hspec-discover
