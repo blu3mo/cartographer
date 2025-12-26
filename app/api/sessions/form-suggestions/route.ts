@@ -6,20 +6,15 @@ const MODEL = "google/gemini-3-flash-preview";
 
 interface FormSuggestionRequest {
   backgroundInfo: string;
-  recognitionFocus: string;
-  recognitionPurpose: string;
+  purpose: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: FormSuggestionRequest = await request.json();
-    const { backgroundInfo, recognitionFocus, recognitionPurpose } = body;
+    const { backgroundInfo, purpose } = body;
 
-    if (
-      !backgroundInfo.trim() &&
-      !recognitionFocus.trim() &&
-      !recognitionPurpose.trim()
-    ) {
+    if (!backgroundInfo.trim() && !purpose.trim()) {
       return NextResponse.json({ suggestions: [] });
     }
 
@@ -32,19 +27,15 @@ export async function POST(request: NextRequest) {
 
 **現在の入力内容:**
 
+【何をするために倍速会議を使うのですか？】
+${purpose.trim() || "（未入力）"}
+
 【背景情報】
 ${backgroundInfo.trim() || "（未入力）"}
 
-【何の認識を洗い出しますか？】
-${recognitionFocus.trim() || "（未入力）"}
-
-【何のために洗い出しますか？】
-${recognitionPurpose.trim() || "（未入力）"}
-
 **指摘の観点:**
+- 目的: 倍速会議を使う目的は何か、洗い出したいのは現状認識なのか・課題なのか・理想像なのか・価値観なのか、具体的にどんなトピックなのか、それを整理して見出したいのは合意点なのか・相違点なのか・何を誰もわかっていないのかなのか、認識を洗い出して整理したいと思ったきっかけとなった出来事や感情や困りごとはなんなのか、認識を洗い出すことを通じて何をしたいのか、集団がどうなったらいいのか
 - 背景情報: どんな集団なのか（人数、役割、関係性）、どんな問題の背景があるのか、どんな状況なのか
-- 洗い出したい認識: 洗い出したいのは現状認識なのか・課題なのか・理想像なのか・価値観なのか、具体的にどんなトピックなのか、それを整理して見出したいのは合意点なのか・相違点なのか・何を誰もわかっていないのかなのか
-- 目的: 認識を洗い出して整理したいと思ったきっかけとなった出来事や感情や困りごとはなんなのか、認識を洗い出すことを通じて何をしたいのか、集団がどうなったらいいのか
 
 **出力形式:**
 もし情報が十分に書かれていて、特に追加で聞くべきことがない場合は、空の配列を返してください: []

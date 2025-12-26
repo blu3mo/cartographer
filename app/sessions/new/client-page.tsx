@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { ArrowUpRight, Loader2, Sparkles } from "lucide-react";
+import { ArrowUpRight, Loader2, MessageSquare, Pencil, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
@@ -17,10 +17,7 @@ import { Input } from "@/components/ui/input";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 
-type SuggestionField =
-  | "backgroundInfo"
-  | "recognitionFocus"
-  | "recognitionPurpose";
+type SuggestionField = "backgroundInfo" | "purpose";
 
 type Suggestion = {
   field: SuggestionField;
@@ -32,13 +29,9 @@ const FIELD_META: Record<
   { label: string; elementId: string }
 > = {
   backgroundInfo: { label: "背景情報", elementId: "backgroundInfo" },
-  recognitionFocus: {
-    label: "洗い出したい認識",
-    elementId: "recognitionFocus",
-  },
-  recognitionPurpose: {
-    label: "洗い出す目的",
-    elementId: "recognitionPurpose",
+  purpose: {
+    label: "目的",
+    elementId: "purpose",
   },
 };
 
@@ -60,35 +53,11 @@ const inferFieldFromMessage = (message: string): SuggestionField => {
     "誰が",
   ];
 
-  const purposeKeywords = [
-    "目的",
-    "ために",
-    "ため",
-    "ゴール",
-    "目標",
-    "狙い",
-    "意図",
-    "理由",
-    "目指",
-    "最終的",
-    "どうなって",
-    "理想",
-    "ビジョン",
-    "状態",
-    "達成",
-    "成果",
-    "実現",
-  ];
-
   if (includes(backgroundKeywords)) {
     return "backgroundInfo";
   }
 
-  if (includes(purposeKeywords)) {
-    return "recognitionPurpose";
-  }
-
-  return "recognitionFocus";
+  return "purpose";
 };
 
 const renderSuggestionCard = (
@@ -105,29 +74,27 @@ const renderSuggestionCard = (
     <Card className="border-blue-200 bg-blue-50/50">
       <CardContent className="pt-6">
         <div className="flex items-start gap-3">
-          {/* <Bot className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" /> */}
           <div className="flex-1 space-y-3">
-            {/* <p className="text-sm font-medium text-blue-900">
-              AIアシスタント: {SUGGESTION_TITLES[field]}
-            </p> */}
-            <ul className="space-y-2">
-              {fieldSuggestions.map((suggestion) => (
-                <li key={`${suggestion.field}-${suggestion.message}`}>
-                  {/* <button
-                    type="button"
-                    onClick={() => onClick(suggestion.field)}
-                    className="w-full rounded-lg bg-blue-100/60 px-3 py-2 text-left transition hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  > */}
-                  <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-blue-700">
-                    {FIELD_META[suggestion.field]?.label ?? "参考"}
-                  </span>
-                  <span className="mt-1 block text-sm leading-relaxed text-blue-900">
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+              <Sparkles className="h-3 w-3" />
+              AI入力アシスト
+            </span>
+            {fieldSuggestions.length === 1 ? (
+              <p className="text-sm leading-relaxed text-blue-900">
+                {fieldSuggestions[0].message}
+              </p>
+            ) : (
+              <ul className="list-disc list-inside space-y-2">
+                {fieldSuggestions.map((suggestion, index) => (
+                  <li
+                    key={`${suggestion.field}-${index}`}
+                    className="text-sm leading-relaxed text-blue-900"
+                  >
                     {suggestion.message}
-                  </span>
-                  {/* </button> */}
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </CardContent>
@@ -135,8 +102,7 @@ const renderSuggestionCard = (
   );
 };
 
-const buildGoalFromInputs = (focus: string, purpose: string) =>
-  `【何の認識を洗い出しますか？】${focus}\n【何のために洗い出しますか？】${purpose}`;
+const buildGoalFromInputs = (purpose: string) => purpose;
 
 function NewSessionContent() {
   const router = useRouter();
@@ -146,23 +112,28 @@ function NewSessionContent() {
   const [backgroundInfo, setBackgroundInfo] = useState(
     searchParams.get("background") || "",
   );
-  const [recognitionFocus, setRecognitionFocus] = useState(
-    searchParams.get("topic") || "",
-  );
-  const [recognitionPurpose, setRecognitionPurpose] = useState(
-    searchParams.get("purpose") || "",
+  const [purpose, setPurpose] = useState(
+    searchParams.get("purpose") || searchParams.get("topic") || "",
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [purposeError, setPurposeError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [highlightedField, setHighlightedField] =
     useState<SuggestionField | null>(null);
   const lastFormStateRef = useRef<string>("");
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const suggestionAbortRef = useRef<AbortController | null>(null);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const lastPreviewStateRef = useRef<string>("");
   const [previewQuestions, setPreviewQuestions] = useState<string[]>([]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [expandedQuestionIndex, setExpandedQuestionIndex] = useState<
+    number | null
+  >(null);
+  const [questionFeedback, setQuestionFeedback] = useState<string>("");
 
   useEffect(() => {
     document.title = "新しいセッションを作成 - 倍速会議";
@@ -182,8 +153,7 @@ function NewSessionContent() {
   const fetchSuggestions = useCallback(async () => {
     const currentFormState = JSON.stringify({
       backgroundInfo,
-      recognitionFocus,
-      recognitionPurpose,
+      purpose,
     });
 
     if (currentFormState === lastFormStateRef.current) {
@@ -192,11 +162,7 @@ function NewSessionContent() {
 
     lastFormStateRef.current = currentFormState;
 
-    if (
-      !backgroundInfo.trim() &&
-      !recognitionFocus.trim() &&
-      !recognitionPurpose.trim()
-    ) {
+    if (!backgroundInfo.trim() && !purpose.trim()) {
       setSuggestions([]);
       return;
     }
@@ -214,8 +180,7 @@ function NewSessionContent() {
         "/api/sessions/form-suggestions",
         {
           backgroundInfo,
-          recognitionFocus,
-          recognitionPurpose,
+          purpose,
         },
         { signal: controller.signal },
       );
@@ -242,20 +207,82 @@ function NewSessionContent() {
       }
       console.error("Failed to fetch suggestions:", err);
     }
-  }, [backgroundInfo, recognitionFocus, recognitionPurpose]);
+  }, [backgroundInfo, purpose]);
+
+  const fetchPreviewQuestions = useCallback(async () => {
+    if (!userId) return;
+
+    const currentPreviewState = JSON.stringify({
+      title,
+      purpose,
+      backgroundInfo,
+    });
+
+    if (currentPreviewState === lastPreviewStateRef.current) {
+      return;
+    }
+
+    lastPreviewStateRef.current = currentPreviewState;
+
+    if (!purpose.trim()) {
+      setPreviewQuestions([]);
+      setPreviewError(null);
+      return;
+    }
+
+    try {
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+      }
+      const controller = new AbortController();
+      previewAbortRef.current = controller;
+
+      setIsPreviewLoading(true);
+      setPreviewError(null);
+
+      const goal = buildGoalFromInputs(purpose);
+
+      const response = await axios.post(
+        "/api/sessions/preview-questions",
+        {
+          title: title.trim(),
+          goal,
+          context: backgroundInfo.trim(),
+        },
+        {
+          headers: createAuthorizationHeader(userId),
+          signal: controller.signal,
+        },
+      );
+      setPreviewQuestions(response.data.questions);
+    } catch (err) {
+      if ((err as { name?: string }).name === "CanceledError") {
+        return;
+      }
+      console.error("Failed to generate preview:", err);
+      setPreviewQuestions([]);
+      setPreviewError("質問の生成に失敗しました。もう一度お試しください。");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  }, [backgroundInfo, purpose, title, userId]);
 
   useEffect(() => {
     const debounceHandle = setTimeout(() => {
       void fetchSuggestions();
-    }, 350);
+      void fetchPreviewQuestions();
+    }, 100);
 
     return () => {
       clearTimeout(debounceHandle);
       if (suggestionAbortRef.current) {
         suggestionAbortRef.current.abort();
       }
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+      }
     };
-  }, [fetchSuggestions]);
+  }, [fetchSuggestions, fetchPreviewQuestions]);
 
   const handleSuggestionClick = (field: SuggestionField) => {
     const fieldMeta = FIELD_META[field];
@@ -278,10 +305,11 @@ function NewSessionContent() {
     }, 2500);
   };
 
-  const textareaClasses = (field: SuggestionField) =>
+  const textareaClasses = (field: SuggestionField, hasError?: boolean) =>
     [
       "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y",
       highlightedField === field ? "ring-2 ring-blue-400 border-blue-400" : "",
+      hasError ? "border-red-500 focus-visible:ring-red-500" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -296,44 +324,24 @@ function NewSessionContent() {
     return renderSuggestionCard(field, suggestions, handleSuggestionClick);
   };
 
-  const handlePreview = useCallback(async () => {
-    if (!userId) return;
-
-    if (
-      !title.trim() ||
-      !recognitionFocus.trim() ||
-      !recognitionPurpose.trim()
-    ) {
-      setPreviewError("タイトルと目的、洗い出したい認識を入力してください");
-      return;
+  const handleQuestionClick = (index: number) => {
+    if (expandedQuestionIndex === index) {
+      setExpandedQuestionIndex(null);
+      setQuestionFeedback("");
+    } else {
+      setExpandedQuestionIndex(index);
+      setQuestionFeedback("");
     }
+  };
 
-    setIsPreviewLoading(true);
-    setPreviewError(null);
+  const handleFeedbackSubmit = (question: string, index: number) => {
+    if (!questionFeedback.trim()) return;
 
-    const goal = buildGoalFromInputs(recognitionFocus, recognitionPurpose);
-
-    try {
-      const response = await axios.post(
-        "/api/sessions/preview-questions",
-        {
-          title: title.trim(),
-          goal,
-          context: backgroundInfo.trim(),
-        },
-        {
-          headers: createAuthorizationHeader(userId),
-        },
-      );
-      setPreviewQuestions(response.data.questions);
-    } catch (err) {
-      console.error("Failed to generate preview:", err);
-      setPreviewQuestions([]);
-      setPreviewError("質問の生成に失敗しました。もう一度お試しください。");
-    } finally {
-      setIsPreviewLoading(false);
-    }
-  }, [backgroundInfo, recognitionFocus, recognitionPurpose, title, userId]);
+    const feedbackText = `[質問「${question}」へのフィードバック]\n${questionFeedback.trim()}\n\n`;
+    setBackgroundInfo((prev) => prev + feedbackText);
+    setQuestionFeedback("");
+    setExpandedQuestionIndex(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,9 +351,40 @@ function NewSessionContent() {
       return;
     }
 
-    setIsSubmitting(true);
+    // バリデーション
+    setTitleError(null);
+    setPurposeError(null);
     setError(null);
-    const goal = buildGoalFromInputs(recognitionFocus, recognitionPurpose);
+
+    let hasError = false;
+    let firstErrorField: string | null = null;
+
+    if (!title.trim()) {
+      setTitleError("セッションのタイトルを入力してください");
+      hasError = true;
+      if (!firstErrorField) firstErrorField = "title";
+    }
+
+    if (!purpose.trim()) {
+      setPurposeError("倍速会議を使う目的を入力してください");
+      hasError = true;
+      if (!firstErrorField) firstErrorField = "purpose";
+    }
+
+    if (hasError && firstErrorField) {
+      // エラーのあるフィールドまでスクロール
+      setTimeout(() => {
+        const element = document.getElementById(firstErrorField);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+          element.focus();
+        }
+      }, 100);
+      return;
+    }
+
+    setIsSubmitting(true);
+    const goal = buildGoalFromInputs(purpose);
 
     const payload: {
       title: string;
@@ -390,105 +429,218 @@ function NewSessionContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">
             新しいセッションを作成
           </h1>
           <p className="text-muted-foreground">
-            セッション情報をもとにAIが質問を生成します
+            なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
+          </p>
+          <p className="text-muted-foreground mt-1">
+            <a
+              href="https://scrapbox.io/baisoku-kaigi/%E3%80%8C%E8%A3%9C%E8%B6%B3%E6%83%85%E5%A0%B1%E3%80%8D%E3%82%92%E3%81%9F%E3%81%8F%E3%81%95%E3%82%93%E6%9B%B8%E3%81%8F%E3%81%9F%E3%82%81%E3%81%AB%E9%9F%B3%E5%A3%B0%E5%85%A5%E5%8A%9B%E3%82%92%E6%B4%BB%E7%94%A8%E3%81%99%E3%82%8B"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 underline underline-offset-2"
+            >
+              背景情報の入力には、AI音声入力がおすすめです
+              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+            </a>
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>セッション情報</CardTitle>
-            <CardDescription>
-              なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
-            </CardDescription>
-            <p className="text-xs text-muted-foreground space-y-1">
-              {/* <span className="block">
-                なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
-              </span> */}
-              <span className="block text-[11px] text-muted-foreground/80">
-                <a
-                  href="https://scrapbox.io/baisoku-kaigi/%E3%80%8C%E8%A3%9C%E8%B6%B3%E6%83%85%E5%A0%B1%E3%80%8D%E3%82%92%E3%81%9F%E3%81%8F%E3%81%95%E3%82%93%E6%9B%B8%E3%81%8F%E3%81%9F%E3%82%81%E3%81%AB%E9%9F%B3%E5%A3%B0%E5%85%A5%E5%8A%9B%E3%82%92%E6%B4%BB%E7%94%A8%E3%81%99%E3%82%8B"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 underline underline-offset-2"
-                >
-                  背景情報の入力には、AI音声入力がおすすめです
-                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                </a>
-              </span>
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="order-2 lg:order-1">
+            {isPreviewLoading && (
+              <Card className="border-indigo-100 bg-indigo-50/40 min-h-[600px] flex items-center justify-center">
+                <CardContent className="pt-6 flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                </CardContent>
+              </Card>
+            )}
+
+            {previewError && (
+              <Card className="border-destructive min-h-[600px] flex items-center justify-center">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-destructive" role="alert">
+                    {previewError}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {!isPreviewLoading && previewQuestions.length > 0 && (
+              <Card className="border-indigo-100 bg-indigo-50/40 min-h-[600px] flex flex-col">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base text-indigo-900 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    質問のプレビュー
+                  </CardTitle>
+                  <CardDescription>
+                    参加者が回答する質問のプレビューです。質問をクリックすると、補足情報や修正点をフィードバックできます。
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-hidden flex flex-col">
+                  <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+                    {previewQuestions.map((q, index) => (
+                      <div
+                        key={`${q}-${index}`}
+                        className="rounded-lg border border-border/60 bg-white shadow-sm"
+                      >
+                        <div
+                          className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors group"
+                          onClick={() => handleQuestionClick(index)}
+                        >
+                          <p className="text-sm leading-relaxed text-slate-900 flex-1">
+                            {q}
+                          </p>
+                          <div
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
+                              expandedQuestionIndex === index
+                                ? "bg-indigo-100 text-indigo-700"
+                                : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
+                            }`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                            <span className="text-xs font-medium">補足</span>
+                          </div>
+                        </div>
+                        {expandedQuestionIndex === index && (
+                          <div className="border-t border-border/60 px-4 py-3 space-y-2">
+                            <label className="text-xs text-muted-foreground">
+                              この質問についての補足や修正点
+                            </label>
+                            <textarea
+                              value={questionFeedback}
+                              onChange={(e) => setQuestionFeedback(e.target.value)}
+                              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+                              rows={3}
+                              placeholder="例: この質問は前提が違います。実際には..."
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedQuestionIndex(null);
+                                  setQuestionFeedback("");
+                                }}
+                              >
+                                キャンセル
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFeedbackSubmit(q, index);
+                                }}
+                                disabled={!questionFeedback.trim()}
+                              >
+                                追加
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      isLoading={isSubmitting}
+                      onClick={handleSubmit}
+                      className="w-full sm:w-auto"
+                    >
+                      セッションを作成
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {!isPreviewLoading &&
+              !previewError &&
+              previewQuestions.length === 0 && (
+                <Card className="border-muted min-h-[600px] flex items-center justify-center">
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground text-center">
+                      目的を入力すると、質問のプレビューが表示されます
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+          </div>
+
+          <div className="order-1 lg:order-2 lg:sticky lg:top-6 lg:self-start">
+            <Card className="min-h-[600px]">
+              <CardContent className="pt-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="title" className="text-sm font-medium">
-                  セッションのタイトル
+                <label htmlFor="title" className="text-base font-semibold">
+                  セッションのタイトル{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <Input
                   type="text"
                   id="title"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    if (titleError) setTitleError(null);
+                  }}
                   placeholder="例: 社内チャットツールの入れ替えに関する各メンバーの現状認識のすり合わせ"
+                  className={titleError ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
-                <p className="text-xs text-muted-foreground">
-                  それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
-                </p>
+                {titleError ? (
+                  <p className="text-xs text-red-600 font-medium">{titleError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <label
-                  htmlFor="recognitionPurpose"
-                  className="text-sm font-medium"
-                >
-                  何のために参加者の認識を洗い出したいですか？
+                <label htmlFor="purpose" className="text-base font-semibold">
+                  何をするために倍速会議を使うのですか？{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  id="recognitionPurpose"
-                  value={recognitionPurpose}
-                  onChange={(e) => setRecognitionPurpose(e.target.value)}
-                  required
-                  rows={4}
-                  className={textareaClasses("recognitionPurpose")}
-                  placeholder="例: 導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にするため"
+                  id="purpose"
+                  value={purpose}
+                  onChange={(e) => {
+                    setPurpose(e.target.value);
+                    if (purposeError) setPurposeError(null);
+                  }}
+                  rows={6}
+                  className={textareaClasses("purpose", !!purposeError)}
+                  placeholder="例: 社内チャットツールの入れ替えを検討しているが、チーム内で認識のずれがありそう。導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にしたい。現状の使い方、課題、懸念点、導入後の期待などをすり合わせたい。"
                 />
-                {renderFieldAid(
-                  "recognitionPurpose",
-                  "洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。",
+                {purposeError ? (
+                  <p className="text-xs text-red-600 font-medium">{purposeError}</p>
+                ) : (
+                  renderFieldAid(
+                    "purpose",
+                    "倍速会議を使う目的や、洗い出したい認識の内容を自由に記載してください。",
+                  )
                 )}
               </div>
 
               <div className="space-y-2">
                 <label
-                  htmlFor="recognitionFocus"
-                  className="text-sm font-medium"
+                  htmlFor="backgroundInfo"
+                  className="text-base font-semibold"
                 >
-                  そのためには、参加者の何の認識をすり合わせられると良いですか？
-                </label>
-                <textarea
-                  id="recognitionFocus"
-                  value={recognitionFocus}
-                  onChange={(e) => setRecognitionFocus(e.target.value)}
-                  required
-                  rows={4}
-                  className={textareaClasses("recognitionFocus")}
-                  placeholder="例: チャットツール入れ替えに向けた現状の使い方、課題、懸念点、導入後の期待"
-                />
-                {renderFieldAid(
-                  "recognitionFocus",
-                  "洗い出したいトピックや範囲を具体的に記載してください。",
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <label htmlFor="backgroundInfo" className="text-sm font-medium">
-                  背景情報（任意）
+                  背景情報{" "}
+                  <span className="ml-1.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
+                    任意
+                  </span>
                 </label>
                 <textarea
                   id="backgroundInfo"
@@ -498,83 +650,29 @@ function NewSessionContent() {
                   className={textareaClasses("backgroundInfo")}
                   placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
                 />
+                {renderFieldAid(
+                  "backgroundInfo",
+                  "認識のズレを感じた具体的なきっかけや、解決したい困りごとはありますか？今の状況や背景を少し詳しく何えると、セッションをよりスムーズに進めるための良いヒントになります。",
+                )}
               </div>
-              {renderSuggestionCard(
-                "backgroundInfo",
-                suggestions,
-                handleSuggestionClick,
-              )}
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePreview}
-                  isLoading={isPreviewLoading}
-                  disabled={isSubmitting}
-                >
-                  質問をプレビュー
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  isLoading={isSubmitting}
-                  className="w-full sm:w-auto"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  セッションを作成
-                </Button>
-              </div>
-
-              {previewError && (
-                <p className="text-sm text-destructive" role="alert">
-                  {previewError}
-                </p>
-              )}
-
-              {previewQuestions.length > 0 && (
-                <Card className="border-indigo-100 bg-indigo-50/40">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base text-indigo-900">
-                      生成された質問プレビュー
-                    </CardTitle>
-                    <CardDescription>
-                      YES/NO
-                      で回答される想定のステートメントです。内容だけ確認してください。
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
-                      {previewQuestions.map((q, _index) => (
-                        <div
-                          key={q}
-                          className="rounded-lg border border-border/60 bg-white shadow-sm"
-                        >
-                          <div className="flex items-start gap-3 px-4 py-3">
-                            {/* <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-                              {index + 1}
-                            </span> */}
-                            <p className="text-sm leading-relaxed text-slate-900">
-                              {q}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
               {error && (
-                <Card className="border-destructive">
+                <Card className="border-red-300 bg-red-50">
                   <CardContent className="pt-6">
-                    <p className="text-sm text-destructive">{error}</p>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
+                        <span className="text-red-600 text-sm font-bold">!</span>
+                      </div>
+                      <p className="text-sm text-red-800 font-medium">{error}</p>
+                    </div>
                   </CardContent>
                 </Card>
               )}
             </form>
           </CardContent>
         </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

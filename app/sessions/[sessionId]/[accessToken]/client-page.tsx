@@ -1591,7 +1591,7 @@ export default function AdminPage({
                   </div>
                 ) : reports.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
-                    まだレポートはありません。上のフォームから生成してみましょう。
+                    まだレポートはありません。ボタンをクリックして作成。
                   </div>
                 ) : selectedReport ? (
                   <div className="space-y-6">
@@ -2037,7 +2037,7 @@ export default function AdminPage({
                   </div>
                   {!isEditingSettings && canEdit && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={() => setIsEditingSettings(true)}
                       className="gap-1.5 text-xs"
@@ -2321,13 +2321,14 @@ export default function AdminPage({
                   </Button>
                 </div>
               </div>
-              <div className="overflow-y-auto px-6 py-6" style={{ maxHeight: "calc(90vh - 80px)" }}>
+              <div
+                className="overflow-y-auto px-6 py-6"
+                style={{ maxHeight: "calc(90vh - 80px)" }}
+              >
                 {responseLogsLoading ? (
                   <div className="flex flex-col items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                    <p className="mt-3 text-sm text-slate-600">
-                      読み込み中...
-                    </p>
+                    <p className="mt-3 text-sm text-slate-600">読み込み中...</p>
                   </div>
                 ) : responseLogsError ? (
                   <div className="flex flex-col items-center justify-center py-12">
