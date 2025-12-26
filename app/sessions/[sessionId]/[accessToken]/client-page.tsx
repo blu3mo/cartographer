@@ -766,7 +766,7 @@ export default function AdminPage({
     if (selectedTemplate) {
       setSelectedReportStyle(selectedTemplate);
     } else {
-      // selectedTemplate が null の場合は自動生成
+      // selectedTemplate が null の場合はスタンダード
       setSelectedReportStyle("auto");
     }
     handleCloseReportModal();
@@ -781,7 +781,7 @@ export default function AdminPage({
     let finalPrompt = "";
 
     if (templateId === null) {
-      // 自動生成（標準レポート）
+      // スタンダード（標準レポート）
       finalPrompt = "";
     } else if (templateId === "freeform") {
       // 自由記述
@@ -1120,105 +1120,65 @@ export default function AdminPage({
               </CardHeader>
               <CardContent className="space-y-6">
                 {canEdit ? (
-                  <div className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-inner">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={() => {
+                        if (selectedReportStyle === "auto") {
+                          handleGenerateReport(null);
+                        } else if (selectedReportStyle === "freeform") {
+                          // 自由記述の場合はモーダルを開く
                           setShowReportModal(true);
                           setReportMode("custom");
-                        }}
-                        disabled={creatingReport}
-                        className="flex flex-1 items-center justify-between gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-4 shadow-lg shadow-slate-900/10 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <div className="flex items-center gap-3">
-                          {selectedReportStyle === "auto" ? (
-                            <>
-                              <FileText className="h-5 w-5 text-blue-600" />
-                              <div className="text-left">
-                                <div className="text-base font-semibold text-slate-900">
-                                  自動生成
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  標準的な分析レポート
-                                </div>
-                              </div>
-                            </>
-                          ) : selectedReportStyle === "empathy" ? (
-                            <>
-                              <Heart className="h-5 w-5 text-pink-600" />
-                              <div className="text-left">
-                                <div className="text-base font-semibold text-slate-900">
-                                  共感重視
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  感情的ケアを重視した表現
-                                </div>
-                              </div>
-                            </>
-                          ) : selectedReportStyle === "logical" ? (
-                            <>
-                              <Brain className="h-5 w-5 text-blue-600" />
-                              <div className="text-left">
-                                <div className="text-base font-semibold text-slate-900">
-                                  論理重視
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  ビジネス・意思決定向け
-                                </div>
-                              </div>
-                            </>
-                          ) : selectedReportStyle === "psychopath" ? (
-                            <>
-                              <Zap className="h-5 w-5 text-purple-600" />
-                              <div className="text-left">
-                                <div className="text-base font-semibold text-slate-900">
-                                  サイコパスモード
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  論理重視・矛盾を鋭く指摘
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <Settings className="h-5 w-5 text-slate-600" />
-                              <div className="text-left">
-                                <div className="text-base font-semibold text-slate-900">
-                                  自由記述
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  自由に指示を記載
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                        <ChevronDown className="h-5 w-5 text-slate-400" />
-                      </button>
+                          setSelectedTemplate("freeform");
+                        } else {
+                          handleGenerateReport(selectedReportStyle);
+                        }
+                      }}
+                      disabled={creatingReport}
+                      isLoading={creatingReport}
+                      className="min-h-[52px] w-full justify-start gap-3 rounded-2xl px-5 pr-36 text-left text-base shadow-lg shadow-slate-900/10 sm:text-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5" />
+                        <span className="font-semibold">新しいレポートを生成</span>
+                      </div>
+                    </Button>
 
-                      <Button
-                        type="button"
-                        size="lg"
-                        onClick={() => {
-                          if (selectedReportStyle === "auto") {
-                            handleGenerateReport(null);
-                          } else if (selectedReportStyle === "freeform") {
-                            // 自由記述の場合はモーダルを開く
-                            setShowReportModal(true);
-                            setReportMode("custom");
-                            setSelectedTemplate("freeform");
-                          } else {
-                            handleGenerateReport(selectedReportStyle);
-                          }
-                        }}
-                        disabled={creatingReport}
-                        isLoading={creatingReport}
-                        className="rounded-2xl px-8 py-6 shadow-lg shadow-slate-900/10"
-                      >
-                        生成
-                      </Button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowReportModal(true);
+                        setReportMode("custom");
+                      }}
+                      disabled={creatingReport}
+                      className="absolute right-3 top-1/2 inline-flex h-10 -translate-y-1/2 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold text-white/90 shadow-sm shadow-black/10 backdrop-blur transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {selectedReportStyle === "auto" ? (
+                        <FileText className="h-4 w-4 text-blue-600" />
+                      ) : selectedReportStyle === "empathy" ? (
+                        <Heart className="h-4 w-4 text-pink-600" />
+                      ) : selectedReportStyle === "logical" ? (
+                        <Brain className="h-4 w-4 text-blue-600" />
+                      ) : selectedReportStyle === "psychopath" ? (
+                        <Zap className="h-4 w-4 text-purple-600" />
+                      ) : (
+                        <Settings className="h-4 w-4 text-slate-600" />
+                      )}
+                      <span>
+                        {selectedReportStyle === "auto"
+                          ? "スタンダード"
+                          : selectedReportStyle === "empathy"
+                          ? "共感重視"
+                          : selectedReportStyle === "logical"
+                          ? "論理重視"
+                          : selectedReportStyle === "psychopath"
+                          ? "サイコパスモード"
+                          : "自由記述"}
+                      </span>
+                      <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                    </button>
                   </div>
                 ) : (
                   <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
@@ -1254,9 +1214,9 @@ export default function AdminPage({
                         </div>
 
                             <div className="flex gap-4">
-                              {/* 左側: テンプレートリスト */}
-                              <div className="flex-1 space-y-3">
-                                {/* 自動生成 */}
+                                {/* 左側: テンプレートリスト */}
+                                <div className="flex-1 space-y-3">
+                                {/* スタンダード */}
                                 <button
                                   type="button"
                                   onClick={() => setSelectedTemplate(null)}
@@ -1270,18 +1230,18 @@ export default function AdminPage({
                                       ? "cursor-not-allowed opacity-50"
                                       : "cursor-pointer"
                                   }`}
-                                >
-                                  <div className="rounded-lg bg-white p-2 shadow-sm">
-                                    <FileText className="h-5 w-5 text-slate-700" />
-                                  </div>
-                                  <div className="flex-1">
-                                    <h3 className="text-base font-semibold text-slate-900">
-                                      自動生成
-                                    </h3>
-                                    <p className="mt-1 text-sm text-slate-600">
-                                      標準的な分析レポート
-                                    </p>
-                                  </div>
+                                  >
+                                    <div className="rounded-lg bg-white p-2 shadow-sm">
+                                      <FileText className="h-5 w-5 text-slate-700" />
+                                    </div>
+                                    <div className="flex-1">
+                                      <h3 className="text-base font-semibold text-slate-900">
+                                      スタンダード
+                                      </h3>
+                                      <p className="mt-1 text-sm text-slate-600">
+                                        標準的な分析レポート
+                                      </p>
+                                    </div>
                                 </button>
 
                                 {REPORT_TEMPLATES.filter(
