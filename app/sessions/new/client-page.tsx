@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { ArrowUpRight, Loader2, Sparkles } from "lucide-react";
+import { ArrowUpRight, Loader2, MessageSquare, Pencil, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
@@ -75,7 +75,8 @@ const renderSuggestionCard = (
       <CardContent className="pt-6">
         <div className="flex items-start gap-3">
           <div className="flex-1 space-y-3">
-            <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+              <Sparkles className="h-3 w-3" />
               AI入力アシスト
             </span>
             {fieldSuggestions.length === 1 ? (
@@ -116,6 +117,8 @@ function NewSessionContent() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [purposeError, setPurposeError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [highlightedField, setHighlightedField] =
     useState<SuggestionField | null>(null);
@@ -127,6 +130,10 @@ function NewSessionContent() {
   const [previewQuestions, setPreviewQuestions] = useState<string[]>([]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [expandedQuestionIndex, setExpandedQuestionIndex] = useState<
+    number | null
+  >(null);
+  const [questionFeedback, setQuestionFeedback] = useState<string>("");
 
   useEffect(() => {
     document.title = "新しいセッションを作成 - 倍速会議";
@@ -264,7 +271,7 @@ function NewSessionContent() {
     const debounceHandle = setTimeout(() => {
       void fetchSuggestions();
       void fetchPreviewQuestions();
-    }, 350);
+    }, 100);
 
     return () => {
       clearTimeout(debounceHandle);
@@ -298,10 +305,11 @@ function NewSessionContent() {
     }, 2500);
   };
 
-  const textareaClasses = (field: SuggestionField) =>
+  const textareaClasses = (field: SuggestionField, hasError?: boolean) =>
     [
       "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y",
       highlightedField === field ? "ring-2 ring-blue-400 border-blue-400" : "",
+      hasError ? "border-red-500 focus-visible:ring-red-500" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -316,6 +324,25 @@ function NewSessionContent() {
     return renderSuggestionCard(field, suggestions, handleSuggestionClick);
   };
 
+  const handleQuestionClick = (index: number) => {
+    if (expandedQuestionIndex === index) {
+      setExpandedQuestionIndex(null);
+      setQuestionFeedback("");
+    } else {
+      setExpandedQuestionIndex(index);
+      setQuestionFeedback("");
+    }
+  };
+
+  const handleFeedbackSubmit = (question: string, index: number) => {
+    if (!questionFeedback.trim()) return;
+
+    const feedbackText = `[質問「${question}」へのフィードバック]\n${questionFeedback.trim()}\n\n`;
+    setBackgroundInfo((prev) => prev + feedbackText);
+    setQuestionFeedback("");
+    setExpandedQuestionIndex(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -324,8 +351,39 @@ function NewSessionContent() {
       return;
     }
 
-    setIsSubmitting(true);
+    // バリデーション
+    setTitleError(null);
+    setPurposeError(null);
     setError(null);
+
+    let hasError = false;
+    let firstErrorField: string | null = null;
+
+    if (!title.trim()) {
+      setTitleError("セッションのタイトルを入力してください");
+      hasError = true;
+      if (!firstErrorField) firstErrorField = "title";
+    }
+
+    if (!purpose.trim()) {
+      setPurposeError("倍速会議を使う目的を入力してください");
+      hasError = true;
+      if (!firstErrorField) firstErrorField = "purpose";
+    }
+
+    if (hasError && firstErrorField) {
+      // エラーのあるフィールドまでスクロール
+      setTimeout(() => {
+        const element = document.getElementById(firstErrorField);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+          element.focus();
+        }
+      }, 100);
+      return;
+    }
+
+    setIsSubmitting(true);
     const goal = buildGoalFromInputs(purpose);
 
     const payload: {
@@ -393,7 +451,7 @@ function NewSessionContent() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="order-2 lg:order-1 lg:sticky lg:top-6 lg:self-start">
+          <div className="order-2 lg:order-1">
             {isPreviewLoading && (
               <Card className="border-indigo-100 bg-indigo-50/40 min-h-[600px] flex items-center justify-center">
                 <CardContent className="pt-6 flex items-center justify-center">
@@ -415,25 +473,79 @@ function NewSessionContent() {
             {!isPreviewLoading && previewQuestions.length > 0 && (
               <Card className="border-indigo-100 bg-indigo-50/40 min-h-[600px] flex flex-col">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base text-indigo-900">
+                  <CardTitle className="text-base text-indigo-900 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
                     質問のプレビュー
                   </CardTitle>
                   <CardDescription>
-                    参加者が回答する質問のプレビューです。
+                    参加者が回答する質問のプレビューです。質問をクリックすると、補足情報や修正点をフィードバックできます。
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-hidden flex flex-col">
                   <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-                    {previewQuestions.map((q, _index) => (
+                    {previewQuestions.map((q, index) => (
                       <div
-                        key={q}
+                        key={`${q}-${index}`}
                         className="rounded-lg border border-border/60 bg-white shadow-sm"
                       >
-                        <div className="flex items-start gap-3 px-4 py-3">
-                          <p className="text-sm leading-relaxed text-slate-900">
+                        <div
+                          className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors group"
+                          onClick={() => handleQuestionClick(index)}
+                        >
+                          <p className="text-sm leading-relaxed text-slate-900 flex-1">
                             {q}
                           </p>
+                          <div
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
+                              expandedQuestionIndex === index
+                                ? "bg-indigo-100 text-indigo-700"
+                                : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
+                            }`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                            <span className="text-xs font-medium">補足</span>
+                          </div>
                         </div>
+                        {expandedQuestionIndex === index && (
+                          <div className="border-t border-border/60 px-4 py-3 space-y-2">
+                            <label className="text-xs text-muted-foreground">
+                              この質問についての補足や修正点
+                            </label>
+                            <textarea
+                              value={questionFeedback}
+                              onChange={(e) => setQuestionFeedback(e.target.value)}
+                              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+                              rows={3}
+                              placeholder="例: この質問は前提が違います。実際には..."
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedQuestionIndex(null);
+                                  setQuestionFeedback("");
+                                }}
+                              >
+                                キャンセル
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFeedbackSubmit(q, index);
+                                }}
+                                disabled={!questionFeedback.trim()}
+                              >
+                                追加
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -445,7 +557,6 @@ function NewSessionContent() {
                       onClick={handleSubmit}
                       className="w-full sm:w-auto"
                     >
-                      <Sparkles className="h-4 w-4" />
                       セッションを作成
                     </Button>
                   </div>
@@ -466,43 +577,58 @@ function NewSessionContent() {
               )}
           </div>
 
-          <div className="order-1 lg:order-2">
+          <div className="order-1 lg:order-2 lg:sticky lg:top-6 lg:self-start">
             <Card className="min-h-[600px]">
               <CardContent className="pt-6">
                 <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <label htmlFor="title" className="text-base font-semibold">
-                  セッションのタイトル
+                  セッションのタイトル{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <Input
                   type="text"
                   id="title"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    if (titleError) setTitleError(null);
+                  }}
                   placeholder="例: 社内チャットツールの入れ替えに関する各メンバーの現状認識のすり合わせ"
+                  className={titleError ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
-                <p className="text-xs text-muted-foreground">
-                  それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
-                </p>
+                {titleError ? (
+                  <p className="text-xs text-red-600 font-medium">{titleError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="purpose" className="text-base font-semibold">
-                  何をするために倍速会議を使うのですか？
+                  何をするために倍速会議を使うのですか？{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   id="purpose"
                   value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setPurpose(e.target.value);
+                    if (purposeError) setPurposeError(null);
+                  }}
                   rows={6}
-                  className={textareaClasses("purpose")}
+                  className={textareaClasses("purpose", !!purposeError)}
                   placeholder="例: 社内チャットツールの入れ替えを検討しているが、チーム内で認識のずれがありそう。導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にしたい。現状の使い方、課題、懸念点、導入後の期待などをすり合わせたい。"
                 />
-                {renderFieldAid(
-                  "purpose",
-                  "倍速会議を使う目的や、洗い出したい認識の内容を自由に記載してください。",
+                {purposeError ? (
+                  <p className="text-xs text-red-600 font-medium">{purposeError}</p>
+                ) : (
+                  renderFieldAid(
+                    "purpose",
+                    "倍速会議を使う目的や、洗い出したい認識の内容を自由に記載してください。",
+                  )
                 )}
               </div>
 
@@ -531,9 +657,14 @@ function NewSessionContent() {
               </div>
 
               {error && (
-                <Card className="border-destructive">
+                <Card className="border-red-300 bg-red-50">
                   <CardContent className="pt-6">
-                    <p className="text-sm text-destructive">{error}</p>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
+                        <span className="text-red-600 text-sm font-bold">!</span>
+                      </div>
+                      <p className="text-sm text-red-800 font-medium">{error}</p>
+                    </div>
                   </CardContent>
                 </Card>
               )}
