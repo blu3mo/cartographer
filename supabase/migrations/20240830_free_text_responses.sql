@@ -1,12 +1,30 @@
 -- Migration: introduce free-text responses
 -- Adds response_type, allows nullable value, and stores free-form text.
 
-alter table if exists public.responses
-  add column if not exists response_type text not null default 'scale'
-    check (response_type in ('scale', 'free_text'));
+do $$
+begin
+  if exists (select from pg_tables where schemaname = 'public' and tablename = 'responses') then
+    -- Add response_type column
+    if not exists (
+      select from information_schema.columns
+      where table_schema = 'public' and table_name = 'responses' and column_name = 'response_type'
+    ) then
+      alter table public.responses
+        add column response_type text not null default 'scale'
+          check (response_type in ('scale', 'free_text'));
+    end if;
 
-alter table if exists public.responses
-  alter column value drop not null;
+    -- Make value nullable
+    alter table public.responses
+      alter column value drop not null;
 
-alter table if exists public.responses
-  add column if not exists text_response text null;
+    -- Add text_response column
+    if not exists (
+      select from information_schema.columns
+      where table_schema = 'public' and table_name = 'responses' and column_name = 'text_response'
+    ) then
+      alter table public.responses
+        add column text_response text null;
+    end if;
+  end if;
+end $$;

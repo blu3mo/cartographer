@@ -120,9 +120,8 @@ export async function GET(
       });
     }
 
-    // Return a random unanswered statement
-    const randomIndex = Math.floor(Math.random() * unansweredStatements.length);
-    const statement = unansweredStatements[randomIndex] as StatementRow;
+    // Return the next unanswered statement in order
+    const statement = unansweredStatements[0] as StatementRow;
 
     return NextResponse.json({
       statement: mapStatement(statement),
