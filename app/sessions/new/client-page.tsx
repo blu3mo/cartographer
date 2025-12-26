@@ -17,10 +17,7 @@ import { Input } from "@/components/ui/input";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 
-type SuggestionField =
-  | "backgroundInfo"
-  | "recognitionFocus"
-  | "recognitionPurpose";
+type SuggestionField = "backgroundInfo" | "purpose";
 
 type Suggestion = {
   field: SuggestionField;
@@ -32,13 +29,9 @@ const FIELD_META: Record<
   { label: string; elementId: string }
 > = {
   backgroundInfo: { label: "背景情報", elementId: "backgroundInfo" },
-  recognitionFocus: {
-    label: "洗い出したい認識",
-    elementId: "recognitionFocus",
-  },
-  recognitionPurpose: {
-    label: "洗い出す目的",
-    elementId: "recognitionPurpose",
+  purpose: {
+    label: "目的",
+    elementId: "purpose",
   },
 };
 
@@ -60,35 +53,11 @@ const inferFieldFromMessage = (message: string): SuggestionField => {
     "誰が",
   ];
 
-  const purposeKeywords = [
-    "目的",
-    "ために",
-    "ため",
-    "ゴール",
-    "目標",
-    "狙い",
-    "意図",
-    "理由",
-    "目指",
-    "最終的",
-    "どうなって",
-    "理想",
-    "ビジョン",
-    "状態",
-    "達成",
-    "成果",
-    "実現",
-  ];
-
   if (includes(backgroundKeywords)) {
     return "backgroundInfo";
   }
 
-  if (includes(purposeKeywords)) {
-    return "recognitionPurpose";
-  }
-
-  return "recognitionFocus";
+  return "purpose";
 };
 
 const renderSuggestionCard = (
@@ -135,8 +104,7 @@ const renderSuggestionCard = (
   );
 };
 
-const buildGoalFromInputs = (focus: string, purpose: string) =>
-  `【何の認識を洗い出しますか？】${focus}\n【何のために洗い出しますか？】${purpose}`;
+const buildGoalFromInputs = (purpose: string) => purpose;
 
 function NewSessionContent() {
   const router = useRouter();
@@ -146,11 +114,8 @@ function NewSessionContent() {
   const [backgroundInfo, setBackgroundInfo] = useState(
     searchParams.get("background") || "",
   );
-  const [recognitionFocus, setRecognitionFocus] = useState(
-    searchParams.get("topic") || "",
-  );
-  const [recognitionPurpose, setRecognitionPurpose] = useState(
-    searchParams.get("purpose") || "",
+  const [purpose, setPurpose] = useState(
+    searchParams.get("purpose") || searchParams.get("topic") || "",
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -182,8 +147,7 @@ function NewSessionContent() {
   const fetchSuggestions = useCallback(async () => {
     const currentFormState = JSON.stringify({
       backgroundInfo,
-      recognitionFocus,
-      recognitionPurpose,
+      purpose,
     });
 
     if (currentFormState === lastFormStateRef.current) {
@@ -192,11 +156,7 @@ function NewSessionContent() {
 
     lastFormStateRef.current = currentFormState;
 
-    if (
-      !backgroundInfo.trim() &&
-      !recognitionFocus.trim() &&
-      !recognitionPurpose.trim()
-    ) {
+    if (!backgroundInfo.trim() && !purpose.trim()) {
       setSuggestions([]);
       return;
     }
@@ -214,8 +174,7 @@ function NewSessionContent() {
         "/api/sessions/form-suggestions",
         {
           backgroundInfo,
-          recognitionFocus,
-          recognitionPurpose,
+          purpose,
         },
         { signal: controller.signal },
       );
@@ -242,7 +201,7 @@ function NewSessionContent() {
       }
       console.error("Failed to fetch suggestions:", err);
     }
-  }, [backgroundInfo, recognitionFocus, recognitionPurpose]);
+  }, [backgroundInfo, purpose]);
 
   useEffect(() => {
     const debounceHandle = setTimeout(() => {
@@ -299,19 +258,15 @@ function NewSessionContent() {
   const handlePreview = useCallback(async () => {
     if (!userId) return;
 
-    if (
-      !title.trim() ||
-      !recognitionFocus.trim() ||
-      !recognitionPurpose.trim()
-    ) {
-      setPreviewError("タイトルと目的、洗い出したい認識を入力してください");
+    if (!title.trim() || !purpose.trim()) {
+      setPreviewError("タイトルと目的を入力してください");
       return;
     }
 
     setIsPreviewLoading(true);
     setPreviewError(null);
 
-    const goal = buildGoalFromInputs(recognitionFocus, recognitionPurpose);
+    const goal = buildGoalFromInputs(purpose);
 
     try {
       const response = await axios.post(
@@ -333,7 +288,7 @@ function NewSessionContent() {
     } finally {
       setIsPreviewLoading(false);
     }
-  }, [backgroundInfo, recognitionFocus, recognitionPurpose, title, userId]);
+  }, [backgroundInfo, purpose, title, userId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -345,7 +300,7 @@ function NewSessionContent() {
 
     setIsSubmitting(true);
     setError(null);
-    const goal = buildGoalFromInputs(recognitionFocus, recognitionPurpose);
+    const goal = buildGoalFromInputs(purpose);
 
     const payload: {
       title: string;
@@ -398,35 +353,27 @@ function NewSessionContent() {
           <p className="text-muted-foreground">
             セッション情報をもとにAIが質問を生成します
           </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
+          </p>
+          <p className="text-xs text-muted-foreground/80 mt-1">
+            <a
+              href="https://scrapbox.io/baisoku-kaigi/%E3%80%8C%E8%A3%9C%E8%B6%B3%E6%83%85%E5%A0%B1%E3%80%8D%E3%82%92%E3%81%9F%E3%81%8F%E3%81%95%E3%82%93%E6%9B%B8%E3%81%8F%E3%81%9F%E3%82%81%E3%81%AB%E9%9F%B3%E5%A3%B0%E5%85%A5%E5%8A%9B%E3%82%92%E6%B4%BB%E7%94%A8%E3%81%99%E3%82%8B"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 underline underline-offset-2"
+            >
+              背景情報の入力には、AI音声入力がおすすめです
+              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+            </a>
+          </p>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>セッション情報</CardTitle>
-            <CardDescription>
-              なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
-            </CardDescription>
-            <p className="text-xs text-muted-foreground space-y-1">
-              {/* <span className="block">
-                なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
-              </span> */}
-              <span className="block text-[11px] text-muted-foreground/80">
-                <a
-                  href="https://scrapbox.io/baisoku-kaigi/%E3%80%8C%E8%A3%9C%E8%B6%B3%E6%83%85%E5%A0%B1%E3%80%8D%E3%82%92%E3%81%9F%E3%81%8F%E3%81%95%E3%82%93%E6%9B%B8%E3%81%8F%E3%81%9F%E3%82%81%E3%81%AB%E9%9F%B3%E5%A3%B0%E5%85%A5%E5%8A%9B%E3%82%92%E6%B4%BB%E7%94%A8%E3%81%99%E3%82%8B"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 underline underline-offset-2"
-                >
-                  背景情報の入力には、AI音声入力がおすすめです
-                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                </a>
-              </span>
-            </p>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="title" className="text-sm font-medium">
+                <label htmlFor="title" className="text-base font-semibold">
                   セッションのタイトル
                 </label>
                 <Input
@@ -443,52 +390,33 @@ function NewSessionContent() {
               </div>
 
               <div className="space-y-2">
-                <label
-                  htmlFor="recognitionPurpose"
-                  className="text-sm font-medium"
-                >
-                  何のために参加者の認識を洗い出したいですか？
+                <label htmlFor="purpose" className="text-base font-semibold">
+                  何をするために倍速会議を使うのですか？
                 </label>
                 <textarea
-                  id="recognitionPurpose"
-                  value={recognitionPurpose}
-                  onChange={(e) => setRecognitionPurpose(e.target.value)}
+                  id="purpose"
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
                   required
-                  rows={4}
-                  className={textareaClasses("recognitionPurpose")}
-                  placeholder="例: 導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にするため"
+                  rows={6}
+                  className={textareaClasses("purpose")}
+                  placeholder="例: 社内チャットツールの入れ替えを検討しているが、チーム内で認識のずれがありそう。導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にしたい。現状の使い方、課題、懸念点、導入後の期待などをすり合わせたい。"
                 />
                 {renderFieldAid(
-                  "recognitionPurpose",
-                  "洗い出しの目的や、きっかけとなるもやもや、その先に実現したいことを書いてください。",
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="recognitionFocus"
-                  className="text-sm font-medium"
-                >
-                  そのためには、参加者の何の認識をすり合わせられると良いですか？
-                </label>
-                <textarea
-                  id="recognitionFocus"
-                  value={recognitionFocus}
-                  onChange={(e) => setRecognitionFocus(e.target.value)}
-                  required
-                  rows={4}
-                  className={textareaClasses("recognitionFocus")}
-                  placeholder="例: チャットツール入れ替えに向けた現状の使い方、課題、懸念点、導入後の期待"
-                />
-                {renderFieldAid(
-                  "recognitionFocus",
-                  "洗い出したいトピックや範囲を具体的に記載してください。",
+                  "purpose",
+                  "倍速会議を使う目的や、洗い出したい認識の内容を自由に記載してください。",
                 )}
               </div>
 
               <div className="space-y-3">
-                <label htmlFor="backgroundInfo" className="text-sm font-medium">
-                  背景情報（任意）
+                <label
+                  htmlFor="backgroundInfo"
+                  className="text-base font-semibold"
+                >
+                  背景情報{" "}
+                  <span className="ml-1.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
+                    任意
+                  </span>
                 </label>
                 <textarea
                   id="backgroundInfo"
