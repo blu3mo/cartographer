@@ -122,6 +122,8 @@ function NewSessionContent() {
   const lastFormStateRef = useRef<string>("");
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const suggestionAbortRef = useRef<AbortController | null>(null);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const lastPreviewStateRef = useRef<string>("");
   const [previewQuestions, setPreviewQuestions] = useState<string[]>([]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -200,9 +202,68 @@ function NewSessionContent() {
     }
   }, [backgroundInfo, purpose]);
 
+  const fetchPreviewQuestions = useCallback(async () => {
+    if (!userId) return;
+
+    const currentPreviewState = JSON.stringify({
+      title,
+      purpose,
+      backgroundInfo,
+    });
+
+    if (currentPreviewState === lastPreviewStateRef.current) {
+      return;
+    }
+
+    lastPreviewStateRef.current = currentPreviewState;
+
+    if (!purpose.trim()) {
+      setPreviewQuestions([]);
+      setPreviewError(null);
+      return;
+    }
+
+    try {
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+      }
+      const controller = new AbortController();
+      previewAbortRef.current = controller;
+
+      setIsPreviewLoading(true);
+      setPreviewError(null);
+
+      const goal = buildGoalFromInputs(purpose);
+
+      const response = await axios.post(
+        "/api/sessions/preview-questions",
+        {
+          title: title.trim(),
+          goal,
+          context: backgroundInfo.trim(),
+        },
+        {
+          headers: createAuthorizationHeader(userId),
+          signal: controller.signal,
+        },
+      );
+      setPreviewQuestions(response.data.questions);
+    } catch (err) {
+      if ((err as { name?: string }).name === "CanceledError") {
+        return;
+      }
+      console.error("Failed to generate preview:", err);
+      setPreviewQuestions([]);
+      setPreviewError("質問の生成に失敗しました。もう一度お試しください。");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  }, [backgroundInfo, purpose, title, userId]);
+
   useEffect(() => {
     const debounceHandle = setTimeout(() => {
       void fetchSuggestions();
+      void fetchPreviewQuestions();
     }, 350);
 
     return () => {
@@ -210,8 +271,11 @@ function NewSessionContent() {
       if (suggestionAbortRef.current) {
         suggestionAbortRef.current.abort();
       }
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+      }
     };
-  }, [fetchSuggestions]);
+  }, [fetchSuggestions, fetchPreviewQuestions]);
 
   const handleSuggestionClick = (field: SuggestionField) => {
     const fieldMeta = FIELD_META[field];
@@ -251,41 +315,6 @@ function NewSessionContent() {
     }
     return renderSuggestionCard(field, suggestions, handleSuggestionClick);
   };
-
-  const handlePreview = useCallback(async () => {
-    if (!userId) return;
-
-    if (!title.trim() || !purpose.trim()) {
-      setPreviewError("タイトルと目的を入力してください");
-      return;
-    }
-
-    setIsPreviewLoading(true);
-    setPreviewError(null);
-
-    const goal = buildGoalFromInputs(purpose);
-
-    try {
-      const response = await axios.post(
-        "/api/sessions/preview-questions",
-        {
-          title: title.trim(),
-          goal,
-          context: backgroundInfo.trim(),
-        },
-        {
-          headers: createAuthorizationHeader(userId),
-        },
-      );
-      setPreviewQuestions(response.data.questions);
-    } catch (err) {
-      console.error("Failed to generate preview:", err);
-      setPreviewQuestions([]);
-      setPreviewError("質問の生成に失敗しました。もう一度お試しください。");
-    } finally {
-      setIsPreviewLoading(false);
-    }
-  }, [backgroundInfo, purpose, title, userId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -342,7 +371,7 @@ function NewSessionContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">
             新しいセッションを作成
@@ -363,9 +392,84 @@ function NewSessionContent() {
           </p>
         </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="order-2 lg:order-1 lg:sticky lg:top-6 lg:self-start">
+            {isPreviewLoading && (
+              <Card className="border-indigo-100 bg-indigo-50/40 min-h-[600px] flex items-center justify-center">
+                <CardContent className="pt-6 flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                </CardContent>
+              </Card>
+            )}
+
+            {previewError && (
+              <Card className="border-destructive min-h-[600px] flex items-center justify-center">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-destructive" role="alert">
+                    {previewError}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {!isPreviewLoading && previewQuestions.length > 0 && (
+              <Card className="border-indigo-100 bg-indigo-50/40 min-h-[600px] flex flex-col">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base text-indigo-900">
+                    質問のプレビュー
+                  </CardTitle>
+                  <CardDescription>
+                    参加者が回答する質問のプレビューです。
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-hidden flex flex-col">
+                  <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+                    {previewQuestions.map((q, _index) => (
+                      <div
+                        key={q}
+                        className="rounded-lg border border-border/60 bg-white shadow-sm"
+                      >
+                        <div className="flex items-start gap-3 px-4 py-3">
+                          <p className="text-sm leading-relaxed text-slate-900">
+                            {q}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      isLoading={isSubmitting}
+                      onClick={handleSubmit}
+                      className="w-full sm:w-auto"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      セッションを作成
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {!isPreviewLoading &&
+              !previewError &&
+              previewQuestions.length === 0 && (
+                <Card className="border-muted min-h-[600px] flex items-center justify-center">
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground text-center">
+                      目的を入力すると、質問のプレビューが表示されます
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+          </div>
+
+          <div className="order-1 lg:order-2">
+            <Card className="min-h-[600px]">
+              <CardContent className="pt-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <label htmlFor="title" className="text-base font-semibold">
                   セッションのタイトル
@@ -426,66 +530,6 @@ function NewSessionContent() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePreview}
-                  isLoading={isPreviewLoading}
-                  disabled={isSubmitting}
-                >
-                  質問をプレビュー
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  isLoading={isSubmitting}
-                  className="w-full sm:w-auto"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  セッションを作成
-                </Button>
-              </div>
-
-              {previewError && (
-                <p className="text-sm text-destructive" role="alert">
-                  {previewError}
-                </p>
-              )}
-
-              {previewQuestions.length > 0 && (
-                <Card className="border-indigo-100 bg-indigo-50/40">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base text-indigo-900">
-                      生成された質問プレビュー
-                    </CardTitle>
-                    <CardDescription>
-                      YES/NO
-                      で回答される想定のステートメントです。内容だけ確認してください。
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
-                      {previewQuestions.map((q, _index) => (
-                        <div
-                          key={q}
-                          className="rounded-lg border border-border/60 bg-white shadow-sm"
-                        >
-                          <div className="flex items-start gap-3 px-4 py-3">
-                            {/* <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-                              {index + 1}
-                            </span> */}
-                            <p className="text-sm leading-relaxed text-slate-900">
-                              {q}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               {error && (
                 <Card className="border-destructive">
                   <CardContent className="pt-6">
@@ -496,6 +540,8 @@ function NewSessionContent() {
             </form>
           </CardContent>
         </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

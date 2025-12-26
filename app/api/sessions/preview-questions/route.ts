@@ -19,9 +19,9 @@ export async function POST(request: NextRequest) {
       goal?: unknown;
     };
 
-    if (typeof title !== "string" || title.trim().length === 0) {
+    if (typeof title !== "string") {
       return NextResponse.json(
-        { error: "Missing required field: title" },
+        { error: "Invalid value for title" },
         { status: 400 },
       );
     }
