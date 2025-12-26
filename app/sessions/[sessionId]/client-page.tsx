@@ -1,7 +1,14 @@
 "use client";
 
 import axios from "axios";
-import { FileText, Info, Loader2 } from "lucide-react";
+import {
+  ArrowDown,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Loader2,
+  Navigation,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -63,27 +70,6 @@ type ParticipantResponse = {
   textResponse?: string | null;
   createdAt: string;
 };
-
-type ParticipantReflection = {
-  id: string;
-  text: string;
-  createdAt: string;
-  submittedAt: string;
-};
-
-type HistoryEntry =
-  | {
-      type: "response";
-      createdAt: string;
-      response: ParticipantResponse;
-      key: string;
-    }
-  | {
-      type: "reflection";
-      createdAt: string;
-      reflection: ParticipantReflection;
-      key: string;
-    };
 
 const GOAL_PREVIEW_LIMIT = 140;
 
@@ -149,6 +135,11 @@ const RESPONSE_CHOICES: Array<{
   },
 ];
 
+const getResponseLabel = (value: ResponseValue | null) => {
+  const choice = RESPONSE_CHOICES.find((item) => item.value === value);
+  return choice ? `${choice.emoji} ${choice.label}` : "回答済み";
+};
+
 export default function SessionPage({ sessionId }: { sessionId: string }) {
   const { userId, isLoading: userLoading } = useUserId();
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
@@ -174,6 +165,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     number | null
   >(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const [showScrollToActive, setShowScrollToActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [freeTextInput, setFreeTextInput] = useState("");
   const [isSubmittingFreeText, setIsSubmittingFreeText] = useState(false);
@@ -196,11 +189,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const [updatingResponseIds, setUpdatingResponseIds] = useState<Set<string>>(
     new Set(),
   );
-  const [participantReflections, setParticipantReflections] = useState<
-    ParticipantReflection[]
-  >([]);
-  const [isLoadingReflections, setIsLoadingReflections] = useState(false);
-  const [reflectionsError, setReflectionsError] = useState<string | null>(null);
   const [reflectionText, setReflectionText] = useState("");
   const [isSubmittingReflection, setIsSubmittingReflection] = useState(false);
   const [reflectionSubmissionError, setReflectionSubmissionError] = useState<
@@ -209,10 +197,21 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
-  const historySectionRef = useRef<HTMLDivElement | null>(null);
   const currentQuestionRef = useRef<HTMLDivElement | null>(null);
   const sessionInfoId = sessionInfo?.id;
+  const totalQuestions = allStatements.length;
+  const progressPercent =
+    totalQuestions > 0 && remainingQuestions !== null
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((totalQuestions - remainingQuestions) / totalQuestions) * 100,
+          ),
+        )
+      : null;
   const sortResponsesByRecency = useCallback((items: ParticipantResponse[]) => {
     return [...items].sort((a, b) => {
       const timeDiff =
@@ -224,57 +223,83 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       return a.orderIndex - b.orderIndex;
     });
   }, []);
-  const historyItems = useMemo<HistoryEntry[]>(() => {
-    const responses = participantResponses.map((response) => ({
-      type: "response" as const,
-      createdAt: response.createdAt,
-      response,
-      key: `response-${response.statementId}`,
-    }));
-    const reflections = participantReflections.map((reflection) => ({
-      type: "reflection" as const,
-      createdAt: reflection.submittedAt ?? reflection.createdAt,
-      reflection,
-      key: `reflection-${reflection.id}`,
-    }));
+  const previewStatement = useMemo(() => {
+    const answeredIds = new Set(participantResponses.map((r) => r.statementId));
+    if (currentStatementIndex === null || currentStatementIndex < 0) {
+      return prefetchedStatement ?? null;
+    }
 
-    return [...responses, ...reflections].sort((a, b) => {
-      const diff =
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      if (diff !== 0) {
-        return diff;
+    for (let i = currentStatementIndex + 1; i < allStatements.length; i++) {
+      if (!answeredIds.has(allStatements[i]!.id)) {
+        return allStatements[i]!;
       }
-      return a.key.localeCompare(b.key);
+    }
+
+    return prefetchedStatement ?? null;
+  }, [
+    allStatements,
+    participantResponses,
+    currentStatementIndex,
+    prefetchedStatement,
+  ]);
+
+  const responsesByStatementId = useMemo(() => {
+    return new Map(
+      participantResponses.map((response) => [response.statementId, response]),
+    );
+  }, [participantResponses]);
+
+  const orderedStatements = useMemo(() => {
+    const statementMap = new Map<string, Statement>();
+    const addStatement = (statement: Statement | null | undefined) => {
+      if (!statement) return;
+      statementMap.set(statement.id, statement);
+    };
+
+    allStatements.forEach(addStatement);
+    participantResponses.forEach((response) => {
+      if (!statementMap.has(response.statementId)) {
+        statementMap.set(response.statementId, {
+          id: response.statementId,
+          text: response.statementText,
+          orderIndex: response.orderIndex,
+          sessionId,
+        });
+      }
     });
-  }, [participantResponses, participantReflections]);
+    addStatement(currentStatement);
+    addStatement(previewStatement);
 
-  // Calculate answered and unanswered statements for timeline view
-  const { answeredStatements, unansweredStatements, nextStatement } =
-    useMemo(() => {
-      const answeredIds = new Set(
-        participantResponses.map((r) => r.statementId),
-      );
+    return Array.from(statementMap.values()).sort(
+      (a, b) => a.orderIndex - b.orderIndex,
+    );
+  }, [
+    allStatements,
+    participantResponses,
+    currentStatement,
+    previewStatement,
+    sessionId,
+  ]);
 
-      const answered = allStatements.filter((s) => answeredIds.has(s.id));
-      const unanswered = allStatements.filter((s) => !answeredIds.has(s.id));
+  const activeStatementIndex = useMemo(() => {
+    if (!currentStatement) return null;
+    const index = orderedStatements.findIndex(
+      (statement) => statement.id === currentStatement.id,
+    );
+    return index >= 0 ? index : null;
+  }, [orderedStatements, currentStatement]);
 
-      // Find the next unanswered statement after current
-      let next: Statement | null = null;
-      if (currentStatementIndex !== null && currentStatementIndex >= 0) {
-        for (let i = currentStatementIndex + 1; i < allStatements.length; i++) {
-          if (!answeredIds.has(allStatements[i]!.id)) {
-            next = allStatements[i]!;
-            break;
-          }
-        }
-      }
-
-      return {
-        answeredStatements: answered,
-        unansweredStatements: unanswered,
-        nextStatement: next,
-      };
-    }, [allStatements, participantResponses, currentStatementIndex]);
+  useEffect(() => {
+    if (!currentStatement) {
+      setCurrentStatementIndex(null);
+      return;
+    }
+    if (allStatements.length === 0) return;
+    const index = allStatements.findIndex(
+      (statement) => statement.id === currentStatement.id,
+    );
+    setCurrentStatementIndex(index !== -1 ? index : null);
+  }, [currentStatement?.id, allStatements]);
   const fetchParticipantResponses = useCallback(async () => {
     if (!userId) return;
     setIsLoadingResponses(true);
@@ -322,55 +347,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       setIsLoadingResponses(false);
     }
   }, [sessionId, userId, sortResponsesByRecency]);
-  const fetchParticipantReflections = useCallback(async () => {
-    if (!userId) return;
-    setIsLoadingReflections(true);
-    setReflectionsError(null);
-
-    try {
-      const response = await axios.get(
-        `/api/sessions/${sessionId}/reflections`,
-        {
-          headers: createAuthorizationHeader(userId),
-        },
-      );
-
-      const items = (response.data.reflections ?? []) as Array<{
-        id: string;
-        text: string;
-        createdAt?: string;
-        submittedAt?: string;
-      }>;
-
-      setParticipantReflections(
-        items
-          .map((item) => ({
-            id: item.id,
-            text: item.text,
-            createdAt: item.createdAt ?? new Date().toISOString(),
-            submittedAt: item.submittedAt ?? new Date().toISOString(),
-          }))
-          .sort(
-            (a, b) =>
-              new Date(b.submittedAt).getTime() -
-              new Date(a.submittedAt).getTime(),
-          ),
-      );
-    } catch (err) {
-      console.error("Failed to fetch participant reflections:", err);
-      if (axios.isAxiosError(err) && err.response?.status === 404) {
-        setParticipantReflections([]);
-        setReflectionsError(null);
-      } else {
-        setReflectionsError(
-          "これまでのふりかえりを取得できませんでした。更新して再度お試しください。",
-        );
-      }
-    } finally {
-      setIsLoadingReflections(false);
-    }
-  }, [sessionId, userId]);
-
   const upsertParticipantResponse = useCallback(
     (
       statement: Statement,
@@ -586,11 +562,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         if (response.data.statement) {
           setCurrentStatement(response.data.statement);
           setState("ANSWERING");
+          setRemainingQuestions(response.data.remainingCount ?? null);
+          if (response.data.allStatements) {
+            setAllStatements(response.data.allStatements);
+            const index = response.data.allStatements.findIndex(
+              (s: Statement) => s.id === response.data.statement.id,
+            );
+            setCurrentStatementIndex(index !== -1 ? index : null);
+          }
           setSessionInfo((prev) =>
             prev ? { ...prev, isParticipant: true } : prev,
           );
         } else {
           setState("COMPLETED");
+          setRemainingQuestions(response.data.remainingCount ?? 0);
           setSessionInfo((prev) =>
             prev ? { ...prev, isParticipant: true } : prev,
           );
@@ -792,28 +777,63 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     if (state !== "ANSWERING" || !currentStatement) return;
     if (!currentQuestionRef.current) return;
 
-    const timeout = setTimeout(() => {
+    let finishTimeout: number | null = null;
+    const startTimeout = window.setTimeout(() => {
+      setIsAutoScrolling(true);
+      setShowScrollToActive(false);
       currentQuestionRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
-    }, 300);
 
-    return () => clearTimeout(timeout);
+      finishTimeout = window.setTimeout(() => {
+        setIsAutoScrolling(false);
+      }, 1000);
+    }, 200);
+
+    return () => {
+      window.clearTimeout(startTimeout);
+      if (finishTimeout) {
+        window.clearTimeout(finishTimeout);
+      }
+    };
   }, [currentStatement?.id, state]);
+
+  useEffect(() => {
+    if (state !== "ANSWERING") return;
+    if (!currentQuestionRef.current) return;
+
+    const target = currentQuestionRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!isAutoScrolling) {
+          setShowScrollToActive(!entry.isIntersecting);
+        }
+      },
+      {
+        root: null,
+        threshold: 0.2,
+        rootMargin: "0px",
+      },
+    );
+
+    observer.observe(target);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [currentStatement?.id, state, isAutoScrolling]);
 
   useEffect(() => {
     if (!userId || userLoading) return;
     if (state === "NEEDS_NAME") return;
 
     fetchParticipantResponses();
-    fetchParticipantReflections();
   }, [
     userId,
     userLoading,
     state,
     fetchParticipantResponses,
-    fetchParticipantReflections,
   ]);
 
   // Auto-generate report when all questions are answered (even before reflection submission)
@@ -1035,11 +1055,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           .catch((err) => {
             console.error("Failed to submit answer:", err);
             revertOnFailure();
-            if (axios.isAxiosError(err) && err.response?.data?.error) {
-              setError(`エラー: ${err.response.data.error}`);
-            } else {
-              setError("回答の送信に失敗しました。");
-            }
+            // Don't show error message for background submission
           })
           .finally(() => {
             clearPendingStatement();
@@ -1144,11 +1160,17 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     });
   };
 
-  const handleScrollToHistory = () => {
-    historySectionRef.current?.scrollIntoView({
+  const scrollToActive = () => {
+    if (!currentQuestionRef.current) return;
+    setIsAutoScrolling(true);
+    setShowScrollToActive(false);
+    currentQuestionRef.current.scrollIntoView({
       behavior: "smooth",
-      block: "start",
+      block: "center",
     });
+    window.setTimeout(() => {
+      setIsAutoScrolling(false);
+    }, 1000);
   };
 
   const handleInfoClick = () => {
@@ -1237,33 +1259,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         { text: submissionText },
         { headers: createAuthorizationHeader(userId) },
       );
-
-      const reflection = response.data?.reflection as
-        | {
-            id: string;
-            text: string;
-            createdAt?: string;
-            submittedAt?: string;
-          }
-        | undefined;
-
-      if (reflection) {
-        setParticipantReflections((prev) =>
-          [
-            {
-              id: reflection.id,
-              text: reflection.text,
-              createdAt: reflection.createdAt ?? new Date().toISOString(),
-              submittedAt: reflection.submittedAt ?? new Date().toISOString(),
-            },
-            ...prev,
-          ].sort(
-            (a, b) =>
-              new Date(b.submittedAt).getTime() -
-              new Date(a.submittedAt).getTime(),
-          ),
-        );
-      }
 
       setReflectionText("");
       setIsLoading(true);
@@ -1471,13 +1466,54 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-8 space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+    <div className="min-h-screen bg-slate-100">
+      {/* Fixed Header */}
+      {state !== "NEEDS_NAME" && (
+        <header className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md z-50 border-b border-slate-200 flex items-center justify-between px-6 relative">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-indigo-600"></div>
+            <h1 className="font-bold text-slate-800 tracking-tight">
               {sessionInfo?.title ?? "セッション"}
             </h1>
+          </div>
+          {state === "ANSWERING" && remainingQuestions !== null && (
+            <div className="text-xs font-medium text-slate-500">
+              残り {remainingQuestions} 問
+            </div>
+          )}
+          {progressPercent !== null && (
+            <div
+              className="absolute left-0 right-0 bottom-0 h-1 bg-slate-200/80"
+              role="progressbar"
+              aria-valuenow={Math.round(progressPercent)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          )}
+        </header>
+      )}
+
+      <div
+        className={`max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 ${
+          state === "NEEDS_NAME"
+            ? "py-12"
+            : state === "ANSWERING"
+              ? "pt-24 pb-0"
+              : "pt-24 pb-12"
+        }`}
+      >
+        <div className="mb-8 space-y-6">
+          <div>
+            {state === "NEEDS_NAME" && (
+              <h1 className="text-3xl font-bold tracking-tight mb-3">
+                {sessionInfo?.title ?? "セッション"}
+              </h1>
+            )}
             {sessionGoalHighlights.length > 0 && (
               <div className="mt-3 space-y-2">
                 {state !== "NEEDS_NAME" ? (
@@ -1490,8 +1526,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                       onClick={() => setIsGoalCollapsed((prev) => !prev)}
                     >
                       {isGoalCollapsed
-                        ? "▼ クリックしてセッション概要を表示"
-                        : "▲ クリックしてセッション概要を隠す"}
+                        ? "▼ セッション概要を表示"
+                        : "▲ セッション概要を隠す"}
                     </Button>
                     {!isGoalCollapsed && (
                       <div className="space-y-3 text-muted-foreground">
@@ -1672,256 +1708,347 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         )}
 
         {state === "ANSWERING" && currentStatement && (
-          <div className="space-y-4">
-            {/* Answered Questions Section */}
-            {answeredStatements.map((statement) => {
-              const response = participantResponses.find(
-                (r) => r.statementId === statement.id,
-              );
-              if (!response) return null;
+          <main
+            ref={containerRef}
+            className="relative w-full max-w-xl mx-auto min-h-screen flex flex-col items-center gap-6 pb-40"
+          >
+            {responsesError && (
+              <div className="w-full rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                <p className="text-sm text-destructive">{responsesError}</p>
+              </div>
+            )}
 
-              const getResponseLabel = (value: ResponseValue | null) => {
-                if (value === 2) return "👍 強く同意";
-                if (value === 1) return "✓ 同意";
-                if (value === 0) return "🤔 わからない";
-                if (value === -1) return "✗ 反対";
-                if (value === -2) return "👎 強く反対";
-                return "回答済み";
-              };
+            {orderedStatements.map((statement, index) => {
+              const response = responsesByStatementId.get(statement.id);
+              const isActive = statement.id === currentStatement.id;
+              const isPast =
+                activeStatementIndex !== null && index < activeStatementIndex;
+              const isFuture =
+                activeStatementIndex !== null && index > activeStatementIndex;
+              const distance =
+                activeStatementIndex !== null
+                  ? index - activeStatementIndex
+                  : 0;
+
+              if (distance > 2) return null;
+
+              const isPending = pendingAnswerStatementIdsRef.current.has(
+                statement.id,
+              );
+              const isUpdating = updatingResponseIds.has(statement.id);
 
               return (
-                <Card
+                <div
                   key={statement.id}
-                  className="opacity-60 hover:opacity-80 transition-opacity"
+                  ref={isActive ? currentQuestionRef : null}
+                  className={cn(
+                    "w-full transition-all duration-700 ease-in-out transform",
+                    isActive && "scale-100 opacity-100 translate-y-0 z-20",
+                    isPast && "scale-[0.98] opacity-50 -translate-y-4 z-10",
+                    isFuture && "scale-[0.95] translate-y-4 z-0 blur-[0.5px]",
+                  )}
+                  style={{
+                    opacity: isFuture
+                      ? Math.max(0.1, 0.5 - distance * 0.15)
+                      : isPast
+                        ? 0.6
+                        : 1,
+                  }}
                 >
-                  <CardContent className="pt-4 pb-4">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        回答済み
-                      </p>
-                      <p className="text-base leading-relaxed text-foreground/80">
-                        {statement.text}
-                      </p>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="font-medium text-primary">
-                          {response.responseType === "free_text"
-                            ? "自由記述"
-                            : getResponseLabel(response.value)}
-                        </span>
-                        {response.textResponse && (
-                          <span className="text-muted-foreground truncate">
-                            {response.textResponse}
-                          </span>
+                  <Card
+                    className={cn(
+                      "relative bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500",
+                      isActive &&
+                        "shadow-xl ring-4 ring-indigo-50/50 border-indigo-100",
+                      isActive &&
+                        isLoading &&
+                        "opacity-50 pointer-events-none",
+                      isFuture &&
+                        "bg-slate-50/50 border-dashed pointer-events-none",
+                    )}
+                  >
+                    <div className="p-6 md:p-8">
+                      <div
+                        className={cn(
+                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-4",
+                          isActive
+                            ? "bg-indigo-50 text-indigo-700"
+                            : "bg-slate-100 text-slate-500",
+                        )}
+                      >
+                        #{index + 1} 質問
+                      </div>
+
+                      <div
+                        key={isActive ? currentStatement.id : undefined}
+                        className={cn(
+                          "space-y-2",
+                          isActive && "mb-8 question-change",
+                        )}
+                      >
+                        <h3
+                          className={cn(
+                            "font-bold text-xl md:text-2xl leading-snug mb-2",
+                            isActive && "text-slate-800",
+                            isPast && "text-slate-600",
+                            isFuture && "text-slate-400",
+                          )}
+                        >
+                          {statement.text}
+                        </h3>
+                      </div>
+
+                      {isFuture && distance === 1 && (
+                        <div className="mt-4 flex items-center text-slate-400 text-sm animate-pulse">
+                          <ArrowDown className="mr-2 h-4 w-4" />
+                          <span>次はこれについて答えます</span>
+                        </div>
+                      )}
+
+                      {isPast && response && (
+                        <div className="mt-4 flex items-center gap-3 pt-4 border-t border-slate-100">
+                          {response.responseType === "free_text" ? (
+                            <>
+                              <span className="text-xs text-slate-400">
+                                あなたの回答:
+                              </span>
+                              <div className="flex-1 text-sm text-slate-700 line-clamp-2">
+                                {response.textResponse?.trim().length
+                                  ? response.textResponse
+                                  : "（記入なし）"}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs text-slate-400">
+                                あなたの回答:
+                              </span>
+                              <div
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2",
+                                  response.value === 2 &&
+                                    "bg-emerald-100 text-emerald-700",
+                                  response.value === 1 &&
+                                    "bg-green-100 text-green-700",
+                                  response.value === 0 &&
+                                    "bg-amber-100 text-amber-700",
+                                  response.value === -1 &&
+                                    "bg-rose-100 text-rose-700",
+                                  response.value === -2 &&
+                                    "bg-red-100 text-red-700",
+                                )}
+                              >
+                                <span>{getResponseLabel(response.value)}</span>
+                              </div>
+                            </>
+                          )}
+                          <button
+                            onClick={() => {
+                              setCurrentStatement(statement);
+                              setShowAlternatives(false);
+                            }}
+                            className="ml-auto text-xs text-indigo-500 hover:text-indigo-700 font-medium underline"
+                          >
+                            修正する
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {isActive && (
+                      <div className="bg-slate-50/80 backdrop-blur-sm border-t border-slate-100 p-3 sm:p-4">
+                        <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleAnswer(2)}
+                            disabled={isLoading}
+                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="text-xl sm:text-3xl">👍</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              強く同意
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAnswer(1)}
+                            disabled={isLoading}
+                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="text-xl sm:text-3xl">✓</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              同意
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAnswer(0)}
+                            disabled={isLoading}
+                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="text-xl sm:text-3xl">🤔</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              {showAlternatives
+                                ? "わからない▲"
+                                : "わからない▼"}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAnswer(-1)}
+                            disabled={isLoading}
+                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="text-xl sm:text-3xl">✗</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              反対
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAnswer(-2)}
+                            disabled={isLoading}
+                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="text-xl sm:text-3xl">👎</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              強く反対
+                            </span>
+                          </button>
+                        </div>
+
+                        <div className="mt-6 space-y-3">
+                          {showAlternatives && (
+                            <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold text-foreground">
+                                  その他の選択肢
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleSubmitResponse({
+                                      responseType: "scale",
+                                      value: 0,
+                                    })
+                                  }
+                                  disabled={isLoading || isSubmittingFreeText}
+                                  className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  （自分はこの質問に対して）確信が持てない・情報を把握していない
+                                </button>
+                              </div>
+
+                              {isLoadingSuggestions ? (
+                                <div className="space-y-2">
+                                  <div className="h-10 bg-muted rounded-md animate-pulse" />
+                                  <div className="h-10 bg-muted rounded-md animate-pulse" />
+                                  <div className="h-10 bg-muted rounded-md animate-pulse" />
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  {aiSuggestions.map((suggestion) => (
+                                    <button
+                                      key={suggestion}
+                                      type="button"
+                                      onClick={() =>
+                                        handleSuggestionClick(suggestion)
+                                      }
+                                      disabled={
+                                        isLoading || isSubmittingFreeText
+                                      }
+                                      className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      {suggestion}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="pt-3 border-t border-border/60 space-y-3">
+                                <div ref={freeTextSectionRef} />
+                                <div>
+                                  <p className="text-sm font-semibold text-foreground mb-1">
+                                    自由記述で回答する
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
+                                  </p>
+                                </div>
+                                <textarea
+                                  value={freeTextInput}
+                                  onChange={(event) =>
+                                    setFreeTextInput(event.target.value)
+                                  }
+                                  rows={4}
+                                  className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                  placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
+                                  disabled={isLoading || isSubmittingFreeText}
+                                />
+                                <div className="flex justify-end">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                      handleSubmitResponse({
+                                        responseType: "free_text",
+                                        textResponse: freeTextInput,
+                                      })
+                                    }
+                                    disabled={
+                                      isLoading ||
+                                      isSubmittingFreeText ||
+                                      freeTextInput.trim().length === 0
+                                    }
+                                    isLoading={isSubmittingFreeText}
+                                  >
+                                    自由記述を送信
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {error && (
+                          <p className="text-sm text-destructive mt-4">
+                            {error}
+                          </p>
                         )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    )}
+                  </Card>
+                </div>
               );
             })}
 
-            {/* Current Question Section */}
-            <Card
-              ref={currentQuestionRef}
-              className={cn(
-                "border-2 border-primary shadow-lg",
-                isLoading && "opacity-50 pointer-events-none",
-              )}
+            <div className="h-40 flex items-start justify-center pt-4 opacity-40">
+              <div className="text-center">
+                <div className="w-1 h-10 bg-slate-300 mx-auto rounded-full mb-2" />
+                <p className="text-xs text-slate-400">End of Session</p>
+              </div>
+            </div>
+          </main>
+        )}
+
+        {state === "ANSWERING" && (
+          <div
+            className={cn(
+              "fixed bottom-6 right-6 z-50 transition-all duration-300",
+              showScrollToActive
+                ? "translate-y-0 opacity-100"
+                : "translate-y-6 opacity-0 pointer-events-none",
+            )}
+          >
+            <Button
+              type="button"
+              onClick={scrollToActive}
+              className="rounded-full px-5 py-2.5 shadow-lg"
             >
-              <CardContent className="pt-6">
-                <div
-                  key={currentStatement.id}
-                  className="mb-8 space-y-2 question-change"
-                >
-                  {typeof remainingQuestions === "number" &&
-                    remainingQuestions > 0 && (
-                      <p className="text-sm font-semibold text-primary">
-                        現在の質問 (残り{remainingQuestions}問)
-                      </p>
-                    )}
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
-                    onClick={handleInfoClick}
-                    aria-label="質問が私たちの前提を把握できていない"
-                  >
-                    <Info className="h-4 w-4" />
-                    質問が矛盾している・自分たちの前提を把握できていない場合
-                  </button>
-                  <p className="mt-3 text-xl font-medium leading-relaxed">
-                    {currentStatement.text}
-                  </p>
-                </div>
-
-              <div className="grid grid-cols-5 gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(2)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">👍</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    強く同意
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(1)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">✓</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    同意
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(0)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">🤔</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    {showAlternatives ? "わからない▲" : "わからない▼"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(-1)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">✗</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    反対
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(-2)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">👎</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    強く反対
-                  </span>
-                </button>
-              </div>
-
-              <div className="mt-6 space-y-3">
-                {showAlternatives && (
-                  <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold text-foreground">
-                        その他の選択肢
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleSubmitResponse({
-                            responseType: "scale",
-                            value: 0,
-                          })
-                        }
-                        disabled={isLoading || isSubmittingFreeText}
-                        className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        （自分はこの質問に対して）確信が持てない・情報を把握していない
-                      </button>
-                    </div>
-
-                    {isLoadingSuggestions ? (
-                      <div className="space-y-2">
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {aiSuggestions.map((suggestion) => (
-                          <button
-                            key={suggestion}
-                            type="button"
-                            onClick={() => handleSuggestionClick(suggestion)}
-                            disabled={isLoading || isSubmittingFreeText}
-                            className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="pt-3 border-t border-border/60 space-y-3">
-                      <div ref={freeTextSectionRef} />
-                      <div>
-                        <p className="text-sm font-semibold text-foreground mb-1">
-                          自由記述で回答する
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
-                        </p>
-                      </div>
-                      <textarea
-                        value={freeTextInput}
-                        onChange={(event) =>
-                          setFreeTextInput(event.target.value)
-                        }
-                        rows={4}
-                        className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
-                        disabled={isLoading || isSubmittingFreeText}
-                      />
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() =>
-                            handleSubmitResponse({
-                              responseType: "free_text",
-                              textResponse: freeTextInput,
-                            })
-                          }
-                          disabled={
-                            isLoading ||
-                            isSubmittingFreeText ||
-                            freeTextInput.trim().length === 0
-                          }
-                          isLoading={isSubmittingFreeText}
-                        >
-                          自由記述を送信
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {error && (
-                <p className="text-sm text-destructive mt-4">{error}</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Next Question Preview (半透明) */}
-          {nextStatement && (
-            <Card className="opacity-40 pointer-events-none">
-              <CardContent className="pt-4 pb-4">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground font-semibold">
-                    次の質問
-                  </p>
-                  <p className="text-base leading-relaxed">
-                    {nextStatement.text}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+              最新の質問へ戻る
+              <Navigation className="h-4 w-4" />
+            </Button>
+          </div>
         )}
 
         {state === "COMPLETED" && (
@@ -1938,243 +2065,79 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           </Card>
         )}
 
-        {/* Previous Responses & Individual Report - Show after joining */}
-        {(state === "ANSWERING" ||
-          state === "REFLECTION" ||
-          state === "COMPLETED") && (
-          <>
-            <div ref={historySectionRef}>
-              <Card className="mt-8">
-                <CardHeader>
-                  <CardTitle>質問への回答履歴</CardTitle>
-                  <CardDescription>
-                    あなたの回答とふりかえりの履歴を時系列で確認できます。
-                    <span className="font-bold">
-                      回答を変更したい場合、質問の回答を再度選択することで変更できます。
-                    </span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {(responsesError || reflectionsError) && (
-                    <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
-                      {responsesError && (
-                        <p className="text-sm text-destructive">
-                          {responsesError}
-                        </p>
-                      )}
-                      {reflectionsError && (
-                        <p className="text-sm text-destructive">
-                          {reflectionsError}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {isLoadingResponses || isLoadingReflections ? (
-                    <div className="space-y-3">
-                      {[0, 1, 2].map((index) => (
-                        <div
-                          key={index}
-                          className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3"
-                        >
-                          <Skeleton className="h-4 w-3/4" />
-                          <div className="flex gap-2">
-                            <Skeleton className="h-6 w-20" />
-                            <Skeleton className="h-6 w-16" />
-                            <Skeleton className="h-6 w-24" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : historyItems.length > 0 ? (
-                    <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-                      {historyItems.map((item) => {
-                        if (item.type === "response") {
-                          const response = item.response;
-                          const isPending =
-                            pendingAnswerStatementIdsRef.current.has(
-                              response.statementId,
-                            );
-                          const isUpdating = updatingResponseIds.has(
-                            response.statementId,
-                          );
-
-                          if (response.responseType === "free_text") {
-                            return (
-                              <div
-                                key={item.key}
-                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <p className="text-sm font-medium text-foreground">
-                                    {response.statementText}
-                                  </p>
-                                </div>
-                                <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2">
-                                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                                    {response.textResponse?.trim().length
-                                      ? response.textResponse
-                                      : "（記入なし）"}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div
-                              key={item.key}
-                              className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <p className="text-sm font-medium text-foreground">
-                                  {response.statementText}
-                                </p>
-                              </div>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {RESPONSE_CHOICES.map((choice) => {
-                                  const isActive =
-                                    response.value === choice.value;
-                                  const isDisabled =
-                                    isPending ||
-                                    isUpdating ||
-                                    isLoading ||
-                                    isActive;
-
-                                  return (
-                                    <button
-                                      key={choice.value}
-                                      type="button"
-                                      onClick={() =>
-                                        handleUpdateResponse(
-                                          response.statementId,
-                                          choice.value,
-                                        )
-                                      }
-                                      disabled={isDisabled}
-                                      className={cn(
-                                        "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                        isActive
-                                          ? choice.activeClass
-                                          : choice.idleClass,
-                                        (isPending || isUpdating) &&
-                                          "opacity-70",
-                                      )}
-                                    >
-                                      <span>{choice.emoji}</span>
-                                      <span>{choice.label}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        const { reflection } = item;
-                        return (
-                          <div
-                            key={item.key}
-                            className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
-                                ふりかえり
-                              </span>
-                            </div>
-                            <div className="mt-3 rounded-md border border-gray-300 bg-gray-50 px-3 py-3 shadow-inner">
-                              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-                                {reflection.text.trim().length > 0
-                                  ? reflection.text
-                                  : "（記入なし）"}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 py-8 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        回答やふりかえりを進めると、ここに履歴が表示されます
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card className="mt-8">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>じぶんレポート</CardTitle>
-                  <Button
-                    onClick={handleGenerateReport}
-                    disabled={isGeneratingReport}
-                    isLoading={isGeneratingReport}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    {individualReport ? "レポートを更新" : "レポートを生成"}
-                  </Button>
+        {/* Individual Report - Show after finishing all questions */}
+        {(state === "REFLECTION" || state === "COMPLETED") && (
+          <Card className="mt-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>じぶんレポート</CardTitle>
+                <Button
+                  onClick={handleGenerateReport}
+                  disabled={isGeneratingReport}
+                  isLoading={isGeneratingReport}
+                  variant="secondary"
+                  size="sm"
+                >
+                  {individualReport ? "レポートを更新" : "レポートを生成"}
+                </Button>
+              </div>
+              <CardDescription>
+                あなたの回答から生成された個別分析レポート
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {error && (
+                <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                  <p className="text-sm text-destructive">{error}</p>
                 </div>
-                <CardDescription>
-                  あなたの回答から生成された個別分析レポート
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {error && (
-                  <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
-                    <p className="text-sm text-destructive">{error}</p>
-                  </div>
-                )}
-                {isGeneratingReport && (
-                  <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <div className="space-y-2 text-center">
-                      <p className="text-base font-medium text-foreground">
-                        レポートを生成しています...
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        あなたの回答を分析しています。少々お待ちください。
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {isLoadingReport ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-5/6" />
-                    <Skeleton className="h-4 w-4/5" />
-                    <div className="pt-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="mt-3 h-4 w-full" />
-                      <Skeleton className="mt-3 h-4 w-3/4" />
-                    </div>
-                  </div>
-                ) : individualReport ? (
-                  <div
-                    className={cn(
-                      "markdown-body prose prose-sm max-w-none",
-                      isGeneratingReport && "opacity-60",
-                    )}
-                  >
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {individualReport.contentMarkdown}
-                    </ReactMarkdown>
-                  </div>
-                ) : !isGeneratingReport ? (
-                  <div className="py-8 text-center">
-                    <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                      <FileText className="h-6 w-6 text-muted-foreground" />
-                    </div>
+              )}
+              {isGeneratingReport && (
+                <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <div className="space-y-2 text-center">
+                    <p className="text-base font-medium text-foreground">
+                      レポートを生成しています...
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      回答を進めると、あなた専用の分析レポートがここに表示されます
+                      あなたの回答を分析しています。少々お待ちください。
                     </p>
                   </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          </>
+                </div>
+              )}
+              {isLoadingReport ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-4/5" />
+                  <div className="pt-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="mt-3 h-4 w-full" />
+                    <Skeleton className="mt-3 h-4 w-3/4" />
+                  </div>
+                </div>
+              ) : individualReport ? (
+                <div
+                  className={cn(
+                    "markdown-body prose prose-sm max-w-none",
+                    isGeneratingReport && "opacity-60",
+                  )}
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {individualReport.contentMarkdown}
+                  </ReactMarkdown>
+                </div>
+              ) : !isGeneratingReport ? (
+                <div className="py-8 text-center">
+                  <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <FileText className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    回答を進めると、あなた専用の分析レポートがここに表示されます
+                  </p>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
