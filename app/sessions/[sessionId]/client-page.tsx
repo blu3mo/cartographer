@@ -3,8 +3,6 @@
 import axios from "axios";
 import {
   ArrowDown,
-  ChevronDown,
-  ChevronUp,
   FileText,
   Loader2,
   Navigation,
@@ -60,6 +58,12 @@ type SessionInfo = {
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
 type ResponseType = "scale" | "free_text";
 
+type GoalSection = {
+  id: string;
+  label: string;
+  value: string;
+};
+
 type ParticipantResponse = {
   id?: string;
   statementId: string;
@@ -71,19 +75,6 @@ type ParticipantResponse = {
   createdAt: string;
 };
 
-const GOAL_PREVIEW_LIMIT = 140;
-
-type GoalHighlight = {
-  key: string;
-  label: string | null;
-  value: string;
-  raw: string;
-};
-
-type KeywordPattern = {
-  match: string;
-  label?: string;
-};
 
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
@@ -140,14 +131,30 @@ const getResponseLabel = (value: ResponseValue | null) => {
   return choice ? `${choice.emoji} ${choice.label}` : "回答済み";
 };
 
+const normalizeGoalLabel = (label: string | null) => {
+  if (!label) return null;
+  const normalized = label.replace(/\s/g, "");
+  if (normalized.includes("何のため") || normalized.includes("目的")) {
+    return "purpose" as const;
+  }
+  if (normalized.includes("何の認識") || normalized.includes("認識")) {
+    return "focus" as const;
+  }
+  return null;
+};
+
+const GOAL_LABELS = {
+  purpose: "何のために洗い出しますか？",
+  focus: "何の認識を洗い出しますか？",
+} as const;
+
 export default function SessionPage({ sessionId }: { sessionId: string }) {
   const { userId, isLoading: userLoading } = useUserId();
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [isSessionInfoLoading, setIsSessionInfoLoading] = useState(true);
   const [sessionInfoError, setSessionInfoError] = useState<string | null>(null);
   const [state, setState] = useState<SessionState>("NEEDS_NAME");
-  const [showFullGoal, setShowFullGoal] = useState(false);
-  const [isGoalCollapsed, setIsGoalCollapsed] = useState(true);
+  const [hasStarted, setHasStarted] = useState(false);
   const [name, setName] = useState("");
   const [currentStatement, setCurrentStatement] = useState<Statement | null>(
     null,
@@ -288,6 +295,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     );
     return index >= 0 ? index : null;
   }, [orderedStatements, currentStatement]);
+  const currentQuestionNumber = useMemo(() => {
+    if (activeStatementIndex !== null) {
+      return activeStatementIndex + 1;
+    }
+    if (currentStatementIndex !== null) {
+      return currentStatementIndex + 1;
+    }
+    return null;
+  }, [activeStatementIndex, currentStatementIndex]);
+  const shouldShowHeader =
+    state === "ANSWERING" &&
+    progressPercent !== null &&
+    currentQuestionNumber !== null &&
+    totalQuestions > 0;
 
   useEffect(() => {
     if (!currentStatement) {
@@ -1344,80 +1365,72 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     };
   }, [sessionInfo?.title]);
 
-  useEffect(() => {
-    setIsGoalCollapsed(state !== "NEEDS_NAME");
-  }, [state]);
+  const goalSections = useMemo<GoalSection[]>(() => {
+    const goal = sessionInfo?.goal?.trim();
+    if (!goal) return [];
 
-  const sessionGoalHighlights = useMemo((): GoalHighlight[] => {
-    if (!sessionInfo?.goal) return [];
-    const lines = sessionInfo.goal.split("\n");
-    const purposeKeywords: KeywordPattern[] = [
-      { match: "このセッションの目的: ", label: "このセッションの目的: " },
-      { match: "何のために洗い出しますか？", label: "このセッションの目的: " },
-    ];
-    const focusKeywords: KeywordPattern[] = [
-      {
-        match: "そのために、次のような質問をします: ",
-        label: "そのために、次のような質問をします: ",
-      },
-      {
-        match: "何の認識を洗い出しますか？",
-        label: "そのために、次のような質問をします: ",
-      },
-    ];
-
-    const findLineByKeywords = (keywords: KeywordPattern[]) => {
-      for (const keyword of keywords) {
-        const foundLine = lines.find((line) => line.includes(keyword.match));
-        if (foundLine) return { line: foundLine, label: keyword.label ?? null };
-      }
-      return null;
+    const lines = goal.split("\n").map((line) => line.trim()).filter(Boolean);
+    const buckets: Record<"purpose" | "focus", string[]> = {
+      purpose: [],
+      focus: [],
     };
+    const fallback: string[] = [];
 
-    const purposeLine = findLineByKeywords(purposeKeywords);
-    const focusLine = findLineByKeywords(focusKeywords);
+    for (const line of lines) {
+      let label: string | null = null;
+      let value = line;
+      const bracketMatch = line.match(/^【(.+?)】(.*)$/);
+      if (bracketMatch) {
+        label = bracketMatch[1]?.trim() || null;
+        value = bracketMatch[2]?.trim() || "";
+      } else {
+        const asciiIndex = line.indexOf(":");
+        const jpIndex = line.indexOf("：");
+        const colonIndex =
+          asciiIndex === -1
+            ? jpIndex
+            : jpIndex === -1
+              ? asciiIndex
+              : Math.min(asciiIndex, jpIndex);
+        if (colonIndex !== -1) {
+          label = line.slice(0, colonIndex).trim() || null;
+          value = line.slice(colonIndex + 1).trim() || "";
+        }
+      }
 
-    const pickLines = [];
-    if (purposeLine) pickLines.push(purposeLine);
-    if (focusLine) pickLines.push(focusLine);
-    if (pickLines.length === 0 && sessionInfo.goal) {
-      pickLines.push({ line: sessionInfo.goal, label: null });
+      if (!value) continue;
+      const normalized = normalizeGoalLabel(label);
+      if (normalized) {
+        buckets[normalized].push(value);
+      } else {
+        fallback.push(label ? `${label} ${value}` : value);
+      }
     }
 
-    return pickLines.map(({ line, label: labelOverride }) => {
-      const bracketMatch = line.match(/^[【](.+?)[】](.*)$/);
-      if (bracketMatch) {
-        const label = bracketMatch?.[1]?.trim() || null;
-        const value = bracketMatch?.[2]?.trim() || line;
-        return { key: line, label: labelOverride ?? label, value, raw: line };
-      }
+    const sections: GoalSection[] = [];
+    if (buckets.purpose.length > 0) {
+      sections.push({
+        id: "purpose",
+        label: GOAL_LABELS.purpose,
+        value: buckets.purpose.join("\n"),
+      });
+    }
+    if (buckets.focus.length > 0) {
+      sections.push({
+        id: "focus",
+        label: GOAL_LABELS.focus,
+        value: buckets.focus.join("\n"),
+      });
+    }
+    if (sections.length === 0 && fallback.length > 0) {
+      sections.push({
+        id: "goal",
+        label: "目的",
+        value: fallback.join("\n"),
+      });
+    }
 
-      const colonIndex = (() => {
-        const ascii = line.indexOf(":");
-        const jp = line.indexOf("：");
-        if (ascii === -1) return jp;
-        if (jp === -1) return ascii;
-        return Math.min(ascii, jp);
-      })();
-
-      if (colonIndex !== -1) {
-        const label = line.slice(0, colonIndex).trim() || null;
-        const value = line.slice(colonIndex + 1).trim() || line;
-        return {
-          key: line,
-          label: labelOverride ?? label,
-          value,
-          raw: line,
-        };
-      }
-
-      return {
-        key: line,
-        label: labelOverride ?? null,
-        value: line,
-        raw: line,
-      };
-    });
+    return sections;
   }, [sessionInfo?.goal]);
 
   if (userLoading || isSessionInfoLoading || isCheckingParticipation) {
@@ -1467,44 +1480,30 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* Fixed Header */}
-      {state !== "NEEDS_NAME" && (
-        <header className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md z-50 border-b border-slate-200 flex items-center justify-between px-6 relative">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-indigo-600"></div>
-            <h1 className="font-bold text-slate-800 tracking-tight">
-              {sessionInfo?.title ?? "セッション"}
-            </h1>
+      {/* Sticky Header */}
+      {shouldShowHeader && (
+        <header className="sticky top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md z-50 border-b border-slate-200 flex items-center justify-center px-6 relative">
+          <div className="text-xs font-medium text-slate-500">
+            {currentQuestionNumber} / {totalQuestions} 問目
           </div>
-          {state === "ANSWERING" && remainingQuestions !== null && (
-            <div className="text-xs font-medium text-slate-500">
-              残り {remainingQuestions} 問
-            </div>
-          )}
-          {progressPercent !== null && (
+          <div
+            className="absolute left-0 right-0 bottom-0 h-1 bg-slate-200/80"
+            role="progressbar"
+            aria-valuenow={Math.round(progressPercent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
             <div
-              className="absolute left-0 right-0 bottom-0 h-1 bg-slate-200/80"
-              role="progressbar"
-              aria-valuenow={Math.round(progressPercent)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div
-                className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          )}
+              className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
         </header>
       )}
 
       <div
         className={`max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 ${
-          state === "NEEDS_NAME"
-            ? "py-12"
-            : state === "ANSWERING"
-              ? "pt-24 pb-0"
-              : "pt-24 pb-12"
+          state === "ANSWERING" ? "pt-4 pb-0" : "pt-4 pb-12"
         }`}
       >
         <div className="mb-8 space-y-6">
@@ -1514,126 +1513,60 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                 {sessionInfo?.title ?? "セッション"}
               </h1>
             )}
-            {sessionGoalHighlights.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {state !== "NEEDS_NAME" ? (
-                  <div className="space-y-2">
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="sm"
-                      className="px-0 underline underline-offset-4"
-                      onClick={() => setIsGoalCollapsed((prev) => !prev)}
-                    >
-                      {isGoalCollapsed
-                        ? "▼ セッション概要を表示"
-                        : "▲ セッション概要を隠す"}
-                    </Button>
-                    {!isGoalCollapsed && (
-                      <div className="space-y-3 text-muted-foreground">
-                        {sessionGoalHighlights.map((item) => {
-                          const shouldTruncate =
-                            !showFullGoal &&
-                            item.value.length > GOAL_PREVIEW_LIMIT;
-                          const displayText = shouldTruncate
-                            ? `${item.value.slice(0, GOAL_PREVIEW_LIMIT)}...`
-                            : item.value;
-
-                          return (
-                            <div key={item.key} className="space-y-0.5">
-                              {item.label && (
-                                <p className="text-sm font-medium text-foreground">
-                                  {item.label}
-                                </p>
-                              )}
-                              <p
-                                className="whitespace-pre-line"
-                                title={item.raw}
-                              >
-                                {displayText}
-                              </p>
-                            </div>
-                          );
-                        })}
-                        {sessionGoalHighlights.some(
-                          (item) => item.value.length > GOAL_PREVIEW_LIMIT,
-                        ) && (
-                          <div className="pt-1">
-                            <Button
-                              type="button"
-                              variant="link"
-                              size="sm"
-                              className="px-0"
-                              onClick={() => setShowFullGoal((prev) => !prev)}
-                            >
-                              {showFullGoal ? "折りたたむ" : "全文を見る"}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-3 space-y-3 text-muted-foreground">
-                    {sessionGoalHighlights.map((item) => {
-                      const shouldTruncate =
-                        !showFullGoal && item.value.length > GOAL_PREVIEW_LIMIT;
-                      const displayText = shouldTruncate
-                        ? `${item.value.slice(0, GOAL_PREVIEW_LIMIT)}...`
-                        : item.value;
-
-                      return (
-                        <div key={item.key} className="space-y-0.5">
-                          {item.label && (
-                            <p className="text-sm font-medium text-foreground">
-                              {item.label}
-                            </p>
-                          )}
-                          <p className="whitespace-pre-line" title={item.raw}>
-                            {displayText}
-                          </p>
-                        </div>
-                      );
-                    })}
-                    {sessionGoalHighlights.some(
-                      (item) => item.value.length > GOAL_PREVIEW_LIMIT,
-                    ) && (
-                      <div className="pt-1">
-                        <Button
-                          type="button"
-                          variant="link"
-                          size="sm"
-                          className="px-0"
-                          onClick={() => setShowFullGoal((prev) => !prev)}
-                        >
-                          {showFullGoal ? "折りたたむ" : "全文を見る"}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {(!isGoalCollapsed || state === "NEEDS_NAME") && (
-                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                    <p>
-                      皆さんには、AIが生成した問い・仮説に対して、強く同意、同意、わからない、反対、強く反対の中から1つ選んで回答していただきます。
-                    </p>
-                    <p className="mt-1 font-semibold text-foreground">
-                      どれにも当てはまらない場合は、積極的に「わからない」を押してください。
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
-        {state === "NEEDS_NAME" && (
+        {state === "NEEDS_NAME" && !hasStarted && (
+          <Card>
+            <CardContent className="space-y-4 pt-6">
+              {goalSections.length > 0 && (
+                <div className="space-y-3">
+                  {goalSections.map((section) => (
+                    <div key={section.id} className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        {section.label}
+                      </p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-line">
+                        {section.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {sessionInfo?.context &&
+                sessionInfo.context.trim().length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">
+                      背景
+                    </p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                      {sessionInfo.context}
+                    </p>
+                  </div>
+                )}
+              {goalSections.length === 0 &&
+                !sessionInfo?.context?.trim() && (
+                  <p className="text-sm text-muted-foreground">
+                    セッション概要はまだ設定されていません。
+                  </p>
+                )}
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => setHasStarted(true)}
+              >
+                始める
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {state === "NEEDS_NAME" && hasStarted && (
           <Card>
             <CardHeader>
               <CardTitle>ようこそ</CardTitle>
               <CardDescription>
-                このセッションに参加するには、まず名前を入力してください
+                まず名前を入力してください
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1730,8 +1663,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                   ? index - activeStatementIndex
                   : 0;
 
-              if (distance > 2) return null;
-
               const isPending = pendingAnswerStatementIdsRef.current.has(
                 statement.id,
               );
@@ -1749,7 +1680,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                   )}
                   style={{
                     opacity: isFuture
-                      ? Math.max(0.1, 0.5 - distance * 0.15)
+                      ? Math.max(0.5, 0.9 - distance * 0.1)
                       : isPast
                         ? 0.6
                         : 1,
@@ -1768,17 +1699,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                     )}
                   >
                     <div className="p-6 md:p-8">
-                      <div
-                        className={cn(
-                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-4",
-                          isActive
-                            ? "bg-indigo-50 text-indigo-700"
-                            : "bg-slate-100 text-slate-500",
-                        )}
-                      >
-                        #{index + 1} 質問
-                      </div>
-
                       <div
                         key={isActive ? currentStatement.id : undefined}
                         className={cn(
@@ -2025,7 +1945,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
             <div className="h-40 flex items-start justify-center pt-4 opacity-40">
               <div className="text-center">
                 <div className="w-1 h-10 bg-slate-300 mx-auto rounded-full mb-2" />
-                <p className="text-xs text-slate-400">End of Session</p>
+                <p className="text-xs text-slate-400">質問終了</p>
               </div>
             </div>
           </main>
