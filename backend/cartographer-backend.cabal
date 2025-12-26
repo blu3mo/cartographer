@@ -42,7 +42,9 @@ library
   import: common-options
   hs-source-dirs: src
   exposed-modules:
+    Domain.Projection
     Domain.Types
+    Effect.Persistence
     Effect.User
     Implementation.User
     Web.API

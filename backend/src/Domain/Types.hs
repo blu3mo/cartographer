@@ -2,12 +2,12 @@ module Domain.Types where
 
 import Codec.Winery (Serialise, WineryRecord (..), WineryVariant (..))
 import Control.DeepSeq (NFData)
-import Data.List (sortOn)
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import Data.UUID (UUID)
 import GHC.Generics (Generic)
 import ProjectM36.Atomable (Atomable)
+import ProjectM36.Tupleable (Tupleable)
 
 -- IDエイリアス
 type SessionId = UUID
@@ -67,29 +67,5 @@ data Event = Event
     payload :: FactPayload
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (Atomable, NFData)
+  deriving anyclass (NFData, Tupleable)
   deriving (Serialise) via WineryRecord Event
-
--- | 射影 (Projection)
--- M36から取得した [Event] を畳み込む
-data CurrentState = CurrentState
-  { context :: Maybe SessionContext,
-    knowledgeGraph :: [FactPayload]
-  }
-  deriving (Eq, Show)
-
--- | イベントリストから現在の状態を復元する
-project :: [Event] -> CurrentState
-project events = foldl applyEvent initialState (sortEvents events)
-  where
-    initialState = CurrentState Nothing []
-
-    -- イベントを適用して状態を更新する
-    applyEvent :: CurrentState -> Event -> CurrentState
-    applyEvent state (Event _ _ _ p) = case p of
-      ContextDefined ctx -> state {context = Just ctx}
-      other -> state {knowledgeGraph = other : state.knowledgeGraph}
-
-    -- イベントを時系列順にソートする
-    sortEvents :: [Event] -> [Event]
-    sortEvents = sortOn (.timestamp)
