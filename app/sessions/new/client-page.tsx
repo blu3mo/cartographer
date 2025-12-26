@@ -351,12 +351,9 @@ function NewSessionContent() {
             新しいセッションを作成
           </h1>
           <p className="text-muted-foreground">
-            セッション情報をもとにAIが質問を生成します
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
             なるべくたくさんの情報量があると、AIが生成する質問の質が上がります。社内チャットや、ドキュメントのコピペでも構いません。
           </p>
-          <p className="text-xs text-muted-foreground/80 mt-1">
+          <p className="text-muted-foreground mt-1">
             <a
               href="https://scrapbox.io/baisoku-kaigi/%E3%80%8C%E8%A3%9C%E8%B6%B3%E6%83%85%E5%A0%B1%E3%80%8D%E3%82%92%E3%81%9F%E3%81%8F%E3%81%95%E3%82%93%E6%9B%B8%E3%81%8F%E3%81%9F%E3%82%81%E3%81%AB%E9%9F%B3%E5%A3%B0%E5%85%A5%E5%8A%9B%E3%82%92%E6%B4%BB%E7%94%A8%E3%81%99%E3%82%8B"
               target="_blank"
