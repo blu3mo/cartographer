@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  Download,
   FileText,
   Heart,
   Info,
@@ -39,6 +40,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -87,6 +89,37 @@ interface SessionAdminData {
   participants: ParticipantProgress[];
   totalStatements: number;
   totalParticipants: number;
+}
+
+interface ResponseLogStatement {
+  id: string;
+  text: string;
+  orderIndex: number;
+}
+
+interface ResponseLogItem {
+  statementId: string;
+  statementText: string;
+  orderIndex: number;
+  responseType: "scale" | "free_text" | null;
+  value: number | null;
+  textResponse: string | null;
+  answeredAt: string | null;
+}
+
+interface ResponseLogParticipant {
+  userId: string;
+  name: string;
+  joinedAt: string;
+  responses: ResponseLogItem[];
+}
+
+interface ResponseLogsData {
+  sessionId: string;
+  participants: ResponseLogParticipant[];
+  statements: ResponseLogStatement[];
+  totalParticipants: number;
+  totalStatements: number;
 }
 
 interface TimelineStatement {
@@ -294,6 +327,78 @@ const formatPercentage = (value: number) => {
   return `${rounded.toFixed(1)}%`;
 };
 
+const convertResponseLogsToCSV = (logsData: ResponseLogsData): string => {
+  // Header row
+  const headers = [
+    "参加者ID",
+    "参加者名",
+    "参加日時",
+    "設問番号",
+    "設問内容",
+    "回答タイプ",
+    "評価値",
+    "自由記述",
+    "回答日時",
+  ];
+
+  const rows: string[][] = [headers];
+
+  // Data rows
+  logsData.participants.forEach((participant) => {
+    participant.responses.forEach((response) => {
+      const row = [
+        participant.userId,
+        participant.name,
+        participant.joinedAt,
+        (response.orderIndex + 1).toString(),
+        response.statementText,
+        response.responseType ?? "未回答",
+        response.value !== null ? response.value.toString() : "",
+        response.textResponse ?? "",
+        response.answeredAt ?? "",
+      ];
+      rows.push(row);
+    });
+  });
+
+  // Convert to CSV format
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => {
+          // Escape double quotes and wrap in quotes if contains comma, newline, or quote
+          const escaped = cell.replace(/"/g, '""');
+          if (
+            escaped.includes(",") ||
+            escaped.includes("\n") ||
+            escaped.includes('"')
+          ) {
+            return `"${escaped}"`;
+          }
+          return escaped;
+        })
+        .join(","),
+    )
+    .join("\n");
+};
+
+const downloadCSV = (csvContent: string, filename: string) => {
+  // Add BOM for UTF-8 to ensure proper encoding in Excel
+  const bom = "\uFEFF";
+  const blob = new Blob([bom + csvContent], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 export default function AdminPage({
   sessionId,
   accessToken,
@@ -355,6 +460,13 @@ export default function AdminPage({
   >("auto");
 
   const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
+  const [showResponseLog, setShowResponseLog] = useState(false);
+  const [responseLogsData, setResponseLogsData] =
+    useState<ResponseLogsData | null>(null);
+  const [responseLogsLoading, setResponseLogsLoading] = useState(false);
+  const [responseLogsError, setResponseLogsError] = useState<string | null>(
+    null,
+  );
 
   const fetchAdminData = useCallback(async () => {
     if (!userId) return;
@@ -458,6 +570,32 @@ export default function AdminPage({
     },
     [sessionId, accessToken, userId],
   );
+
+  const fetchResponseLogs = useCallback(async () => {
+    if (!userId) return;
+    setResponseLogsLoading(true);
+    try {
+      const response = await axios.get(
+        `/api/sessions/${sessionId}/${accessToken}/response-logs`,
+        {
+          headers: { Authorization: `Bearer ${userId}` },
+        },
+      );
+      setResponseLogsData(response.data.data as ResponseLogsData);
+      setResponseLogsError(null);
+    } catch (err) {
+      console.error("Failed to fetch response logs:", err);
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        setResponseLogsError(
+          "回答ログの閲覧権限がありません。セッションのホストのみが閲覧できます。",
+        );
+      } else {
+        setResponseLogsError("回答ログの取得に失敗しました。");
+      }
+    } finally {
+      setResponseLogsLoading(false);
+    }
+  }, [sessionId, accessToken, userId]);
 
   useEffect(() => {
     if (isUserIdLoading) return;
@@ -1093,6 +1231,21 @@ export default function AdminPage({
                   </div>
                 )}
               </CardContent>
+              <CardFooter className="flex justify-end border-t border-slate-100 pt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowResponseLog(true);
+                    void fetchResponseLogs();
+                  }}
+                  disabled={participants.length === 0}
+                  className="gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  解答ログを表示
+                </Button>
+              </CardFooter>
             </Card>
 
             <Card className="border-none bg-white/80 shadow-sm">
@@ -2148,6 +2301,225 @@ export default function AdminPage({
             </Card>
           </div>
         </div>
+
+        {/* Response Log Modal */}
+        {showResponseLog && (
+          <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm">
+            <button
+              type="button"
+              aria-label="モーダルを閉じる"
+              className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
+              onClick={() => setShowResponseLog(false)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setShowResponseLog(false);
+                }
+              }}
+            />
+            <div
+              className="relative z-10 w-full max-w-7xl max-h-[90vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-label="回答ログ"
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">
+                    解答ログ
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    全参加者の詳細な回答データを確認・エクスポートできます
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {responseLogsData && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const csvContent =
+                          convertResponseLogsToCSV(responseLogsData);
+                        const timestamp = new Date()
+                          .toISOString()
+                          .slice(0, 19)
+                          .replace(/:/g, "-");
+                        downloadCSV(
+                          csvContent,
+                          `response-logs-${sessionId}-${timestamp}.csv`,
+                        );
+                      }}
+                      className="gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      CSVエクスポート
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowResponseLog(false)}
+                    className="text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+              <div className="overflow-y-auto px-6 py-6" style={{ maxHeight: "calc(90vh - 80px)" }}>
+                {responseLogsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                    <p className="mt-3 text-sm text-slate-600">
+                      読み込み中...
+                    </p>
+                  </div>
+                ) : responseLogsError ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Info className="h-8 w-8 text-rose-400" />
+                    <p className="mt-3 text-sm text-rose-600">
+                      {responseLogsError}
+                    </p>
+                  </div>
+                ) : responseLogsData ? (
+                  <div className="space-y-6">
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
+                        <p className="text-xs font-medium text-slate-600 uppercase tracking-wider">
+                          参加者数
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-slate-900">
+                          {responseLogsData.totalParticipants}人
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
+                        <p className="text-xs font-medium text-slate-600 uppercase tracking-wider">
+                          設問数
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-slate-900">
+                          {responseLogsData.totalStatements}問
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
+                        <p className="text-xs font-medium text-slate-600 uppercase tracking-wider">
+                          総回答数
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-slate-900">
+                          {responseLogsData.participants.reduce(
+                            (sum, p) =>
+                              sum +
+                              p.responses.filter((r) => r.responseType !== null)
+                                .length,
+                            0,
+                          )}
+                          件
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="w-full text-left text-sm">
+                        <thead className="border-b border-slate-200 bg-slate-50">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">
+                              参加者
+                            </th>
+                            {responseLogsData.statements.map((statement) => (
+                              <th
+                                key={statement.id}
+                                className="px-4 py-3 font-medium text-slate-700 min-w-[200px]"
+                              >
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-xs text-slate-500">
+                                    設問 {statement.orderIndex + 1}
+                                  </span>
+                                  <span className="line-clamp-2 text-xs font-normal">
+                                    {statement.text}
+                                  </span>
+                                </div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {responseLogsData.participants.map((participant) => (
+                            <tr
+                              key={participant.userId}
+                              className="hover:bg-slate-50/50"
+                            >
+                              <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
+                                <div className="flex flex-col gap-0.5">
+                                  <span>{participant.name}</span>
+                                  <span className="text-xs text-slate-500">
+                                    {formatDateTime(participant.joinedAt)}
+                                  </span>
+                                </div>
+                              </td>
+                              {participant.responses.map((response) => (
+                                <td
+                                  key={response.statementId}
+                                  className="px-4 py-3"
+                                >
+                                  {response.responseType === "scale" ? (
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                                          response.value === 2
+                                            ? "bg-emerald-100 text-emerald-700"
+                                            : response.value === 1
+                                              ? "bg-emerald-50 text-emerald-600"
+                                              : response.value === 0
+                                                ? "bg-slate-100 text-slate-600"
+                                                : response.value === -1
+                                                  ? "bg-amber-50 text-amber-600"
+                                                  : response.value === -2
+                                                    ? "bg-amber-100 text-amber-700"
+                                                    : "bg-slate-100 text-slate-500"
+                                        }`}
+                                      >
+                                        {response.value !== null
+                                          ? response.value > 0
+                                            ? `+${response.value}`
+                                            : response.value
+                                          : "?"}
+                                      </span>
+                                      <span className="text-xs text-slate-600">
+                                        {response.value === 2
+                                          ? "強く同意"
+                                          : response.value === 1
+                                            ? "同意"
+                                            : response.value === 0
+                                              ? "わからない"
+                                              : response.value === -1
+                                                ? "反対"
+                                                : response.value === -2
+                                                  ? "強く反対"
+                                                  : "未回答"}
+                                      </span>
+                                    </div>
+                                  ) : response.responseType === "free_text" ? (
+                                    <div className="max-w-xs">
+                                      <p className="line-clamp-3 text-xs text-slate-700">
+                                        {response.textResponse}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-slate-400">
+                                      未回答
+                                    </span>
+                                  )}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
