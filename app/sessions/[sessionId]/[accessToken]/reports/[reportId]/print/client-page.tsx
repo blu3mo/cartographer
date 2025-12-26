@@ -2,10 +2,11 @@
 
 import axios from "axios";
 import { ArrowLeft, Loader2, Printer } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { StatementTagPopover } from "@/components/report/StatementTagPopover";
 import { Button } from "@/components/ui/Button";
 import { useUserId } from "@/lib/useUserId";
 
@@ -26,6 +27,9 @@ interface SessionReport {
   completedAt: string | null;
 }
 
+// Regex to match #n pattern (e.g., #1, #12, #123)
+const STATEMENT_TAG_REGEX = /#(\d+)/g;
+
 export default function SessionReportPrintPage({
   sessionId,
   accessToken,
@@ -39,6 +43,87 @@ export default function SessionReportPrintPage({
   const [report, setReport] = useState<SessionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Process a single string to replace #n with interactive popovers
+  const processString = useCallback(
+    (text: string): ReactNode => {
+      if (!userId) return text;
+
+      const parts: ReactNode[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      // Reset regex state
+      STATEMENT_TAG_REGEX.lastIndex = 0;
+
+      while ((match = STATEMENT_TAG_REGEX.exec(text)) !== null) {
+        // Add text before the match
+        if (match.index > lastIndex) {
+          parts.push(text.slice(lastIndex, match.index));
+        }
+
+        const statementNumber = parseInt(match[1], 10);
+        parts.push(
+          <StatementTagPopover
+            key={`${match.index}-${statementNumber}`}
+            statementNumber={statementNumber}
+            sessionId={sessionId}
+            accessToken={accessToken}
+            reportId={reportId}
+            userId={userId}
+          />,
+        );
+
+        lastIndex = match.index + match[0].length;
+      }
+
+      // Add remaining text after last match
+      if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex));
+      }
+
+      return parts.length > 0 ? <>{parts}</> : text;
+    },
+    [userId, sessionId, accessToken, reportId],
+  );
+
+  // Recursively process ReactNode children
+  const processStatementTags = useCallback(
+    (children: ReactNode): ReactNode => {
+      if (!userId) return children;
+
+      if (typeof children === "string") {
+        return processString(children);
+      }
+
+      if (typeof children === "number") {
+        return processString(String(children));
+      }
+
+      if (Array.isArray(children)) {
+        return children.map((child, index) => {
+          const processed = processStatementTags(child);
+          // Wrap in fragment with key if it's a processed node
+          if (typeof child === "string" || typeof child === "number") {
+            return <span key={index}>{processed}</span>;
+          }
+          return processed;
+        });
+      }
+
+      // Handle React elements - we need to check if it's an element and process its children
+      if (children && typeof children === "object" && "props" in children) {
+        const element = children as React.ReactElement<{ children?: ReactNode }>;
+        if (element.props?.children) {
+          // Don't clone, just return original - the component renderers handle children
+          return children;
+        }
+      }
+
+      return children;
+    },
+    [userId, processString],
+  );
 
   useEffect(() => {
     if (isUserLoading || !userId) return;
@@ -136,7 +221,27 @@ export default function SessionReportPrintPage({
         <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm print:border-0 print:bg-transparent print:p-0 print:shadow-none">
           {report.status === "completed" && report.contentMarkdown ? (
             <div className="markdown-body prose prose-slate max-w-none text-base leading-relaxed print:text-[12pt]">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({ children }) => <p>{processStatementTags(children)}</p>,
+                  li: ({ children }) => (
+                    <li>{processStatementTags(children)}</li>
+                  ),
+                  td: ({ children }) => (
+                    <td>{processStatementTags(children)}</td>
+                  ),
+                  th: ({ children }) => (
+                    <th>{processStatementTags(children)}</th>
+                  ),
+                  strong: ({ children }) => (
+                    <strong>{processStatementTags(children)}</strong>
+                  ),
+                  em: ({ children }) => (
+                    <em>{processStatementTags(children)}</em>
+                  ),
+                }}
+              >
                 {report.contentMarkdown}
               </ReactMarkdown>
             </div>
