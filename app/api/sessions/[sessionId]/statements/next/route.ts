@@ -109,8 +109,15 @@ export async function GET(
 
     const remainingCount = unansweredStatements.length;
 
+    // Map all statements for the timeline view
+    const mappedAllStatements = (allStatements ?? []).map(mapStatement);
+
     if (unansweredStatements.length === 0) {
-      return NextResponse.json({ statement: null, remainingCount });
+      return NextResponse.json({
+        statement: null,
+        remainingCount,
+        allStatements: mappedAllStatements,
+      });
     }
 
     // Return a random unanswered statement
@@ -120,6 +127,7 @@ export async function GET(
     return NextResponse.json({
       statement: mapStatement(statement),
       remainingCount,
+      allStatements: mappedAllStatements,
     });
   } catch (error) {
     console.error("Get next statement error:", error);

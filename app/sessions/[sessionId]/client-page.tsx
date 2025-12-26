@@ -169,6 +169,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   );
   const [prefetchedRemainingQuestions, setPrefetchedRemainingQuestions] =
     useState<number | null>(null);
+  const [allStatements, setAllStatements] = useState<Statement[]>([]);
+  const [currentStatementIndex, setCurrentStatementIndex] = useState<
+    number | null
+  >(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [freeTextInput, setFreeTextInput] = useState("");
@@ -207,6 +211,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const prefetchedStatementIdRef = useRef<string | null>(null);
   const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
   const historySectionRef = useRef<HTMLDivElement | null>(null);
+  const currentQuestionRef = useRef<HTMLDivElement | null>(null);
   const sessionInfoId = sessionInfo?.id;
   const sortResponsesByRecency = useCallback((items: ParticipantResponse[]) => {
     return [...items].sort((a, b) => {
@@ -242,6 +247,34 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       return a.key.localeCompare(b.key);
     });
   }, [participantResponses, participantReflections]);
+
+  // Calculate answered and unanswered statements for timeline view
+  const { answeredStatements, unansweredStatements, nextStatement } =
+    useMemo(() => {
+      const answeredIds = new Set(
+        participantResponses.map((r) => r.statementId),
+      );
+
+      const answered = allStatements.filter((s) => answeredIds.has(s.id));
+      const unanswered = allStatements.filter((s) => !answeredIds.has(s.id));
+
+      // Find the next unanswered statement after current
+      let next: Statement | null = null;
+      if (currentStatementIndex !== null && currentStatementIndex >= 0) {
+        for (let i = currentStatementIndex + 1; i < allStatements.length; i++) {
+          if (!answeredIds.has(allStatements[i]!.id)) {
+            next = allStatements[i]!;
+            break;
+          }
+        }
+      }
+
+      return {
+        answeredStatements: answered,
+        unansweredStatements: unanswered,
+        nextStatement: next,
+      };
+    }, [allStatements, participantResponses, currentStatementIndex]);
   const fetchParticipantResponses = useCallback(async () => {
     if (!userId) return;
     setIsLoadingResponses(true);
@@ -754,6 +787,21 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     fetchIndividualReport();
   }, [userId, userLoading, sessionId, state]);
 
+  // Auto-scroll to current question when it changes
+  useEffect(() => {
+    if (state !== "ANSWERING" || !currentStatement) return;
+    if (!currentQuestionRef.current) return;
+
+    const timeout = setTimeout(() => {
+      currentQuestionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [currentStatement?.id, state]);
+
   useEffect(() => {
     if (!userId || userLoading) return;
     if (state === "NEEDS_NAME") return;
@@ -839,6 +887,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         setCurrentStatement(response.data.statement);
         setState("ANSWERING");
         setRemainingQuestions(response.data.remainingCount ?? null);
+
+        // Store all statements for timeline view
+        if (response.data.allStatements) {
+          setAllStatements(response.data.allStatements);
+          // Find current statement index
+          const index = response.data.allStatements.findIndex(
+            (s: Statement) => s.id === response.data.statement.id,
+          );
+          setCurrentStatementIndex(index !== -1 ? index : null);
+        }
       } else {
         // Set flag to trigger auto-generation (edge case: no questions in session)
         hasJustCompletedRef.current = true;
@@ -1024,6 +1082,17 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       if (nextStatement) {
         setCurrentStatement(nextStatement);
         setRemainingQuestions(remainingCount);
+
+        // Update all statements list if provided
+        if (nextResponse.data?.allStatements) {
+          setAllStatements(nextResponse.data.allStatements);
+          // Find current statement index
+          const index = nextResponse.data.allStatements.findIndex(
+            (s: Statement) => s.id === nextStatement.id,
+          );
+          setCurrentStatementIndex(index !== -1 ? index : null);
+        }
+
         // Reset suggestions - will be fetched by useEffect
         setAiSuggestions([]);
         setIsLoadingSuggestions(true);
@@ -1603,45 +1672,88 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         )}
 
         {state === "ANSWERING" && currentStatement && (
-          <Card className={isLoading ? "opacity-50 pointer-events-none" : ""}>
-            <CardContent className="pt-6">
-              <div
-                key={currentStatement.id}
-                className="mb-8 space-y-2 question-change"
-              >
-                {typeof remainingQuestions === "number" &&
-                  remainingQuestions > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      あと{remainingQuestions}個の質問があります
-                    </p>
-                  )}
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
-                  onClick={handleInfoClick}
-                  aria-label="質問が私たちの前提を把握できていない"
-                >
-                  <Info className="h-4 w-4" />
-                  質問が矛盾している・自分たちの前提を把握できていない場合
-                </button>
-                <p className="mt-3 text-xl font-medium leading-relaxed">
-                  {currentStatement.text}
-                </p>
-              </div>
+          <div className="space-y-4">
+            {/* Answered Questions Section */}
+            {answeredStatements.map((statement) => {
+              const response = participantResponses.find(
+                (r) => r.statementId === statement.id,
+              );
+              if (!response) return null;
 
-              <div className="grid grid-cols-6 gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={handleScrollToHistory}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-white hover:bg-gray-50 text-black border-2 border-black hover:border-gray-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="質問への回答履歴に戻る"
+              const getResponseLabel = (value: ResponseValue | null) => {
+                if (value === 2) return "👍 強く同意";
+                if (value === 1) return "✓ 同意";
+                if (value === 0) return "🤔 わからない";
+                if (value === -1) return "✗ 反対";
+                if (value === -2) return "👎 強く反対";
+                return "回答済み";
+              };
+
+              return (
+                <Card
+                  key={statement.id}
+                  className="opacity-60 hover:opacity-80 transition-opacity"
                 >
-                  <div className="text-xl sm:text-3xl">↩︎</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    前の質問へ戻る
-                  </span>
-                </button>
+                  <CardContent className="pt-4 pb-4">
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        回答済み
+                      </p>
+                      <p className="text-base leading-relaxed text-foreground/80">
+                        {statement.text}
+                      </p>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="font-medium text-primary">
+                          {response.responseType === "free_text"
+                            ? "自由記述"
+                            : getResponseLabel(response.value)}
+                        </span>
+                        {response.textResponse && (
+                          <span className="text-muted-foreground truncate">
+                            {response.textResponse}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            {/* Current Question Section */}
+            <Card
+              ref={currentQuestionRef}
+              className={cn(
+                "border-2 border-primary shadow-lg",
+                isLoading && "opacity-50 pointer-events-none",
+              )}
+            >
+              <CardContent className="pt-6">
+                <div
+                  key={currentStatement.id}
+                  className="mb-8 space-y-2 question-change"
+                >
+                  {typeof remainingQuestions === "number" &&
+                    remainingQuestions > 0 && (
+                      <p className="text-sm font-semibold text-primary">
+                        現在の質問 (残り{remainingQuestions}問)
+                      </p>
+                    )}
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                    onClick={handleInfoClick}
+                    aria-label="質問が私たちの前提を把握できていない"
+                  >
+                    <Info className="h-4 w-4" />
+                    質問が矛盾している・自分たちの前提を把握できていない場合
+                  </button>
+                  <p className="mt-3 text-xl font-medium leading-relaxed">
+                    {currentStatement.text}
+                  </p>
+                </div>
+
+              <div className="grid grid-cols-5 gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => handleAnswer(2)}
@@ -1793,6 +1905,23 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
               )}
             </CardContent>
           </Card>
+
+          {/* Next Question Preview (半透明) */}
+          {nextStatement && (
+            <Card className="opacity-40 pointer-events-none">
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground font-semibold">
+                    次の質問
+                  </p>
+                  <p className="text-base leading-relaxed">
+                    {nextStatement.text}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
         )}
 
         {state === "COMPLETED" && (
