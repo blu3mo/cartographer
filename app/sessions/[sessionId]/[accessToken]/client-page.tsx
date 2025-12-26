@@ -1103,7 +1103,7 @@ export default function AdminPage({
                       セッションレポート
                     </CardTitle>
                     <CardDescription>
-                      参加者の回答やをもとに洞察レポートを生成します
+                      参加者の回答をもとに洞察レポートを生成します
                     </CardDescription>
                   </div>
                   {selectedReport ? (
@@ -1138,7 +1138,7 @@ export default function AdminPage({
                       }}
                       disabled={creatingReport}
                       isLoading={creatingReport}
-                      className="min-h-[52px] w-full justify-start gap-3 rounded-2xl px-5 pr-36 text-left text-base shadow-lg shadow-slate-900/10 sm:text-lg"
+                      className="min-h-[52px] w-full justify-center gap-3 rounded-2xl px-5 pl-32 pr-32 text-center text-base shadow-lg shadow-slate-900/10 sm:text-lg"
                     >
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5" />
