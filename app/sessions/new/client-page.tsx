@@ -74,29 +74,26 @@ const renderSuggestionCard = (
     <Card className="border-blue-200 bg-blue-50/50">
       <CardContent className="pt-6">
         <div className="flex items-start gap-3">
-          {/* <Bot className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" /> */}
           <div className="flex-1 space-y-3">
-            {/* <p className="text-sm font-medium text-blue-900">
-              AIアシスタント: {SUGGESTION_TITLES[field]}
-            </p> */}
-            <ul className="space-y-2">
-              {fieldSuggestions.map((suggestion) => (
-                <li key={`${suggestion.field}-${suggestion.message}`}>
-                  {/* <button
-                    type="button"
-                    onClick={() => onClick(suggestion.field)}
-                    className="w-full rounded-lg bg-blue-100/60 px-3 py-2 text-left transition hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  > */}
-                  <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-blue-700">
-                    {FIELD_META[suggestion.field]?.label ?? "参考"}
-                  </span>
-                  <span className="mt-1 block text-sm leading-relaxed text-blue-900">
+            <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+              AI入力アシスト
+            </span>
+            {fieldSuggestions.length === 1 ? (
+              <p className="text-sm leading-relaxed text-blue-900">
+                {fieldSuggestions[0].message}
+              </p>
+            ) : (
+              <ul className="list-disc list-inside space-y-2">
+                {fieldSuggestions.map((suggestion, index) => (
+                  <li
+                    key={`${suggestion.field}-${index}`}
+                    className="text-sm leading-relaxed text-blue-900"
+                  >
                     {suggestion.message}
-                  </span>
-                  {/* </button> */}
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </CardContent>
@@ -405,7 +402,7 @@ function NewSessionContent() {
                 )}
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <label
                   htmlFor="backgroundInfo"
                   className="text-base font-semibold"
@@ -423,12 +420,11 @@ function NewSessionContent() {
                   className={textareaClasses("backgroundInfo")}
                   placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
                 />
+                {renderFieldAid(
+                  "backgroundInfo",
+                  "認識のズレを感じた具体的なきっかけや、解決したい困りごとはありますか？今の状況や背景を少し詳しく何えると、セッションをよりスムーズに進めるための良いヒントになります。",
+                )}
               </div>
-              {renderSuggestionCard(
-                "backgroundInfo",
-                suggestions,
-                handleSuggestionClick,
-              )}
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Button
