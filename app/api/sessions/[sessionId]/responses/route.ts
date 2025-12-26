@@ -220,6 +220,8 @@ export async function POST(
       );
     }
 
+    const nowIso = new Date().toISOString();
+
     const payload =
       normalizedType === "scale"
         ? {
@@ -229,6 +231,7 @@ export async function POST(
             response_type: "scale",
             value,
             text_response: null,
+            updated_at: nowIso,
           }
         : {
             participant_user_id: userId,
@@ -237,6 +240,7 @@ export async function POST(
             response_type: "free_text",
             value: null,
             text_response: (textResponse as string).trim(),
+            updated_at: nowIso,
           };
 
     const { data: response, error: upsertError } = await supabase

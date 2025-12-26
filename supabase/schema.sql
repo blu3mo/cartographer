@@ -48,6 +48,7 @@ create table if not exists public.responses (
   statement_id uuid not null references public.statements(id) on delete cascade,
   value integer not null,
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   unique (participant_user_id, session_id, statement_id),
   constraint responses_participant_fk
     foreign key (participant_user_id, session_id)
