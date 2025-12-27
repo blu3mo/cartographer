@@ -1715,17 +1715,35 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                           })
                         }
                         disabled={isLoading || isSubmittingFreeText}
-                        className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         わからない
                       </button>
                     </div>
 
                     {isLoadingSuggestions ? (
-                      <div className="space-y-2">
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
+                      <div className="space-y-3">
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-muted/50 text-sm text-muted-foreground/50 transition-all duration-200 cursor-not-allowed"
+                        >
+                          <span className="animate-pulse">選択肢を生成中...</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-muted/50 text-sm text-muted-foreground/50 transition-all duration-200 cursor-not-allowed"
+                        >
+                          <span className="animate-pulse">選択肢を生成中...</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-muted/50 text-sm text-muted-foreground/50 transition-all duration-200 cursor-not-allowed"
+                        >
+                          <span className="animate-pulse">選択肢を生成中...</span>
+                        </button>
                       </div>
                     ) : (
                       <div className="space-y-3">
