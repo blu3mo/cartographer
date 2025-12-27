@@ -2,18 +2,22 @@
 create extension if not exists "pgcrypto";
 
 -- Sessions ------------------------------------------------------------------
+
 create table if not exists public.sessions (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   context text not null,
   is_public boolean not null default true,
   host_user_id uuid not null,
+  goal text not null default '',
+  admin_access_token uuid not null default gen_random_uuid(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create index if not exists sessions_host_user_idx on public.sessions (host_user_id);
 create index if not exists sessions_created_at_idx on public.sessions (created_at desc);
+create unique index if not exists sessions_admin_access_token_idx on public.sessions (admin_access_token);
 
 -- Statements ----------------------------------------------------------------
 create table if not exists public.statements (
@@ -46,7 +50,9 @@ create table if not exists public.responses (
   participant_user_id uuid not null,
   session_id uuid not null,
   statement_id uuid not null references public.statements(id) on delete cascade,
-  value integer not null,
+  value integer null,
+  response_type text not null default 'scale' check (response_type in ('scale', 'free_text')),
+  text_response text null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (participant_user_id, session_id, statement_id),
@@ -183,23 +189,75 @@ alter publication supabase_realtime add table public.agent_instances;
 alter publication supabase_realtime add table public.events;
 alter publication supabase_realtime add table public.responses;
 
--- Migration helpers --------------------------------------------------------
-alter table if exists public.sessions
-  add column if not exists goal text not null default '';
+-- Situation Analysis Reports ------------------------------------------------
+create table if not exists public.situation_analysis_reports (
+    id uuid primary key default gen_random_uuid(),
+    session_id uuid not null references public.sessions(id) on delete cascade,
+    content_markdown text not null,
+    created_at timestamptz not null default now()
+);
 
-alter table if exists public.sessions
-  add column if not exists admin_access_token uuid not null default gen_random_uuid();
+create index if not exists situation_reports_session_idx 
+  on public.situation_analysis_reports (session_id, created_at desc);
 
-create unique index if not exists sessions_admin_access_token_idx 
-  on public.sessions (admin_access_token);
+-- Triggers
 
--- Migration: allow free-text responses alongside scale responses ----------
-alter table if exists public.responses
-  add column if not exists response_type text not null default 'scale'
-    check (response_type in ('scale', 'free_text'));
+CREATE OR REPLACE FUNCTION public.broadcast_table_changes()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+declare
+  topic text;
+begin
+  topic := coalesce(TG_ARGV[0], format('table:%s', TG_TABLE_NAME));
+  perform realtime.broadcast_changes(
+    topic,
+    TG_OP,
+    TG_OP,
+    TG_TABLE_NAME,
+    TG_TABLE_SCHEMA,
+    NEW,
+    OLD
+  );
+  return null;
+end;
+$function$
+;
 
-alter table if exists public.responses
-  alter column value drop not null;
-
-alter table if exists public.responses
-  add column if not exists text_response text null;
+grant trigger on table "public"."agent_instances" to "anon";
+grant trigger on table "public"."agent_instances" to "authenticated";
+grant trigger on table "public"."agent_instances" to "service_role";
+grant trigger on table "public"."event_threads" to "anon";
+grant trigger on table "public"."event_threads" to "authenticated";
+grant trigger on table "public"."event_threads" to "service_role";
+grant trigger on table "public"."events" to "anon";
+grant trigger on table "public"."events" to "authenticated";
+grant trigger on table "public"."events" to "service_role";
+grant trigger on table "public"."individual_reports" to "anon";
+grant trigger on table "public"."individual_reports" to "authenticated";
+grant trigger on table "public"."individual_reports" to "service_role";
+grant trigger on table "public"."participant_reflections" to "anon";
+grant trigger on table "public"."participant_reflections" to "authenticated";
+grant trigger on table "public"."participant_reflections" to "service_role";
+grant trigger on table "public"."participants" to "anon";
+grant trigger on table "public"."participants" to "authenticated";
+grant trigger on table "public"."participants" to "service_role";
+grant trigger on table "public"."responses" to "anon";
+grant trigger on table "public"."responses" to "authenticated";
+grant trigger on table "public"."responses" to "service_role";
+grant trigger on table "public"."session_reports" to "anon";
+grant trigger on table "public"."session_reports" to "authenticated";
+grant trigger on table "public"."session_reports" to "service_role";
+grant trigger on table "public"."sessions" to "anon";
+grant trigger on table "public"."sessions" to "authenticated";
+grant trigger on table "public"."sessions" to "service_role";
+grant trigger on table "public"."situation_analysis_reports" to "anon";
+grant trigger on table "public"."situation_analysis_reports" to "authenticated";
+grant trigger on table "public"."situation_analysis_reports" to "service_role";
+grant trigger on table "public"."statements" to "anon";
+grant trigger on table "public"."statements" to "authenticated";
+grant trigger on table "public"."statements" to "service_role";
+CREATE TRIGGER broadcast_agent_instances AFTER INSERT OR DELETE OR UPDATE ON public.agent_instances FOR EACH ROW EXECUTE FUNCTION broadcast_table_changes('agent_instances');
+CREATE TRIGGER broadcast_event_threads AFTER INSERT OR DELETE OR UPDATE ON public.event_threads FOR EACH ROW EXECUTE FUNCTION broadcast_table_changes('event_threads');
+CREATE TRIGGER broadcast_responses AFTER INSERT OR DELETE OR UPDATE ON public.responses FOR EACH ROW EXECUTE FUNCTION broadcast_table_changes('responses');
