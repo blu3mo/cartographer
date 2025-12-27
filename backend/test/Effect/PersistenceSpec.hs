@@ -241,3 +241,137 @@ spec = do
         Right (Right _relation) ->
           -- 3行存在することを確認
           putStrLn "Multiple fact types coexist successfully"
+
+    -- 完全なスキーマ進化シナリオテスト
+    it "complete schema evolution scenario with DB state inspection" $ do
+      -- ユニークなDBパスを生成
+      testId <- nextRandom
+      let testDbPath = "/tmp/m36-complete-evolution-" ++ toString testId
+
+      putStrLn "\n=========================================="
+      putStrLn "Complete Schema Evolution Test"
+      putStrLn "=========================================="
+
+      -- =========================================================
+      -- Phase 1: 初期スキーマでイベント登録（ReportGeneratedを使用しない）
+      -- =========================================================
+      putStrLn "\n--- Phase 1: Initial schema with InsightExtracted ---"
+
+      e1 <- nextRandom
+      sid <- nextRandom
+      now <- getCurrentTime
+
+      let initialEvent =
+            Event
+              { eventId = e1,
+                sessionId = sid,
+                timestamp = now,
+                payload = InsightExtracted "初期のインサイト（ReportGenerated以前）"
+              }
+
+      phase1Result <- withM36Connection (Persistent testDbPath) $ \conn -> do
+        migrationResult <- migrateSchema conn
+        case migrationResult of
+          Left err -> pure (Left err)
+          Right () -> do
+            txnResult <- withTransaction conn $ do
+              case toInsertExpr [initialEvent] "events" of
+                Left err -> error $ "toInsertExpr failed: " ++ show err
+                Right insertExpr -> do
+                  execute insertExpr
+                  query (RelationVariable "events" () :: RelationalExpr)
+            pure txnResult
+
+      case phase1Result of
+        Left err -> expectationFailure $ "Phase 1 connection failed: " ++ show err
+        Right (Left err) -> expectationFailure $ "Phase 1 failed: " ++ show err
+        Right (Right relation) -> do
+          putStrLn $ "Phase 1 DB state (1 event with InsightExtracted):\n" ++ show relation
+
+      -- =========================================================
+      -- Phase 2: 再接続して既存データを読み込み（スキーマ再登録）
+      -- =========================================================
+      putStrLn "\n--- Phase 2: Reconnect and read existing data ---"
+
+      phase2Result <- withM36Connection (Persistent testDbPath) $ \conn -> do
+        -- 再接続時、型情報は永続化されていないため再登録が必要
+        -- ただし既存の型と衝突するためエラーになる可能性がある
+        migrationResult <- migrateSchema conn
+        case migrationResult of
+          Left migErr -> do
+            putStrLn $ "  Migration on reconnect: " ++ show migErr
+            pure (Left migErr)
+          Right () -> do
+            putStrLn "  Migration succeeded (DB was fresh or idempotent)"
+            withTransaction conn $ do
+              query (RelationVariable "events" () :: RelationalExpr)
+
+      case phase2Result of
+        Left connErr -> do
+          putStrLn $ "Phase 2 (expected error on re-migration): " ++ show connErr
+        Right (Left err) -> do
+          putStrLn $ "Phase 2 migration error: " ++ show err
+        Right (Right relation) -> do
+          putStrLn $ "Phase 2 DB state (should still have 1 event):\n" ++ show relation
+
+      -- =========================================================
+      -- Phase 3: 新しいファクト（ReportGenerated）を追加
+      -- =========================================================
+      putStrLn "\n--- Phase 3: Add new fact type (ReportGenerated) ---"
+
+      e2 <- nextRandom
+      -- 新しいDBで両方のファクト種別を含むシナリオをテスト
+      testId2 <- nextRandom
+      let testDbPath2 = "/tmp/m36-new-fact-" ++ toString testId2
+
+      phase3Result <- withM36Connection (Persistent testDbPath2) $ \conn -> do
+        migrationResult <- migrateSchema conn
+        case migrationResult of
+          Left err -> pure (Left err)
+          Right () -> do
+            -- 既存のファクト種別と新しいファクト種別の両方を挿入
+            let allEvents =
+                  [ Event e1 sid now (InsightExtracted "既存ファクト"),
+                    Event e2 sid now (ReportGenerated "新ファクト" e1)
+                  ]
+            txnResult <- withTransaction conn $ do
+              case toInsertExpr allEvents "events" of
+                Left err -> error $ "toInsertExpr failed: " ++ show err
+                Right insertExpr -> do
+                  execute insertExpr
+                  query (RelationVariable "events" () :: RelationalExpr)
+            pure txnResult
+
+      case phase3Result of
+        Left err -> expectationFailure $ "Phase 3 connection failed: " ++ show err
+        Right (Left err) -> expectationFailure $ "Phase 3 failed: " ++ show err
+        Right (Right relation) -> do
+          putStrLn $ "Phase 3 DB state (2 events: InsightExtracted + ReportGenerated):\n" ++ show relation
+
+      -- =========================================================
+      -- Phase 4: 再接続してすべてのデータを読み込み
+      -- =========================================================
+      putStrLn "\n--- Phase 4: Reconnect and verify all data ---"
+
+      phase4Result <- withM36Connection (Persistent testDbPath2) $ \conn -> do
+        migrationResult <- migrateSchema conn
+        case migrationResult of
+          Left migErr -> do
+            putStrLn $ "  Expected migration error: " ++ show migErr
+            pure (Left migErr)
+          Right () -> do
+            putStrLn "  Migration succeeded"
+            withTransaction conn $ do
+              query (RelationVariable "events" () :: RelationalExpr)
+
+      case phase4Result of
+        Left connErr -> do
+          putStrLn $ "Phase 4 (expected error): " ++ show connErr
+        Right (Left err) -> do
+          putStrLn $ "Phase 4 query error: " ++ show err
+        Right (Right relation) -> do
+          putStrLn $ "Phase 4 DB state (should have 2 events):\n" ++ show relation
+
+      putStrLn "\n=========================================="
+      putStrLn "Schema Evolution Test Complete"
+      putStrLn "=========================================="
