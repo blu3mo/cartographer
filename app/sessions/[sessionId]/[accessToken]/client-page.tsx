@@ -1801,7 +1801,7 @@ export default function AdminPage({
                     participantNameMap={participantNameMap}
                   />
                   <StatementHighlightColumn
-                    title="わからない度トップ3"
+                    title="どちらでもない度トップ3"
                     tone="slate"
                     items={statementHighlights.dontKnow}
                     participantNameMap={participantNameMap}
@@ -2445,7 +2445,7 @@ export default function AdminPage({
                                           : response.value === 1
                                             ? "同意"
                                             : response.value === 0
-                                              ? "わからない"
+                                              ? "どちらでもない"
                                               : response.value === -1
                                                 ? "反対"
                                                 : response.value === -2
@@ -2626,7 +2626,7 @@ function StatementHighlightColumn({
               <span className="font-medium text-amber-700">
                 No {formatPercentage(item.negative)}
               </span>
-              <span>わからない {formatPercentage(item.neutral)}</span>
+              <span>どちらでもない {formatPercentage(item.neutral)}</span>
             </div>
             {item.statement.responses.freeTextCount > 0 && (
               <div className="mt-3 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-[11px] text-slate-700 shadow-inner">

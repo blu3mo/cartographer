@@ -120,7 +120,7 @@ export async function generateIndividualReport(input: {
           : r.value === 1
             ? "同意"
             : r.value === 0
-              ? "わからない"
+              ? "どちらでもない"
               : r.value === -1
                 ? "反対"
                 : "強く反対";
