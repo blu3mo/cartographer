@@ -1,14 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- | Schema Evolution Phase 2 Test
+-- | Schema Evolution Phase 2 Test (v2 with Conditional Migration)
 --
--- このモジュールは単体で実行可能なテストプログラムです。
--- v2型定義（ReportGeneratedあり）で既存DBにアクセスし、
--- 新しいファクト種別を追加できることを確認します。
---
--- 前提:
--- - Phase 1が実行済み（DBにInsightExtractedイベントが保存済み）
--- - Types.hsにReportGeneratedが存在すること
+-- このプログラムは条件付きマイグレーションを使用してスキーマ進化を検証します：
+-- 1. Phase 1で保存されたデータが存在するDBに接続
+-- 2. migrateSchemaIfNeeded で冪等なマイグレーションを実行
+-- 3. 新しいファクト種別（ReportGenerated）を挿入
+-- 4. 最後に全データを読み出してリストアップ
 module Main where
 
 import Data.Time (getCurrentTime)
@@ -19,7 +17,7 @@ import Domain.Types
   )
 import Effect.Persistence
   ( DbConfig (..),
-    migrateSchema,
+    migrateSchemaIfNeeded,
     withM36Connection,
   )
 import ProjectM36.Base (RelationalExprBase (..))
@@ -33,54 +31,54 @@ testDbPath = "/tmp/m36-schema-evolution-real-test"
 main :: IO ()
 main = do
   putStrLn "=========================================="
-  putStrLn "Schema Evolution Phase 2: v2 Type Definition"
+  putStrLn "Schema Evolution Phase 2: Conditional Migration"
   putStrLn "=========================================="
   putStrLn ""
   putStrLn $ "DB Path: " ++ testDbPath
 
-  -- 新しいイベントIDを生成
-  eventId <- nextRandom
+  -- 新しいイベントを生成
+  newEventId <- nextRandom
   sessionId <- nextRandom
-  parentEventId <- nextRandom -- Phase 1のイベントを参照する想定
+  parentEventId <- nextRandom
   now <- getCurrentTime
 
-  -- v2では ReportGenerated も使用可能
   let newEvent =
         Event
-          { eventId = eventId,
+          { eventId = newEventId,
             sessionId = sessionId,
             timestamp = now,
             payload = ReportGenerated "Phase2で追加されたレポート（v2型定義）" parentEventId
           }
 
   putStrLn ""
-  putStrLn "Connecting to existing DB and reading Phase 1 data..."
+  putStrLn "Step 1: Connecting to existing DB..."
 
   result <- withM36Connection (Persistent testDbPath) $ \conn -> do
-    -- 既存DBへの再接続時、migrateSchemaはエラーになる可能性がある
-    migResult <- migrateSchema conn
+    -- 条件付きマイグレーション（冪等）
+    putStrLn "Step 2: Running migrateSchemaIfNeeded (idempotent)..."
+    migResult <- migrateSchemaIfNeeded conn
     case migResult of
       Left migErr -> do
-        -- マイグレーションエラー → 既存DBとの互換性の問題
-        putStrLn $ "  Migration error (may be expected): " ++ show migErr
-        -- それでもデータ読み取りを試みる
+        putStrLn $ "  Migration error: " ++ show migErr
         pure (Left $ "Migration failed: " ++ show migErr)
       Right () -> do
+        putStrLn "  Migration: OK (schema exists or was created)"
+
         -- Phase 1のデータを読み取り
+        putStrLn ""
+        putStrLn "Step 3: Reading existing data from Phase 1..."
         readResult <- withTransaction conn $ do
           query (RelationVariable "events" ())
 
         case readResult of
           Left err -> pure (Left $ "Read failed: " ++ show err)
           Right existingData -> do
-            putStrLn ""
-            putStrLn "Phase 1 data found:"
-            print existingData
+            putStrLn "  Existing data found:"
+            putStrLn $ "  " ++ show existingData
 
             -- 新しいファクト種別（ReportGenerated）を追加
             putStrLn ""
-            putStrLn "Inserting new event with ReportGenerated payload..."
-
+            putStrLn "Step 4: Inserting new event with ReportGenerated..."
             insertResult <- withTransaction conn $ do
               case toInsertExpr [newEvent] "events" of
                 Left err -> error $ "toInsertExpr failed: " ++ show err
@@ -90,43 +88,70 @@ main = do
 
             case insertResult of
               Left err -> pure (Left $ "Insert failed: " ++ show err)
-              Right updatedData -> pure (Right updatedData)
+              Right allData -> pure (Right allData)
 
   case result of
     Left err -> do
-      -- withM36Connection自体が失敗した場合
       putStrLn ""
-      putStrLn $ "CONNECTION ERROR: " ++ show err
+      putStrLn $ "ERROR: " ++ show err
       putStrLn ""
       putStrLn "=========================================="
-      putStrLn "Phase 2 Failed: Connection Error"
+      putStrLn "Phase 2 Failed"
       putStrLn "=========================================="
     Right (Left err) -> do
-      -- マイグレーションエラー（これは期待される動作）
       putStrLn ""
-      putStrLn $ "KNOWN LIMITATION: " ++ err
-      putStrLn ""
-      putStrLn "This is EXPECTED behavior!"
-      putStrLn "M36's migrateSchema is NOT idempotent."
-      putStrLn ""
-      putStrLn "In production, you would need to:"
-      putStrLn "  1. Check if schema already exists before migrating"
-      putStrLn "  2. Use conditional migration logic"
+      putStrLn $ "ERROR: " ++ err
       putStrLn ""
       putStrLn "=========================================="
-      putStrLn "Phase 2 Complete (Known Limitation Confirmed)"
+      putStrLn "Phase 2 Failed"
       putStrLn "=========================================="
-    Right (Right relation) -> do
-      putStrLn ""
-      putStrLn "SUCCESS: Both InsightExtracted and ReportGenerated coexist"
-      putStrLn ""
-      putStrLn "Final relation contents:"
-      print relation
+    Right (Right finalRelation) -> do
+      putStrLn "  Insert: OK"
       putStrLn ""
       putStrLn "=========================================="
-      putStrLn "Phase 2 Complete: Schema Evolution Verified!"
+      putStrLn "Step 5: Final Data Verification"
       putStrLn "=========================================="
       putStrLn ""
-      putStrLn "The database now contains:"
-      putStrLn "  - InsightExtracted (from Phase 1, v1 type)"
-      putStrLn "  - ReportGenerated (from Phase 2, v2 type)"
+      putStrLn "All events in database:"
+      putStrLn $ show finalRelation
+      putStrLn ""
+
+      -- データの存在確認
+      let relationStr = show finalRelation
+      let hasInsight = "InsightExtracted" `isInfixOf` relationStr
+      let hasReport = "ReportGenerated" `isInfixOf` relationStr
+
+      putStrLn "Verification:"
+      putStrLn $ "  - InsightExtracted (from Phase 1): " ++ (if hasInsight then "✓ FOUND" else "✗ NOT FOUND")
+      putStrLn $ "  - ReportGenerated (from Phase 2): " ++ (if hasReport then "✓ FOUND" else "✗ NOT FOUND")
+      putStrLn ""
+
+      if hasInsight && hasReport
+        then do
+          putStrLn "=========================================="
+          putStrLn "SUCCESS: Schema Evolution Verified!"
+          putStrLn "=========================================="
+          putStrLn ""
+          putStrLn "Both fact types coexist in the same database:"
+          putStrLn "  - Phase 1 data preserved after reconnection"
+          putStrLn "  - Phase 2 data (new fact type) successfully added"
+          putStrLn "  - Conditional migration works correctly"
+        else do
+          putStrLn "=========================================="
+          putStrLn "FAILED: Missing expected data"
+          putStrLn "=========================================="
+
+-- Helperr function
+isInfixOf :: String -> String -> Bool
+isInfixOf needle haystack = any (isPrefixOf needle) (tails haystack)
+
+isPrefixOf :: String -> String -> Bool
+isPrefixOf [] _ = True
+isPrefixOf _ [] = False
+isPrefixOf (x : xs) (y : ys)
+  | x == y = isPrefixOf xs ys
+  | otherwise = False
+
+tails :: [a] -> [[a]]
+tails [] = [[]]
+tails xs@(_ : ys) = xs : tails ys

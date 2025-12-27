@@ -6,6 +6,7 @@ module Effect.Persistence
 
     -- * Migration
     migrateSchema,
+    migrateSchemaIfNeeded,
 
     -- * Types (re-export)
     DbConn,
@@ -24,6 +25,7 @@ import Domain.Types
     SessionTopic,
   )
 import ProjectM36.Atomable (toAddTypeExpr)
+import ProjectM36.Base (RelationalExprBase (..))
 import ProjectM36.Client
   ( ConnectionInfo (..),
     NotificationCallback,
@@ -34,6 +36,7 @@ import ProjectM36.Client.Simple
     DbError,
     close,
     execute,
+    query,
     simpleConnectProjectM36,
     withTransaction,
   )
@@ -102,3 +105,19 @@ migrateSchema conn = withTransaction conn $ do
   execute (toDefineExpr (Proxy :: Proxy Event) "events")
 
   pure ()
+
+-- | 条件付きスキーママイグレーション
+-- eventsリレーション変数が存在しない場合のみマイグレーションを実行
+-- 存在する場合は何もせずに成功を返す（冪等）
+migrateSchemaIfNeeded :: DbConn -> IO (Either DbError ())
+migrateSchemaIfNeeded conn = do
+  -- まずeventsリレーション変数の存在をチェック
+  checkResult <- withTransaction conn $ do
+    query (RelationVariable "events" ())
+  case checkResult of
+    Right _ -> do
+      -- eventsクエリ成功 → スキーマ既存、何もしない
+      pure (Right ())
+    Left _ -> do
+      -- クエリエラー → スキーマ未定義の可能性、マイグレーション実行
+      migrateSchema conn

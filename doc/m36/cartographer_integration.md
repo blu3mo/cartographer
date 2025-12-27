@@ -193,7 +193,7 @@ Relation (attributesFromList [
 
 ## 既知の制限と対処法
 
-### 制限1: migrateSchemaは冪等ではない
+### 制限1: migrateSchemaは冪等ではない（解決済み）
 
 **問題**: 既存のDBに再接続してmigrateSchemaを再実行すると、型が既に存在するためエラーになります。
 
@@ -201,36 +201,37 @@ Relation (attributesFromList [
 RelError (DataConstructorNameInUseError "SessionTitle")
 ```
 
-**対処法**: スキーマの存在をチェックしてから条件付きでマイグレーションを実行します。
+**解決策**: `migrateSchemaIfNeeded`関数を実装しました。
 
 ```haskell
--- 推奨パターン（概念的）
-migrateSchemaIfNeeded :: Connection -> IO (Either DbError ())
+-- Effect/Persistence.hs
+migrateSchemaIfNeeded :: DbConn -> IO (Either DbError ())
 migrateSchemaIfNeeded conn = do
-  exists <- checkSchemaExists conn
-  if exists
-    then pure (Right ())  -- スキーマ既存、スキップ
-    else migrateSchema conn  -- 初回のみ実行
+  -- eventsリレーション変数の存在をチェック
+  checkResult <- withTransaction conn $ do
+    query (RelationVariable "events" ())
+  case checkResult of
+    Right _ -> pure (Right ())     -- スキーマ既存、何もしない
+    Left _  -> migrateSchema conn  -- スキーマなし、マイグレーション実行
 ```
 
-**Phase 2テスト出力**:
+**テスト結果**（Phase 2出力）:
 
 ```
-==========================================
-Schema Evolution Phase 2: v2 Type Definition
-==========================================
-DB Path: /tmp/m36-schema-evolution-real-test
-Connecting to existing DB and reading Phase 1 data...
-  Migration error (may be expected): RelError (DataConstructorNameInUseError "SessionTitle")
+Step 2: Running migrateSchemaIfNeeded (idempotent)...
+  Migration: OK (schema exists or was created)
 
-KNOWN LIMITATION: Migration failed: RelError (DataConstructorNameInUseError "SessionTitle")
+Step 3: Reading existing data from Phase 1...
+  Existing data found: ...
 
-This is EXPECTED behavior!
-M36's migrateSchema is NOT idempotent.
+Step 4: Inserting new event with ReportGenerated...
+  Insert: OK
 
-In production, you would need to:
-  1. Check if schema already exists before migrating
-  2. Use conditional migration logic
+Verification:
+  - InsightExtracted (from Phase 1): ✓ FOUND
+  - ReportGenerated (from Phase 2): ✓ FOUND
+
+SUCCESS: Schema Evolution Verified!
 ```
 
 ### 制限2: 型は永続化されるがセッション間で再登録が必要
