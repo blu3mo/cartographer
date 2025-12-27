@@ -9,6 +9,7 @@
 -- 4. 最後に全データを読み出してリストアップ
 module Main where
 
+import Data.Maybe (fromMaybe)
 import Data.Time (getCurrentTime)
 import Data.UUID.V4 (nextRandom)
 import Domain.Types
@@ -23,6 +24,7 @@ import Effect.Persistence
 import ProjectM36.Base (RelationalExprBase (..))
 import ProjectM36.Client.Simple (execute, query, withTransaction)
 import ProjectM36.Tupleable (toInsertExpr)
+import System.Environment (lookupEnv)
 
 -- 固定のDBパス（Phase 1とPhase 2で共有）
 testDbPath :: FilePath
@@ -30,11 +32,14 @@ testDbPath = "/tmp/m36-schema-evolution-real-test"
 
 main :: IO ()
 main = do
+  envPath <- lookupEnv "TEST_DB_PATH"
+  let dbPath = fromMaybe testDbPath envPath
+
   putStrLn "=========================================="
   putStrLn "Schema Evolution Phase 2: Conditional Migration"
   putStrLn "=========================================="
   putStrLn ""
-  putStrLn $ "DB Path: " ++ testDbPath
+  putStrLn $ "DB Path: " ++ dbPath
 
   -- 新しいイベントを生成
   newEventId <- nextRandom
@@ -53,7 +58,7 @@ main = do
   putStrLn ""
   putStrLn "Step 1: Connecting to existing DB..."
 
-  result <- withM36Connection (Persistent testDbPath) $ \conn -> do
+  result <- withM36Connection (Persistent dbPath) $ \conn -> do
     -- 条件付きマイグレーション（冪等）
     putStrLn "Step 2: Running migrateSchemaIfNeeded (idempotent)..."
     migResult <- migrateSchemaIfNeeded conn

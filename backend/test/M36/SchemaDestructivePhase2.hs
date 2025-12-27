@@ -16,6 +16,7 @@
 --   cabal run schema-destructive-phase2
 module Main where
 
+import Data.Maybe (fromMaybe)
 import Data.Time (getCurrentTime)
 import Data.UUID.V4 (nextRandom)
 import Domain.Types
@@ -29,6 +30,7 @@ import Effect.Persistence
   )
 import ProjectM36.Base (RelationalExprBase (..))
 import ProjectM36.Client.Simple (query, withTransaction)
+import System.Environment (lookupEnv)
 
 -- 固定のDBパス（破壊的変更テスト用）
 testDbPath :: FilePath
@@ -36,11 +38,14 @@ testDbPath = "/tmp/m36-schema-destructive-test"
 
 main :: IO ()
 main = do
+  envPath <- lookupEnv "TEST_DB_PATH"
+  let dbPath = fromMaybe testDbPath envPath
+
   putStrLn "=========================================="
   putStrLn "Destructive Change Phase 2: Read After Type Removal"
   putStrLn "=========================================="
   putStrLn ""
-  putStrLn $ "DB Path: " ++ testDbPath
+  putStrLn $ "DB Path: " ++ dbPath
   putStrLn ""
   putStrLn "SCENARIO:"
   putStrLn "  Phase 1 saved: InsightExtracted x 2, ReportGenerated x 1"
@@ -51,7 +56,7 @@ main = do
 
   putStrLn "Step 1: Connecting to existing DB..."
 
-  result <- withM36Connection (Persistent testDbPath) $ \conn -> do
+  result <- withM36Connection (Persistent dbPath) $ \conn -> do
     -- 条件付きマイグレーション
     putStrLn "Step 2: Running migrateSchemaIfNeeded..."
     migResult <- migrateSchemaIfNeeded conn

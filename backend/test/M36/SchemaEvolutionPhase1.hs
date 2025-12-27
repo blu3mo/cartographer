@@ -12,6 +12,7 @@
 -- 4. cabal run schema-evolution-phase2
 module Main where
 
+import Data.Maybe (fromMaybe)
 import Data.Time (getCurrentTime)
 import Data.UUID.V4 (nextRandom)
 import Domain.Types
@@ -26,6 +27,7 @@ import Effect.Persistence
 import ProjectM36.Base (RelationalExprBase (..))
 import ProjectM36.Client.Simple (execute, query, withTransaction)
 import ProjectM36.Tupleable (toInsertExpr)
+import System.Environment (lookupEnv)
 
 -- 固定のDBパス（Phase 1とPhase 2で共有）
 testDbPath :: FilePath
@@ -33,11 +35,14 @@ testDbPath = "/tmp/m36-schema-evolution-real-test"
 
 main :: IO ()
 main = do
+  envPath <- lookupEnv "TEST_DB_PATH"
+  let dbPath = fromMaybe testDbPath envPath
+
   putStrLn "=========================================="
   putStrLn "Schema Evolution Phase 1: v1 Type Definition"
   putStrLn "=========================================="
   putStrLn ""
-  putStrLn $ "DB Path: " ++ testDbPath
+  putStrLn $ "DB Path: " ++ dbPath
 
   -- イベントIDを生成
   eventId <- nextRandom
@@ -56,7 +61,7 @@ main = do
   putStrLn ""
   putStrLn "Inserting event with InsightExtracted payload..."
 
-  result <- withM36Connection (Persistent testDbPath) $ \conn -> do
+  result <- withM36Connection (Persistent dbPath) $ \conn -> do
     migResult <- migrateSchema conn
     case migResult of
       Left err -> pure (Left $ "Migration failed: " ++ show err)

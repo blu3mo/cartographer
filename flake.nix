@@ -110,6 +110,89 @@
             ''}";
           };
 
+          # V1シミュレーション用ビルド（ReportGeneratedコンストラクタ欠落版）
+          # "v1" という曖昧な名前ではなく、テストにおける役割（特定のスキーマバリアント）を明示
+          packages.cartographer-backend-schema-missing-report-constructor =
+            self'.packages.cartographer-backend.overrideAttrs
+              (old: {
+                name = "cartographer-backend-schema-missing-report-constructor";
+                # ReportGenerated コンストラクタを削除して V1 をシミュレート
+                # さらに、V1と互換性のない実行ファイル（ReportGeneratedを使用するもの）のビルドを無効化
+                postPatch = (old.postPatch or "") + ''
+                  sed -i 's/| ReportGenerated/-- | ReportGenerated/' src/Domain/Types.hs
+
+                  # 互換性のない実行ファイルを無効化 (buildable: False を挿入)
+                  sed -i '/executable schema-evolution-phase2/a \ \ buildable: False' cartographer-backend.cabal
+                  sed -i '/executable schema-destructive-phase1/a \ \ buildable: False' cartographer-backend.cabal
+                '';
+              });
+
+          checks = {
+            # Schema Evolution Test: V1 (Old) -> V2 (New)
+            schema-evolution =
+              pkgs.runCommand "test-schema-evolution"
+                {
+                  nativeBuildInputs = [ pkgs.glibcLocales ]; # Locale fix if needed
+                }
+                ''
+                  export LC_ALL=C.UTF-8
+                  export TEST_DB_PATH=$TMPDIR/m36-evolution-db
+
+                  echo "--- Phase 1: V1 (InsightExtracted only) ---"
+                  ${self'.packages.cartographer-backend-schema-missing-report-constructor}/bin/schema-evolution-phase1
+
+                  echo "--- Phase 2: V2 (ReportGenerated added) ---"
+                  ${self'.packages.cartographer-backend}/bin/schema-evolution-phase2
+
+                  touch $out
+                '';
+
+            # Schema Destructive Test: V2 (Full) -> V1 (Removed)
+            schema-destructive =
+              pkgs.runCommand "test-schema-destructive"
+                {
+                  nativeBuildInputs = [ pkgs.glibcLocales ];
+                }
+                ''
+                  export LC_ALL=C.UTF-8
+                  export TEST_DB_PATH=$TMPDIR/m36-destructive-db
+
+                  echo "--- Phase 1: V2 (Write all types) ---"
+                  ${self'.packages.cartographer-backend}/bin/schema-destructive-phase1
+
+                  echo "--- Phase 2: V1 (Read with type removed) ---"
+                  ${self'.packages.cartographer-backend-schema-missing-report-constructor}/bin/schema-destructive-phase2
+
+                  touch $out
+                '';
+
+            # Concurrent Integration Test
+            test-concurrent =
+              pkgs.runCommand "test-concurrent"
+                {
+                  nativeBuildInputs = [ pkgs.glibcLocales ];
+                }
+                ''
+                  export LC_ALL=C.UTF-8
+                  export TEST_DB_PATH=$TMPDIR/m36-concurrent-db
+                  ${self'.packages.cartographer-backend}/bin/test-concurrent
+                  touch $out
+                '';
+
+            # Projection Consistency Test
+            test-projection =
+              pkgs.runCommand "test-projection"
+                {
+                  nativeBuildInputs = [ pkgs.glibcLocales ];
+                }
+                ''
+                  export LC_ALL=C.UTF-8
+                  export TEST_DB_PATH=$TMPDIR/m36-projection-db
+                  ${self'.packages.cartographer-backend}/bin/test-projection
+                  touch $out
+                '';
+          };
+
           process-compose.default = {
             settings = {
               processes = {

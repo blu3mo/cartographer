@@ -13,6 +13,7 @@ import Control.Concurrent (forkIO)
 import Control.Concurrent.Chan (Chan, newChan, readChan, writeChan)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Monad (forM, forM_)
+import Data.Maybe (fromMaybe)
 import Data.Text (pack)
 import Data.Time (getCurrentTime)
 import Data.UUID.V4 (nextRandom)
@@ -29,6 +30,7 @@ import Effect.Persistence
 import ProjectM36.Base (RelationalExprBase (..))
 import ProjectM36.Client.Simple (execute, query, withTransaction)
 import ProjectM36.Tupleable (toInsertExpr)
+import System.Environment (lookupEnv)
 
 -- 固定のDBパス
 testDbPath :: FilePath
@@ -49,11 +51,14 @@ data WriterMsg
 
 main :: IO ()
 main = do
+  envPath <- lookupEnv "TEST_DB_PATH"
+  let dbPath = fromMaybe testDbPath envPath
+
   putStrLn "=========================================="
   putStrLn "Concurrent Access Test (Actor Pattern)"
   putStrLn "=========================================="
   putStrLn ""
-  putStrLn $ "DB Path: " ++ testDbPath
+  putStrLn $ "DB Path: " ++ dbPath
   putStrLn $ "Threads: " ++ show numThreads
   putStrLn $ "Events per thread: " ++ show eventsPerThread
   putStrLn $ "Total events: " ++ show (numThreads * eventsPerThread)
@@ -63,7 +68,7 @@ main = do
   putStrLn "Step 1: Initializing DB and Writer..."
 
   -- メインスレッドで接続を開く
-  connResult <- withM36Connection (Persistent testDbPath) $ \conn -> do
+  connResult <- withM36Connection (Persistent dbPath) $ \conn -> do
     -- マイグレーション
     migResult <- migrateSchemaIfNeeded conn
     case migResult of

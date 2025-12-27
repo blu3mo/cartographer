@@ -13,6 +13,7 @@ module Main where
 
 import Control.Monad (forM, forM_)
 import Data.List (isInfixOf)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 import Data.UUID (UUID)
@@ -34,6 +35,7 @@ import Effect.Persistence
 import ProjectM36.Base (RelationalExprBase (..))
 import ProjectM36.Client.Simple (execute, query, withTransaction)
 import ProjectM36.Tupleable (toInsertExpr)
+import System.Environment (lookupEnv)
 
 -- 固定のDBパス
 testDbPath :: FilePath
@@ -41,18 +43,21 @@ testDbPath = "/tmp/m36-projection-test"
 
 main :: IO ()
 main = do
+  envPath <- lookupEnv "TEST_DB_PATH"
+  let dbPath = fromMaybe testDbPath envPath
+
   putStrLn "=========================================="
   putStrLn "Projection Consistency Test"
   putStrLn "=========================================="
   putStrLn ""
-  putStrLn $ "DB Path: " ++ testDbPath
+  putStrLn $ "DB Path: " ++ dbPath
   putStrLn ""
 
   sessionId1 <- nextRandom
   sessionId2 <- nextRandom
 
   -- 単一の接続スコープで実行 (永続化バグとロジックバグを切り分け)
-  withM36ConnectionResult <- withM36Connection (Persistent testDbPath) $ \conn -> do
+  withM36ConnectionResult <- withM36Connection (Persistent dbPath) $ \conn -> do
     -- Step 1: Migration
     putStrLn "Step 1: Initial migration..."
     migResult <- migrateSchemaIfNeeded conn
