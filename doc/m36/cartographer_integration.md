@@ -321,6 +321,72 @@ cabal run schema-evolution-phase2
 | `backend/src/Effect/Persistence.hs` | M36接続とマイグレーション |
 | `backend/src/Domain/Types.hs` | ADT定義とAtomable派生 |
 | `backend/test/Effect/PersistenceSpec.hs` | スキーマ進化テスト |
-| `backend/app/SchemaEvolutionPhase1.hs` | Phase 1テストプログラム |
-| `backend/app/SchemaEvolutionPhase2.hs` | Phase 2テストプログラム |
-| `scripts/test-schema-evolution.sh` | 2段階テストスクリプト |
+| `backend/app/SchemaEvolutionPhase1.hs` | スキーマ進化Phase 1 |
+| `backend/app/SchemaEvolutionPhase2.hs` | スキーマ進化Phase 2 |
+| `backend/app/SchemaDestructivePhase1.hs` | 破壊的変更Phase 1 |
+| `backend/app/SchemaDestructivePhase2.hs` | 破壊的変更Phase 2 |
+| `scripts/test-schema-evolution.sh` | スキーマ進化テストスクリプト |
+| `scripts/test-schema-destructive.sh` | 破壊的変更テストスクリプト |
+
+---
+
+## 破壊的変更（コンストラクタ削除）
+
+### シナリオ
+
+ADTからコンストラクタを**削除**する場合：
+
+1. **Phase 1**: `InsightExtracted`×2, `ReportGenerated`×1 を保存
+2. **Phase 2**: `Types.hs`から`ReportGenerated`をコメントアウトして再接続
+
+### テスト実行
+
+```bash
+./scripts/test-schema-destructive.sh
+```
+
+### テスト結果
+
+```
+[SUCCESS] Phase 1: 3 events written (InsightExtracted x 2, ReportGenerated x 1)
+[SUCCESS] Confirmed: ReportGenerated is commented out
+[SUCCESS] Build succeeded with ReportGenerated removed
+
+Verification:
+  - InsightExtracted: ✓ FOUND
+  - ReportGenerated: ✓ FOUND (unexpected!)
+
+RESULT: ReportGenerated data is STILL PRESENT
+
+This indicates that M36 stores data with the type name
+as part of the value, and can still read it even if
+the Haskell type definition has been removed.
+```
+
+### 発見：M36の後方互換性
+
+**M36はコンストラクタを削除しても既存データを読み取れる！**
+
+データ内に型名（`"ReportGenerated"`）が文字列として保持されているため、Haskellの型定義から削除してもM36レベルではデータが失われません。
+
+| シナリオ | M36の挙動 | Haskellへの影響 |
+|---------|----------|-----------------|
+| コンストラクタ**追加** | ✅ 問題なし | ✅ 問題なし |
+| コンストラクタ**削除** | ✅ データは残る | ⚠️ パターンマッチ不可 |
+
+### 本番での注意点
+
+コンストラクタを削除した場合：
+
+1. **M36側**: データは`ConstructedAtom "ReportGenerated" ...`として残る
+2. **Haskell側**: `Atomable`の`fromAtom`でパターンマッチ失敗の可能性
+3. **推奨**: 削除ではなく`Deprecated`フラグを追加、または移行期間中は両対応
+
+```haskell
+-- 推奨パターン：削除せずDeprecatedとしてマーク
+data FactPayload
+  = ContextDefined SessionContext
+  | InsightExtracted Text
+  | ReportGenerated Text EventId  -- @deprecated: Use ReportGeneratedV2 instead
+  | ReportGeneratedV2 NewReportData
+```
