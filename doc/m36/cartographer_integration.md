@@ -321,10 +321,10 @@ cabal run schema-evolution-phase2
 | `backend/src/Effect/Persistence.hs` | M36接続とマイグレーション |
 | `backend/src/Domain/Types.hs` | ADT定義とAtomable派生 |
 | `backend/test/Effect/PersistenceSpec.hs` | スキーマ進化テスト |
-| `backend/app/SchemaEvolutionPhase1.hs` | スキーマ進化Phase 1 |
-| `backend/app/SchemaEvolutionPhase2.hs` | スキーマ進化Phase 2 |
-| `backend/app/SchemaDestructivePhase1.hs` | 破壊的変更Phase 1 |
-| `backend/app/SchemaDestructivePhase2.hs` | 破壊的変更Phase 2 |
+| `backend/test/M36/SchemaEvolutionPhase1.hs` | スキーマ進化Phase 1 |
+| `backend/test/M36/SchemaEvolutionPhase2.hs` | スキーマ進化Phase 2 |
+| `backend/test/M36/SchemaDestructivePhase1.hs` | 破壊的変更Phase 1 |
+| `backend/test/M36/SchemaDestructivePhase2.hs` | 破壊的変更Phase 2 |
 | `scripts/test-schema-evolution.sh` | スキーマ進化テストスクリプト |
 | `scripts/test-schema-destructive.sh` | 破壊的変更テストスクリプト |
 
@@ -389,4 +389,37 @@ data FactPayload
   | InsightExtracted Text
   | ReportGenerated Text EventId  -- @deprecated: Use ReportGeneratedV2 instead
   | ReportGeneratedV2 NewReportData
+  | ReportGeneratedV2 NewReportData     |
+
+---
+
+## 並行処理とパフォーマンス
+
+### 制限4: In-Process永続化の同時書き込み制限
+
+`InProcessConnectionInfo` で `CrashSafePersistence`（ファイル永続化）を使用する場合、複数のスレッド/セッションから同時に書き込み（コミット）を行うと、ファイルシステム上のロック競合により以下のエラーが発生します：
+
 ```
+withFile: resource busy (file is locked)
+```
+
+**原因**: M36のIn-Process永続化レイヤーは、コミット時にディレクトリ/ファイルをロックするため、並列書き込みに対応していません。
+
+**解決策**:
+同時書き込みが必要な場合、以下のいずれかのアプローチを採用してください：
+
+1. **Actor Pattern (推奨)**: 単一のWriterスレッド（Actor）を用意し、全ての書き込みリクエストをチャネル（Chan/MVar/STM）経由で直列化する。
+   - `TestConcurrent.hs` で実証済みのアプローチ。
+   - 読み取り（Query）は並列実行可能。
+2. **Client-Server Mode**: `RemoteProcessConnectionInfo` を使用してM36サーバーに接続する（サーバー側でシリアライズされる）。
+
+### 推奨アーキテクチャ
+
+Cartographerバックエンドでは、イベントソーシングのイベントストアとしてM36を使用するため、**Actor Pattern（Single Writer）** を採用します。
+
+- **Writer Actor**: 単一のDB接続を持ち、イベント挿入を専有的に行う
+- **Read Replicas**: 必要に応じて読み取り専用接続（Snapshot Isolation）を使用
+- **Projection**: 非同期またはWriterの完了後に実行
+
+---
+

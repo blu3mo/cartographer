@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+-#!/usr/bin/env bash
 # =============================================================================
 # Schema Evolution Integration Test
 # =============================================================================
@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 TYPES_FILE="$BACKEND_DIR/src/Domain/Types.hs"
-TEST_DB_PATH="/tmp/m36-schema-evolution-integration-test"
+TEST_DB_PATH="/tmp/m36-schema-evolution-real-test"
 
 # 色付き出力
 RED='\033[0;31m'
@@ -66,28 +66,18 @@ log_info ""
 log_info "--- Phase 1: v1 type definition (without ReportGenerated) ---"
 
 # Types.hsからReportGeneratedを削除（sed でコメントアウト）
-# 注意: macOSとLinuxでsedの動作が異なる
-if [[ "$(uname)" == "Darwin" ]]; then
-    # macOS
-    sed -i '' 's/| ReportGenerated Text EventId/-- | ReportGenerated Text EventId  -- REMOVED FOR SCHEMA EVOLUTION TEST/' "$TYPES_FILE"
-else
-    # Linux
-    sed -i 's/| ReportGenerated Text EventId/-- | ReportGenerated Text EventId  -- REMOVED FOR SCHEMA EVOLUTION TEST/' "$TYPES_FILE"
-fi
+# Nix環境のGNU sedを使用するため -i オプションに引数は不要
+sed -i 's/| ReportGenerated Text EventId/-- | ReportGenerated Text EventId  -- REMOVED FOR SCHEMA EVOLUTION TEST/' "$TYPES_FILE"
 
 log_info "Modified Types.hs: removed ReportGenerated"
 
-# v1でビルド・テスト実行（InsightExtractedのみを使用するテスト）
+# v1でビルド・テスト実行
 log_info "Building and running Phase 1 test..."
 
 cd "$PROJECT_ROOT"
 nix develop --impure -c bash -c "
     cd backend
-    cabal build cartographer-backend-test 2>&1 | tail -5
-
-    # Phase 1用のシンプルなテストを実行
-    # 既存のインメモリテストを使用してビルド確認
-    cabal test --test-show-details=direct 2>&1 | grep -E '(examples|failures|PASS|FAIL)' | tail -3
+    cabal run schema-evolution-phase1
 "
 
 if [[ $? -eq 0 ]]; then
@@ -113,10 +103,7 @@ log_info "Building and running Phase 2 test..."
 
 nix develop --impure -c bash -c "
     cd backend
-    cabal build cartographer-backend-test 2>&1 | tail -5
-
-    # 全テストを実行
-    cabal test --test-show-details=direct 2>&1 | grep -E '(examples|failures|PASS|FAIL)' | tail -3
+    cabal run schema-evolution-phase2
 "
 
 if [[ $? -eq 0 ]]; then

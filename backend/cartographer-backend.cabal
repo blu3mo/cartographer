@@ -124,8 +124,8 @@ test-suite cartographer-backend-test
 --   4. cabal run schema-evolution-phase2
 executable schema-evolution-phase1
   import: common-options
-  hs-source-dirs: app
-  main-is: SchemaEvolutionPhase1.hs
+  hs-source-dirs: test
+  main-is: M36/SchemaEvolutionPhase1.hs
   build-depends:
     base >=4.7 && <5,
     cartographer-backend,
@@ -137,8 +137,8 @@ executable schema-evolution-phase1
 
 executable schema-evolution-phase2
   import: common-options
-  hs-source-dirs: app
-  main-is: SchemaEvolutionPhase2.hs
+  hs-source-dirs: test
+  main-is: M36/SchemaEvolutionPhase2.hs
   build-depends:
     base >=4.7 && <5,
     cartographer-backend,
@@ -156,8 +156,8 @@ executable schema-evolution-phase2
 --   3. cabal run schema-destructive-phase2  (読み取り挙動を検証)
 executable schema-destructive-phase1
   import: common-options
-  hs-source-dirs: app
-  main-is: SchemaDestructivePhase1.hs
+  hs-source-dirs: test
+  main-is: M36/SchemaDestructivePhase1.hs
   build-depends:
     base >=4.7 && <5,
     cartographer-backend,
@@ -169,8 +169,8 @@ executable schema-destructive-phase1
 
 executable schema-destructive-phase2
   import: common-options
-  hs-source-dirs: app
-  main-is: SchemaDestructivePhase2.hs
+  hs-source-dirs: test
+  main-is: M36/SchemaDestructivePhase2.hs
   build-depends:
     base >=4.7 && <5,
     cartographer-backend,
@@ -179,3 +179,66 @@ executable schema-destructive-phase2
     project-m36,
     time >=1.9 && <2,
     uuid >=1.3 && <2,
+
+-- M36 Event Sourcing Tests
+-- イベントソーシング、並行性、パフォーマンス、リカバリのテスト
+executable test-concurrent
+  import: common-options
+  hs-source-dirs: test
+  main-is: M36/TestConcurrent.hs
+  build-depends:
+    base >=4.7 && <5,
+    cartographer-backend,
+    containers,
+    polysemy,
+    polysemy-plugin,
+    project-m36,
+    text,
+    time,
+    uuid,
+
+executable test-projection
+  import: common-options
+  hs-source-dirs: test
+  main-is: M36/TestProjection.hs
+  build-depends:
+    base >=4.7 && <5,
+    cartographer-backend,
+    containers,
+    polysemy,
+    polysemy-plugin,
+    project-m36,
+    text,
+    time,
+    uuid,
+
+executable test-performance
+  import: common-options
+  hs-source-dirs: test
+  main-is: M36/TestPerformance.hs
+  build-depends:
+    base >=4.7 && <5,
+    cartographer-backend,
+    containers,
+    deepseq,
+    polysemy,
+    polysemy-plugin,
+    project-m36,
+    text,
+    time,
+    uuid,
+
+executable test-recovery
+  import: common-options
+  hs-source-dirs: test
+  main-is: M36/TestRecovery.hs
+  build-depends:
+    base >=4.7 && <5,
+    cartographer-backend,
+    directory,
+    polysemy,
+    polysemy-plugin,
+    project-m36,
+    text,
+    time,
+    uuid,
