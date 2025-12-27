@@ -1,4 +1,4 @@
-.PHONY: dev supabase-fetch supabase-up supabase-down dev-app db-schema supabase-init
+.PHONY: dev supabase-fetch supabase-up supabase-down dev-app db-schema db-reset supabase-init
 
 # 初回セットアップ用: Supabase の docker セットを取得
 supabase-fetch:
@@ -12,7 +12,7 @@ supabase-up:
 		fi; \
 		echo "[supabase-up] .env が無いので infra/supabase/bundle/.env を用意しました（必要なら編集してください）。"; \
 	fi
-	cd infra/supabase/bundle && docker compose up -d
+	cd infra/supabase/bundle && docker compose up -d db rest auth kong storage meta
 
 # Supabase スタックを停止
 supabase-down:
@@ -21,6 +21,11 @@ supabase-down:
 # Supabase のスキーマをローカル DB に適用
 db-schema:
 	cat supabase/schema.sql | docker compose -f infra/supabase/bundle/docker-compose.yml exec -T db psql -U postgres -d postgres
+
+# ローカル DB をリセットしてマイグレーションを適用
+db-reset:
+	docker exec supabase-db psql -U postgres -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO postgres;"
+	cat supabase/migrations/*.sql | docker exec -i supabase-db psql -U postgres -d postgres
 
 # Supabase の初期セットアップ (何度実行しても安全な想定)
 supabase-init: supabase-fetch supabase-up db-schema
