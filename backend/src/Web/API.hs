@@ -1,12 +1,12 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Web.API 
-  ( API
-  ) where
+module Web.API where
 
-import Feature.User.API (UserAPI)
-import Feature.Blog.API (BlogAPI)
-import Servant.API (type (:<|>))
+import Data.Text (Text)
+import Domain.Types (UserId)
+import Servant.API
 
-type API = UserAPI :<|> BlogAPI
+type API =
+  "health" :> Get '[JSON] Text
+    :<|> "users" :> Capture "id" UserId :> Get '[JSON] Text

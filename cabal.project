@@ -1,0 +1,6 @@
+packages:
+  backend
+
+allow-newer: all
+
+constraints: QuickCheck < 2.15, curryer-rpc == 0.4.0

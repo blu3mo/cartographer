@@ -1,0 +1,5 @@
+cradle:
+  bios:
+    program: "./hie-bios.sh"
+    # ghc-with-packagesを直接指定
+    with-ghc: "/nix/store/kgkjh0b4mycaf8j1vhg1vhgc8wh3xpsh-ghc-9.6.7-with-packages/bin/ghc"

@@ -1,38 +1,71 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
+module Domain.Types where
 
-module Domain.Types
-  ( User(..)
-  , NewUser(..)
-  , Blog(..)
-  , NewBlog(..)
-  ) where
-
-import Data.Aeson (FromJSON, ToJSON)
+import Codec.Winery (Serialise, WineryRecord (..), WineryVariant (..))
+import Control.DeepSeq (NFData)
 import Data.Text (Text)
+import Data.Time (UTCTime)
 import Data.UUID (UUID)
 import GHC.Generics (Generic)
+import ProjectM36.Atomable (Atomable)
+import ProjectM36.Tupleable (Tupleable)
 
-data User = User
-  { userId :: UUID
-  , userName :: Text
-  , userEmail :: Text
-  } deriving (Show, Eq, Generic, FromJSON, ToJSON)
+-- IDエイリアス
+type SessionId = UUID
 
-data NewUser = NewUser
-  { newUserName :: Text
-  , newUserEmail :: Text
-  } deriving (Show, Eq, Generic, FromJSON, ToJSON)
+type EventId = UUID
 
-data Blog = Blog
-  { blogId :: UUID
-  , blogTitle :: Text
-  , blogContent :: Text
-  , blogAuthorId :: UUID
-  } deriving (Show, Eq, Generic, FromJSON, ToJSON)
+type ParentEventId = Maybe EventId -- グラフのエッジ (NothingならRoot/大質問)
 
-data NewBlog = NewBlog
-  { newBlogTitle :: Text
-  , newBlogContent :: Text
-  , newBlogAuthorId :: UUID
-  } deriving (Show, Eq, Generic, FromJSON, ToJSON)
+type UserId = UUID
+
+newtype SessionTitle = SessionTitle Text
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData, Serialise)
+  deriving anyclass (Atomable)
+
+newtype SessionPurpose = SessionPurpose Text
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData, Serialise)
+  deriving anyclass (Atomable)
+
+newtype SessionTopic = SessionTopic Text
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData, Serialise)
+  deriving anyclass (Atomable)
+
+newtype SessionBackground = SessionBackground Text
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData, Serialise)
+  deriving anyclass (Atomable)
+
+-- | セッションのコンテキスト情報 (Record型)
+data SessionContext = SessionContext
+  { title :: SessionTitle,
+    purpose :: SessionPurpose,
+    topic :: SessionTopic,
+    background :: SessionBackground
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (Atomable, NFData)
+  deriving (Serialise) via WineryRecord SessionContext
+
+-- | ファクトのペイロード (Sum型/ADT)
+data FactPayload
+  = ContextDefined SessionContext
+  | QuestionDerived Text ParentEventId
+  | Answered Text UserId EventId
+  | InsightExtracted Text
+  | ReportGenerated Text EventId -- 新規追加：レポート生成イベント
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (Atomable, NFData)
+  deriving (Serialise) via WineryVariant FactPayload
+
+data Event = Event
+  { eventId :: EventId,
+    sessionId :: SessionId,
+    timestamp :: UTCTime,
+    payload :: FactPayload
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (Atomable, NFData, Tupleable)
+  deriving (Serialise) via WineryRecord Event

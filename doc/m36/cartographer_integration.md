@@ -1,0 +1,425 @@
+# Project:M36 Haskell統合ガイド
+
+このドキュメントは、Cartographerプロジェクトで得られたProject:M36のHaskell統合に関する包括的な知見をまとめたものです。
+
+## 目次
+
+1. [基本概念](#基本概念)
+2. [接続とセットアップ](#接続とセットアップ)
+3. [型システム統合](#型システム統合)
+4. [スキーママイグレーション](#スキーママイグレーション)
+5. [スキーマ進化](#スキーマ進化)
+6. [既知の制限と対処法](#既知の制限と対処法)
+7. [実装例](#実装例)
+
+---
+
+## 基本概念
+
+### Project:M36とは
+
+Project:M36は、純粋な関係代数に基づいたHaskellネイティブのリレーショナルデータベースです。SQLの代わりに真の関係代数を使用し、HaskellのADT（代数的データ型）を直接データベース値として扱えます。
+
+### 主な特徴
+
+- **Haskell ADTサポート**: `Atomable`型クラスを実装した型はデータベース値として使用可能
+- **関係代数**: SQLではなく純粋な関係代数でクエリを記述
+- **トランザクショングラフ**: GitライクなブランチングトランザクションモデルS
+- **永続化**: インメモリとファイルシステム永続化の両方をサポート
+
+---
+
+## 接続とセットアップ
+
+### 接続モード
+
+M36は2つの接続モードをサポートします：
+
+```haskell
+data DbConfig
+  = InMemory           -- テスト用、揮発性
+  | Persistent FilePath -- ファイルシステム永続化
+```
+
+### 接続コード例
+
+```haskell
+-- Effect/Persistence.hs より
+toConnectionInfo :: DbConfig -> ConnectionInfo
+toConnectionInfo InMemory =
+  InProcessConnectionInfo NoPersistence emptyNotificationCallback []
+toConnectionInfo (Persistent dbPath) =
+  InProcessConnectionInfo
+    (CrashSafePersistence dbPath)
+    emptyNotificationCallback
+    []
+
+withM36Connection ::
+  DbConfig ->
+  (Connection -> IO a) ->
+  IO (Either DbError a)
+withM36Connection config action = do
+  let connInfo = toConnectionInfo config
+  withConnection connInfo action
+```
+
+### 実行結果
+
+```
+DB Path: /tmp/m36-schema-evolution-real-test
+Inserting event with InsightExtracted payload...
+SUCCESS: Event inserted
+```
+
+---
+
+## 型システム統合
+
+### Atomable型クラス
+
+Haskellの型をM36で使用するには、`Atomable`インスタンスを派生させます：
+
+```haskell
+-- Domain/Types.hs より
+data FactPayload
+  = ContextDefined SessionContext
+  | InsightExtracted Text
+  | QuestionDerived Text (Maybe EventId)
+  | AnswerProvided Text EventId
+  | ReportGenerated Text EventId  -- 後から追加されたコンストラクタ
+  deriving (Eq, Show, Generic, NFData, Serialise)
+  deriving (Atomable) via WineryVariant FactPayload
+```
+
+### 依存型の登録順序
+
+**重要**: M36は依存する型を自動的に登録しません。ネストした型は依存順序を守って登録する必要があります。
+
+```haskell
+-- Effect/Persistence.hs より
+migrateSchema :: Connection -> IO (Either DbError ())
+migrateSchema conn = do
+  -- 1. まず依存するnewtype型を登録
+  _ <- executeDatabaseContextExpr conn (toAddTypeExpr (undefined :: SessionTitle))
+  _ <- executeDatabaseContextExpr conn (toAddTypeExpr (undefined :: SessionPurpose))
+  _ <- executeDatabaseContextExpr conn (toAddTypeExpr (undefined :: SessionTopic))
+  _ <- executeDatabaseContextExpr conn (toAddTypeExpr (undefined :: SessionBackground))
+
+  -- 2. 次に依存型を含む複合型を登録
+  _ <- executeDatabaseContextExpr conn (toAddTypeExpr (undefined :: SessionContext))
+  _ <- executeDatabaseContextExpr conn (toAddTypeExpr (undefined :: FactPayload))
+  _ <- executeDatabaseContextExpr conn (toAddTypeExpr (undefined :: Event))
+
+  -- 3. 最後にリレーション変数を定義
+  executeDatabaseContextExpr conn (toDefineExpr (undefined :: [Event]) "events")
+```
+
+### エラー例：依存型未登録
+
+依存型を登録せずに親型を登録しようとすると：
+
+```
+NoSuchTypeConstructorName "SessionTitle"
+```
+
+---
+
+## スキーママイグレーション
+
+### toAddTypeExpr
+
+`toAddTypeExpr`は、Haskell型からM36の型定義式を生成します：
+
+```haskell
+toAddTypeExpr (undefined :: MyType)
+```
+
+### toDefineExpr
+
+`toDefineExpr`は、リレーション変数（テーブル相当）を定義します：
+
+```haskell
+toDefineExpr (undefined :: [Event]) "events"
+```
+
+### トランザクション
+
+```haskell
+withTransaction conn $ do
+  case toInsertExpr [event] "events" of
+    Left err -> error $ "toInsertExpr failed: " ++ show err
+    Right insertExpr -> do
+      execute insertExpr
+      query (RelationVariable "events" ())
+```
+
+---
+
+## スキーマ進化
+
+### シナリオ
+
+ADTに新しいコンストラクタを追加する場合：
+
+1. **v1型定義**: `ReportGenerated`なし
+2. **v2型定義**: `ReportGenerated`あり
+
+### テスト結果
+
+```
+==========================================
+Schema Evolution Phase 1: v1 Type Definition
+==========================================
+DB Path: /tmp/m36-schema-evolution-real-test
+SUCCESS: Event inserted
+
+Relation contents:
+Relation (attributesFromList [
+  (Attribute "eventId" UUIDAtomType),
+  (Attribute "sessionId" UUIDAtomType),
+  (Attribute "timestamp" DateTimeAtomType),
+  (Attribute "payload" (ConstructedAtomType "FactPayload" (fromList [])))
+]) (RelationTupleSet {asList = [
+  RelationTuple ... [
+    UUIDAtom b6a20944-d487-405e-9411-764374ac221f,
+    UUIDAtom b2579627-f201-44f7-8f07-40853c235e32,
+    DateTimeAtom 2025-12-27 09:42:55.489448 UTC,
+    ConstructedAtom "InsightExtracted" ... [TextAtom "..."]
+  ]
+]})
+```
+
+---
+
+## 既知の制限と対処法
+
+### 制限1: migrateSchemaは冪等ではない（解決済み）
+
+**問題**: 既存のDBに再接続してmigrateSchemaを再実行すると、型が既に存在するためエラーになります。
+
+```
+RelError (DataConstructorNameInUseError "SessionTitle")
+```
+
+**解決策**: `migrateSchemaIfNeeded`関数を実装しました。
+
+```haskell
+-- Effect/Persistence.hs
+migrateSchemaIfNeeded :: DbConn -> IO (Either DbError ())
+migrateSchemaIfNeeded conn = do
+  -- eventsリレーション変数の存在をチェック
+  checkResult <- withTransaction conn $ do
+    query (RelationVariable "events" ())
+  case checkResult of
+    Right _ -> pure (Right ())     -- スキーマ既存、何もしない
+    Left _  -> migrateSchema conn  -- スキーマなし、マイグレーション実行
+```
+
+**テスト結果**（Phase 2出力）:
+
+```
+Step 2: Running migrateSchemaIfNeeded (idempotent)...
+  Migration: OK (schema exists or was created)
+
+Step 3: Reading existing data from Phase 1...
+  Existing data found: ...
+
+Step 4: Inserting new event with ReportGenerated...
+  Insert: OK
+
+Verification:
+  - InsightExtracted (from Phase 1): ✓ FOUND
+  - ReportGenerated (from Phase 2): ✓ FOUND
+
+SUCCESS: Schema Evolution Verified!
+```
+
+### 制限2: 型は永続化されるがセッション間で再登録が必要
+
+M36はカスタム型をディスクに永続化しますが、新しいセッションでは型情報がメモリにロードされていないため、操作前に型を再登録する必要があります。
+
+### 制限3: Haskellスクリプト機能の制限
+
+```
+Warning: Haskell scripting disabled: ScriptSessionLoadError cannot satisfy -trust project-m36
+```
+
+これはGHCの`-trust`フラグに関する問題で、`AtomFunction`のHaskellスクリプト機能が無効になります。基本的なデータ永続化には影響しません。
+
+---
+
+## 実装例
+
+### 完全なテストコード
+
+```haskell
+-- test/Effect/PersistenceSpec.hs より
+it "complete schema evolution: same DB, multiple reconnections, strict assertions" $ do
+  testId <- nextRandom
+  let testDbPath = "/tmp/m36-evolution-strict-" ++ toString testId
+
+  -- Phase 1: 初回接続、スキーマ登録、InsightExtracted挿入
+  phase1Result <- withM36Connection (Persistent testDbPath) $ \conn -> do
+    migResult <- migrateSchema conn
+    case migResult of
+      Left err -> pure (Left err)
+      Right () -> do
+        txnResult <- withTransaction conn $ do
+          case toInsertExpr [event1] "events" of
+            Left err -> error $ "toInsertExpr failed: " ++ show err
+            Right insertExpr -> do
+              execute insertExpr
+              query (RelationVariable "events" () :: RelationalExpr)
+        pure txnResult
+
+  -- Phase 1 アサーション
+  case phase1Result of
+    Left err -> expectationFailure $ "Phase 1 failed: " ++ show err
+    Right (Left err) -> expectationFailure $ "Phase 1 query failed: " ++ show err
+    Right (Right relation) -> do
+      let relationStr = show relation
+      relationStr `shouldContain` "InsightExtracted"
+      putStrLn "✓ Phase 1: 1 event inserted (InsightExtracted)"
+```
+
+### 2段階スキーマ進化テストの実行方法
+
+```bash
+# Phase 1: v1型定義でDB保存
+rm -rf /tmp/m36-schema-evolution-real-test
+cabal run schema-evolution-phase1
+
+# Phase 2: v2型定義で再接続（migrateSchemaの制限を確認）
+cabal run schema-evolution-phase2
+```
+
+---
+
+## まとめ
+
+### M36のHaskell統合で得られた知見
+
+1. **型の依存順序が重要**: ネストした型は依存順序を守って登録する
+2. **migrateSchemaは冪等ではない**: 再接続時は条件付きマイグレーションが必要
+3. **WineryVariantが便利**: Sum型のシリアライズに最適
+4. **ADT拡張は自然に動作**: 新しいコンストラクタ追加は型定義変更のみ
+5. **永続化DBは再接続時に型再登録が必要**: ただし冪等でないためチェックロジックが必要
+
+### 推奨プラクティス
+
+- テスト時は`InMemory`モード、本番は`Persistent`モード
+- 依存型は明示的に登録順序を管理
+- スキーマ存在チェックロジックを実装
+- `WineryVariant`でSum型のAtomable派生
+
+---
+
+## 関連ファイル
+
+| ファイル | 説明 |
+|---------|-----|
+| `backend/src/Effect/Persistence.hs` | M36接続とマイグレーション |
+| `backend/src/Domain/Types.hs` | ADT定義とAtomable派生 |
+| `backend/test/Effect/PersistenceSpec.hs` | スキーマ進化テスト |
+| `backend/test/M36/SchemaEvolutionPhase1.hs` | スキーマ進化Phase 1 |
+| `backend/test/M36/SchemaEvolutionPhase2.hs` | スキーマ進化Phase 2 |
+| `backend/test/M36/SchemaDestructivePhase1.hs` | 破壊的変更Phase 1 |
+| `backend/test/M36/SchemaDestructivePhase2.hs` | 破壊的変更Phase 2 |
+| `scripts/test-schema-evolution.sh` | スキーマ進化テストスクリプト |
+| `scripts/test-schema-destructive.sh` | 破壊的変更テストスクリプト |
+
+---
+
+## 破壊的変更（コンストラクタ削除）
+
+### シナリオ
+
+ADTからコンストラクタを**削除**する場合：
+
+1. **Phase 1**: `InsightExtracted`×2, `ReportGenerated`×1 を保存
+2. **Phase 2**: `Types.hs`から`ReportGenerated`をコメントアウトして再接続
+
+### テスト実行
+
+```bash
+./scripts/test-schema-destructive.sh
+```
+
+### テスト結果
+
+```
+[SUCCESS] Phase 1: 3 events written (InsightExtracted x 2, ReportGenerated x 1)
+[SUCCESS] Confirmed: ReportGenerated is commented out
+[SUCCESS] Build succeeded with ReportGenerated removed
+
+Verification:
+  - InsightExtracted: ✓ FOUND
+  - ReportGenerated: ✓ FOUND (unexpected!)
+
+RESULT: ReportGenerated data is STILL PRESENT
+
+This indicates that M36 stores data with the type name
+as part of the value, and can still read it even if
+the Haskell type definition has been removed.
+```
+
+### 発見：M36の後方互換性
+
+**M36はコンストラクタを削除しても既存データを読み取れる！**
+
+データ内に型名（`"ReportGenerated"`）が文字列として保持されているため、Haskellの型定義から削除してもM36レベルではデータが失われません。
+
+| シナリオ | M36の挙動 | Haskellへの影響 |
+|---------|----------|-----------------|
+| コンストラクタ**追加** | ✅ 問題なし | ✅ 問題なし |
+| コンストラクタ**削除** | ✅ データは残る | ⚠️ パターンマッチ不可 |
+
+### 本番での注意点
+
+コンストラクタを削除した場合：
+
+1. **M36側**: データは`ConstructedAtom "ReportGenerated" ...`として残る
+2. **Haskell側**: `Atomable`の`fromAtom`でパターンマッチ失敗の可能性
+3. **推奨**: 削除ではなく`Deprecated`フラグを追加、または移行期間中は両対応
+
+```haskell
+-- 推奨パターン：削除せずDeprecatedとしてマーク
+data FactPayload
+  = ContextDefined SessionContext
+  | InsightExtracted Text
+  | ReportGenerated Text EventId  -- @deprecated: Use ReportGeneratedV2 instead
+  | ReportGeneratedV2 NewReportData
+  | ReportGeneratedV2 NewReportData     |
+
+---
+
+## 並行処理とパフォーマンス
+
+### 制限4: In-Process永続化の同時書き込み制限
+
+`InProcessConnectionInfo` で `CrashSafePersistence`（ファイル永続化）を使用する場合、複数のスレッド/セッションから同時に書き込み（コミット）を行うと、ファイルシステム上のロック競合により以下のエラーが発生します：
+
+```
+withFile: resource busy (file is locked)
+```
+
+**原因**: M36のIn-Process永続化レイヤーは、コミット時にディレクトリ/ファイルをロックするため、並列書き込みに対応していません。
+
+**解決策**:
+同時書き込みが必要な場合、以下のいずれかのアプローチを採用してください：
+
+1. **Actor Pattern (推奨)**: 単一のWriterスレッド（Actor）を用意し、全ての書き込みリクエストをチャネル（Chan/MVar/STM）経由で直列化する。
+   - `TestConcurrent.hs` で実証済みのアプローチ。
+   - 読み取り（Query）は並列実行可能。
+2. **Client-Server Mode**: `RemoteProcessConnectionInfo` を使用してM36サーバーに接続する（サーバー側でシリアライズされる）。
+
+### 推奨アーキテクチャ
+
+Cartographerバックエンドでは、イベントソーシングのイベントストアとしてM36を使用するため、**Actor Pattern（Single Writer）** を採用します。
+
+- **Writer Actor**: 単一のDB接続を持ち、イベント挿入を専有的に行う
+- **Read Replicas**: 必要に応じて読み取り専用接続（Snapshot Isolation）を使用
+- **Projection**: 非同期またはWriterの完了後に実行
+
+---
+

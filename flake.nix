@@ -6,10 +6,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskell-flake.url = "github:srid/haskell-flake";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
-    barbies-th = {
-      url = "github:fumieval/barbies-th/46c7b8c68634b219ff12e7966983f9b46a5976d4";
-      flake = false;
-    };
+    project-m36.url = "github:plural-reality/project-m36";
   };
 
   outputs =
@@ -40,87 +37,27 @@
           pkgs,
           ...
         }:
+        let
+          # project-m36 の lib を使って override を構築
+          m36lib = inputs.project-m36.lib;
+          fullOverrides = m36lib.composeOverrides m36lib.m36Overrides (m36lib.mkPkgsDependentOverrides pkgs);
+        in
         {
           haskellProjects.default = {
             basePackages = pkgs.haskell.packages.ghc96.override {
-              overrides = self: super: {
-                curryer-rpc = self.callHackageDirect {
-                  pkg = "curryer-rpc";
-                  ver = "0.4.0";
-                  sha256 = "sha256-rGNTiZBJjDA1HpXoxQIsupvgQ5HpYh0U8JZVTdVDnIk=";
-                } { };
-
-                streamly = self.callHackageDirect {
-                  pkg = "streamly";
-                  ver = "0.10.1";
-                  sha256 = "sha256-9tWZ/8YteD9ljhEmj8oYKIAyFcbQflX0D20j/NTe3qM=";
-                } { };
-
-                streamly-core = self.callHackageDirect {
-                  pkg = "streamly-core";
-                  ver = "0.2.2";
-                  sha256 = "sha256-Ggo5ius3dp/TJFfrZSk31A6gSZHA6kLMtxFKe9MIvqQ=";
-                } { };
-
-                streamly-bytestring = self.callHackageDirect {
-                  pkg = "streamly-bytestring";
-                  ver = "0.2.2";
-                  sha256 = "sha256-E/sMAvaJ5zGYwb5KAXa2KQo3FqyB+T2mRO6zOTCXpoY=";
-                } { };
-
-                lockfree-queue = self.callHackageDirect {
-                  pkg = "lockfree-queue";
-                  ver = "0.2.4";
-                  sha256 = "sha256-h1s/tiBq5Gzl8FtenQacmxJp7zPJPnmZXtKDPvxTSa4=";
-                } { };
-
-                unicode-data = self.callHackageDirect {
-                  pkg = "unicode-data";
-                  ver = "0.2.0";
-                  sha256 = "14crb68g79yyw87fgh49z2fn4glqx0zr53v6mapihaxzkikhkkc3";
-                } { };
-
-                barbies-th = self.callHackageDirect {
-                  pkg = "barbies-th";
-                  ver = "0.1.11";
-                  sha256 = "sha256-U9mHuHAA0v74dKB2w2kLGx9dBKU6w8CRObtYQF97Gao=";
-                } { };
-
-                scotty = self.callHackageDirect {
-                  pkg = "scotty";
-                  ver = "0.22";
-                  sha256 = "sha256-DY4lKmAmqGTrzKq93Mft9bu9Qc0QcsEVpKzgoWcBL2I=";
-                } { };
-
-                wai = self.callHackageDirect {
-                  pkg = "wai";
-                  ver = "3.2.4";
-                  sha256 = "sha256-NARmVhT5G1eMdtMM1xp7RFpevunThAB4tltCMih+qu8=";
-                } { };
-
-                wai-extra = self.callHackageDirect {
-                  pkg = "wai-extra";
-                  ver = "3.1.14";
-                  sha256 = "sha256-wMI9eTituRbMvYvbcA9pgIwFxkbdL1+2Xw78lghfWaU=";
-                } { };
-
-                foldable1-classes-compat = pkgs.haskell.lib.dontCheck (
-                  pkgs.haskell.lib.doJailbreak (
-                    pkgs.haskell.packages.ghc94.callCabal2nix "foldable1-classes-compat" (pkgs.fetchzip {
-                      url = "https://hackage.haskell.org/package/foldable1-classes-compat-0.1/foldable1-classes-compat-0.1.tar.gz";
-                      sha256 = "sha256-Om6/w38G4ZaBZAGzlFb6ElvU4BCU3aOCXogpIZsm4RE=";
-                    }) { }
-                  )
-                );
-
-                lattices = pkgs.haskell.lib.addBuildDepend super.lattices self.foldable1-classes-compat;
-              };
+              overrides = fullOverrides;
             };
             devShell = {
               enable = true;
               tools = hp: {
                 cabal-gild = pkgs.haskellPackages.cabal-gild;
                 haskell-language-server = hp.haskell-language-server;
+                fourmolu = hp.fourmolu;
+              };
+              # project-m36をdevShellのGHCパッケージDBに含める
+              # これによりHLS/cabalが再ビルドを試みなくなる
+              extraLibraries = hp: {
+                project-m36 = hp.project-m36;
               };
 
               hlsCheck.enable = false;
@@ -157,6 +94,7 @@
               };
               curryer-rpc = {
                 jailbreak = true;
+                check = false;
               };
               project-m36 = {
                 jailbreak = true;
@@ -170,6 +108,89 @@
             program = "${pkgs.writeShellScript "export-schema" ''
               ${lib.getExe self'.packages.cartographer-backend} --export-schema
             ''}";
+          };
+
+          # V1シミュレーション用ビルド（ReportGeneratedコンストラクタ欠落版）
+          # "v1" という曖昧な名前ではなく、テストにおける役割（特定のスキーマバリアント）を明示
+          packages.cartographer-backend-schema-missing-report-constructor =
+            self'.packages.cartographer-backend.overrideAttrs
+              (old: {
+                name = "cartographer-backend-schema-missing-report-constructor";
+                # ReportGenerated コンストラクタを削除して V1 をシミュレート
+                # さらに、V1と互換性のない実行ファイル（ReportGeneratedを使用するもの）のビルドを無効化
+                postPatch = (old.postPatch or "") + ''
+                  sed -i 's/| ReportGenerated/-- | ReportGenerated/' src/Domain/Types.hs
+
+                  # 互換性のない実行ファイルを無効化 (buildable: False を挿入)
+                  sed -i '/executable schema-evolution-phase2/a \ \ buildable: False' cartographer-backend.cabal
+                  sed -i '/executable schema-destructive-phase1/a \ \ buildable: False' cartographer-backend.cabal
+                '';
+              });
+
+          checks = {
+            # Schema Evolution Test: V1 (Old) -> V2 (New)
+            schema-evolution =
+              pkgs.runCommand "test-schema-evolution"
+                {
+                  nativeBuildInputs = [ pkgs.glibcLocales ]; # Locale fix if needed
+                }
+                ''
+                  export LC_ALL=C.UTF-8
+                  export TEST_DB_PATH=$TMPDIR/m36-evolution-db
+
+                  echo "--- Phase 1: V1 (InsightExtracted only) ---"
+                  ${self'.packages.cartographer-backend-schema-missing-report-constructor}/bin/schema-evolution-phase1
+
+                  echo "--- Phase 2: V2 (ReportGenerated added) ---"
+                  ${self'.packages.cartographer-backend}/bin/schema-evolution-phase2
+
+                  touch $out
+                '';
+
+            # Schema Destructive Test: V2 (Full) -> V1 (Removed)
+            schema-destructive =
+              pkgs.runCommand "test-schema-destructive"
+                {
+                  nativeBuildInputs = [ pkgs.glibcLocales ];
+                }
+                ''
+                  export LC_ALL=C.UTF-8
+                  export TEST_DB_PATH=$TMPDIR/m36-destructive-db
+
+                  echo "--- Phase 1: V2 (Write all types) ---"
+                  ${self'.packages.cartographer-backend}/bin/schema-destructive-phase1
+
+                  echo "--- Phase 2: V1 (Read with type removed) ---"
+                  ${self'.packages.cartographer-backend-schema-missing-report-constructor}/bin/schema-destructive-phase2
+
+                  touch $out
+                '';
+
+            # Concurrent Integration Test
+            test-concurrent =
+              pkgs.runCommand "test-concurrent"
+                {
+                  nativeBuildInputs = [ pkgs.glibcLocales ];
+                }
+                ''
+                  export LC_ALL=C.UTF-8
+                  export TEST_DB_PATH=$TMPDIR/m36-concurrent-db
+                  ${self'.packages.cartographer-backend}/bin/test-concurrent
+                  touch $out
+                '';
+
+            # Projection Consistency Test
+            test-projection =
+              pkgs.runCommand "test-projection"
+                {
+                  nativeBuildInputs = [ pkgs.glibcLocales ];
+                }
+                ''
+                  export LC_ALL=C.UTF-8
+                  export TEST_DB_PATH=$TMPDIR/m36-projection-db
+                  ${self'.packages.cartographer-backend}/bin/test-projection
+                  touch $out
+                '';
           };
 
           process-compose.default = {
@@ -203,9 +224,32 @@
                 openssl
                 git
                 watchman
+                libpq.pg_config
                 config.haskellProjects.default.outputs.finalPackages.project-m36 # Provides tutd, project-m36-server
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
+
+            # Ensure pg_config is available for postgresql-libpq
+            shellHook = ''
+              export PATH="${pkgs.postgresql}/bin:$PATH"
+
+              # ghc-with-packagesのパッケージDBを指すGHC環境ファイルを生成
+              # これによりHLS/cabalがNixでビルドされたパッケージを使用する
+              ghc_with_pkgs=$(echo $nativeBuildInputs | tr ' ' '\n' | grep 'ghc-.*-with-packages' | head -1)
+              if [ -n "$ghc_with_pkgs" ]; then
+                ghc_pkg_db="$ghc_with_pkgs/lib/ghc-$(ghc --numeric-version)/lib/package.conf.d"
+                ghc_version=$(ghc --numeric-version)
+                env_file=".ghc.environment.$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]')-$ghc_version"
+
+                echo "clear-package-db" > "$env_file"
+                echo "global-package-db" >> "$env_file"
+                echo "package-db $ghc_pkg_db" >> "$env_file"
+
+                echo "✓ Generated $env_file (using ghc-with-packages)"
+              else
+                echo "⚠ Could not find ghc-with-packages in nativeBuildInputs"
+              fi
+            '';
           };
         };
     };
