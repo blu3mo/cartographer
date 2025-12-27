@@ -14,21 +14,12 @@ type SessionId = UUID
 
 type EventId = UUID
 
-type ParentEventId = Maybe EventId -- グラフのエッジ (NothingならRoot/大質問)
-
-type UserId = UUID
-
 newtype SessionTitle = SessionTitle Text
   deriving stock (Eq, Show, Generic)
   deriving newtype (NFData, Serialise)
   deriving anyclass (Atomable)
 
 newtype SessionPurpose = SessionPurpose Text
-  deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData, Serialise)
-  deriving anyclass (Atomable)
-
-newtype SessionTopic = SessionTopic Text
   deriving stock (Eq, Show, Generic)
   deriving newtype (NFData, Serialise)
   deriving anyclass (Atomable)
@@ -42,7 +33,6 @@ newtype SessionBackground = SessionBackground Text
 data SessionContext = SessionContext
   { title :: SessionTitle,
     purpose :: SessionPurpose,
-    topic :: SessionTopic,
     background :: SessionBackground
   }
   deriving stock (Eq, Show, Generic)
@@ -52,10 +42,7 @@ data SessionContext = SessionContext
 -- | ファクトのペイロード (Sum型/ADT)
 data FactPayload
   = ContextDefined SessionContext
-  | QuestionDerived Text ParentEventId
-  | Answered Text UserId EventId
-  | InsightExtracted Text
-  | ReportGenerated Text EventId -- 新規追加：レポート生成イベント
+  | ReportGenerated Text EventId
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData)
   deriving (Serialise) via WineryVariant FactPayload
