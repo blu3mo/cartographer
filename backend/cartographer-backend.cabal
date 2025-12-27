@@ -115,3 +115,35 @@ test-suite cartographer-backend-test
     uuid >=1.3 && <2,
 
   build-tool-depends: hspec-discover:hspec-discover
+
+-- Schema Evolution Integration Tests
+-- 使用方法:
+--   1. Types.hsからReportGeneratedをコメントアウト
+--   2. cabal run schema-evolution-phase1
+--   3. Types.hsにReportGeneratedを復活
+--   4. cabal run schema-evolution-phase2
+executable schema-evolution-phase1
+  import: common-options
+  hs-source-dirs: app
+  main-is: SchemaEvolutionPhase1.hs
+  build-depends:
+    base >=4.7 && <5,
+    cartographer-backend,
+    polysemy >=1.9 && <2,
+    polysemy-plugin >=0.4 && <0.5,
+    project-m36,
+    time >=1.9 && <2,
+    uuid >=1.3 && <2,
+
+executable schema-evolution-phase2
+  import: common-options
+  hs-source-dirs: app
+  main-is: SchemaEvolutionPhase2.hs
+  build-depends:
+    base >=4.7 && <5,
+    cartographer-backend,
+    polysemy >=1.9 && <2,
+    polysemy-plugin >=0.4 && <0.5,
+    project-m36,
+    time >=1.9 && <2,
+    uuid >=1.3 && <2,
