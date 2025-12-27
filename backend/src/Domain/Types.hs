@@ -2,6 +2,7 @@ module Domain.Types where
 
 import Codec.Winery (Serialise, WineryRecord (..), WineryVariant (..))
 import Control.DeepSeq (NFData)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import Data.UUID (UUID)
@@ -12,50 +13,39 @@ import ProjectM36.Tupleable (Tupleable)
 -- IDエイリアス
 type SessionId = UUID
 
-type EventId = UUID
-
-type ParentEventId = Maybe EventId -- グラフのエッジ (NothingならRoot/大質問)
-
 type UserId = UUID
+
+type EventId = UUID
 
 newtype SessionTitle = SessionTitle Text
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData, Serialise)
+  deriving newtype (NFData, Serialise, FromJSON, ToJSON)
   deriving anyclass (Atomable)
 
 newtype SessionPurpose = SessionPurpose Text
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData, Serialise)
-  deriving anyclass (Atomable)
-
-newtype SessionTopic = SessionTopic Text
-  deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData, Serialise)
+  deriving newtype (NFData, Serialise, FromJSON, ToJSON)
   deriving anyclass (Atomable)
 
 newtype SessionBackground = SessionBackground Text
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData, Serialise)
+  deriving newtype (NFData, Serialise, FromJSON, ToJSON)
   deriving anyclass (Atomable)
 
 -- | セッションのコンテキスト情報 (Record型)
 data SessionContext = SessionContext
   { title :: SessionTitle,
     purpose :: SessionPurpose,
-    topic :: SessionTopic,
     background :: SessionBackground
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (Atomable, NFData)
+  deriving anyclass (Atomable, NFData, FromJSON, ToJSON)
   deriving (Serialise) via WineryRecord SessionContext
 
 -- | ファクトのペイロード (Sum型/ADT)
 data FactPayload
   = ContextDefined SessionContext
-  | QuestionDerived Text ParentEventId
-  | Answered Text UserId EventId
-  | InsightExtracted Text
-  | ReportGenerated Text EventId -- 新規追加：レポート生成イベント
+  | ReportGenerated Text EventId
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData)
   deriving (Serialise) via WineryVariant FactPayload

@@ -4,21 +4,26 @@
 --
 -- このプログラムは破壊的スキーマ変更（型の削除）をテストするPhase 1です：
 -- 1. 新しいDBを作成
--- 2. 複数のファクト種別（InsightExtracted, ReportGenerated）でデータを保存
+-- 2. 複数のファクト種別（ReportGenerated, ContextDefined）でデータを保存
 -- 3. Phase 2で型を削除した状態で再接続して挙動を確認
 --
 -- 使用方法:
 --   cabal run schema-destructive-phase1
---   # Types.hsからReportGeneratedをコメントアウト
+--   # Types.hsからContextDefinedをコメントアウト
 --   cabal run schema-destructive-phase2
 module Main where
 
 import Data.Maybe (fromMaybe)
+import Data.Text (pack)
 import Data.Time (getCurrentTime)
 import Data.UUID.V4 (nextRandom)
 import Domain.Types
   ( Event (..),
     FactPayload (..),
+    SessionBackground (..),
+    SessionContext (..),
+    SessionPurpose (..),
+    SessionTitle (..),
   )
 import Effect.Persistence
   ( DbConfig (..),
@@ -53,31 +58,38 @@ main = do
   now <- getCurrentTime
 
   -- 複数のファクト種別でイベントを作成
+  let testContext =
+        SessionContext
+          { title = SessionTitle "テストセッション",
+            purpose = SessionPurpose "破壊的変更テスト",
+            background = SessionBackground "Phase 1でのみ存在"
+          }
+
   let events =
         [ Event
             { eventId = eventId1,
               sessionId = sessionId,
               timestamp = now,
-              payload = InsightExtracted "インサイト1（どちらのPhaseでも読める）"
+              payload = ReportGenerated (pack "レポート1（どちらのPhaseでも読める）") eventId2
             },
           Event
             { eventId = eventId2,
               sessionId = sessionId,
               timestamp = now,
-              payload = ReportGenerated "レポート1（Phase 2で型が消える）" eventId1
+              payload = ContextDefined testContext
             },
           Event
             { eventId = eventId3,
               sessionId = sessionId,
               timestamp = now,
-              payload = InsightExtracted "インサイト2（どちらのPhaseでも読める）"
+              payload = ReportGenerated (pack "レポート2（どちらのPhaseでも読める）") eventId1
             }
         ]
 
   putStrLn ""
   putStrLn "Inserting 3 events:"
-  putStrLn "  - InsightExtracted x 2"
-  putStrLn "  - ReportGenerated x 1"
+  putStrLn "  - ReportGenerated x 2"
+  putStrLn "  - ContextDefined x 1"
 
   result <- withM36Connection (Persistent dbPath) $ \conn -> do
     migResult <- migrateSchema conn
@@ -111,21 +123,21 @@ main = do
 
       -- ファクト種別の存在確認
       let relationStr = show relation
-      let insightCount = countOccurrences "InsightExtracted" relationStr
       let reportCount = countOccurrences "ReportGenerated" relationStr
+      let contextCount = countOccurrences "ContextDefined" relationStr
 
       putStrLn "Summary:"
-      putStrLn $ "  - InsightExtracted: " ++ show insightCount ++ " events"
       putStrLn $ "  - ReportGenerated: " ++ show reportCount ++ " events"
+      putStrLn $ "  - ContextDefined: " ++ show contextCount ++ " events"
       putStrLn ""
       putStrLn "=========================================="
       putStrLn "Phase 1 Complete"
       putStrLn "=========================================="
       putStrLn ""
       putStrLn "Next steps:"
-      putStrLn "  1. Comment out ReportGenerated in Types.hs"
+      putStrLn "  1. Comment out ContextDefined in Types.hs"
       putStrLn "  2. Run: cabal run schema-destructive-phase2"
-      putStrLn "  3. Observe what happens with existing ReportGenerated data"
+      putStrLn "  3. Observe what happens with existing ContextDefined data"
 
 -- Helper: 文字列内のパターン出現回数をカウント
 countOccurrences :: String -> String -> Int

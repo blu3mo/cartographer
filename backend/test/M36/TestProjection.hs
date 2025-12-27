@@ -11,21 +11,21 @@
 -- 使用方法: cabal run test-projection
 module Main where
 
-import Control.Monad (forM, forM_)
+import Control.Monad (forM)
 import Data.List (isInfixOf)
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
-import Data.Time (UTCTime, addUTCTime, getCurrentTime)
+import Data.Text (pack)
+import Data.Time (NominalDiffTime, UTCTime, addUTCTime, getCurrentTime)
 import Data.UUID (UUID)
 import Data.UUID.V4 (nextRandom)
 import Domain.Types
   ( Event (..),
+    EventId,
     FactPayload (..),
     SessionBackground (..),
     SessionContext (..),
     SessionPurpose (..),
     SessionTitle (..),
-    SessionTopic (..),
   )
 import Effect.Persistence
   ( DbConfig (..),
@@ -72,29 +72,35 @@ main = do
           SessionContext
             { title = SessionTitle "Project Plan",
               purpose = SessionPurpose "Design",
-              topic = SessionTopic "Architecture",
               background = SessionBackground "M36 Integration"
             }
 
     putStrLn ""
     putStrLn "Step 2: Creating events in chronological order..."
 
+    -- イベント生成にはEventIdが必要なのでIO内で行う
+    refId1 <- nextRandom
+    refId2 <- nextRandom
+    refId3 <- nextRandom
+    refId4 <- nextRandom
+    refId5 <- nextRandom
+
     events1 <-
       createSessionEvents
         sessionId1
         now
         [ ("00:00", ContextDefined session1Context),
-          ("00:01", InsightExtracted "Insight 1: M36 supports Haskell ADT"),
-          ("00:02", InsightExtracted "Insight 2: Atomable is important"),
-          ("00:03", InsightExtracted "Insight 3: Persistence is not idempotent")
+          ("00:01", ReportGenerated (pack "Report 1: M36 supports Haskell ADT") refId1),
+          ("00:02", ReportGenerated (pack "Report 2: Atomable is important") refId2),
+          ("00:03", ReportGenerated (pack "Report 3: Persistence is not idempotent") refId3)
         ]
 
     events2 <-
       createSessionEvents
         sessionId2
         now
-        [ ("00:00", InsightExtracted "Session 2: Event 1"),
-          ("00:01", InsightExtracted "Session 2: Event 2")
+        [ ("00:00", ReportGenerated (pack "Session 2: Event 1") refId4),
+          ("00:01", ReportGenerated (pack "Session 2: Event 2") refId5)
         ]
 
     let allEvents = events1 ++ events2
@@ -131,14 +137,14 @@ main = do
         putStrLn "Step 5: Verifying Session 1 Projection..."
 
         let hasContext = "ContextDefined" `isInfixOf` relationStr
-        let hasInsight1 = "Insight 1" `isInfixOf` relationStr
-        let hasInsight2 = "Insight 2" `isInfixOf` relationStr
-        let hasInsight3 = "Insight 3" `isInfixOf` relationStr
+        let hasReport1 = "Report 1" `isInfixOf` relationStr
+        let hasReport2 = "Report 2" `isInfixOf` relationStr
+        let hasReport3 = "Report 3" `isInfixOf` relationStr
 
         putStrLn $ "    - ContextDefined: " ++ showCheck hasContext
-        putStrLn $ "    - InsightExtracted 1: " ++ showCheck hasInsight1
-        putStrLn $ "    - InsightExtracted 2: " ++ showCheck hasInsight2
-        putStrLn $ "    - InsightExtracted 3: " ++ showCheck hasInsight3
+        putStrLn $ "    - ReportGenerated 1: " ++ showCheck hasReport1
+        putStrLn $ "    - ReportGenerated 2: " ++ showCheck hasReport2
+        putStrLn $ "    - ReportGenerated 3: " ++ showCheck hasReport3
 
         -- Step 6: Verify Session 2
         putStrLn ""
@@ -149,7 +155,7 @@ main = do
         putStrLn $ "    - Event 1: " ++ showCheck hasSession2Event1
         putStrLn $ "    - Event 2: " ++ showCheck hasSession2Event2
 
-        let allChecks = hasContext && hasInsight1 && hasInsight2 && hasInsight3 && hasSession2Event1 && hasSession2Event2
+        let allChecks = hasContext && hasReport1 && hasReport2 && hasReport3 && hasSession2Event1 && hasSession2Event2
 
         putStrLn ""
         if allChecks
@@ -174,8 +180,8 @@ createSessionEvents :: UUID -> UTCTime -> [(String, FactPayload)] -> IO [Event]
 createSessionEvents sessionId baseTime eventSpecs = do
   forM (zip [0 ..] eventSpecs) $ \(idx, (_, payload)) -> do
     eventId <- nextRandom
-    let offset = fromIntegral (idx :: Int) * 60 -- 1分ずつずらす
-    let eventTime = addUTCTime (realToFrac offset) baseTime
+    let offset = (fromIntegral idx :: NominalDiffTime) * 60 -- 1分ずつずらす
+    let eventTime = addUTCTime offset baseTime
     pure
       Event
         { eventId = eventId,

@@ -15,6 +15,10 @@ import Data.UUID.V4 (nextRandom)
 import Domain.Types
   ( Event (..),
     FactPayload (..),
+    SessionBackground (..),
+    SessionContext (..),
+    SessionPurpose (..),
+    SessionTitle (..),
   )
 import Effect.Persistence
   ( DbConfig (..),
@@ -44,15 +48,21 @@ main = do
   -- 新しいイベントを生成
   newEventId <- nextRandom
   sessionId <- nextRandom
-  parentEventId <- nextRandom
   now <- getCurrentTime
+
+  let testContext =
+        SessionContext
+          { title = SessionTitle "Phase2セッション",
+            purpose = SessionPurpose "v2型定義テスト",
+            background = SessionBackground "Phase2で追加"
+          }
 
   let newEvent =
         Event
           { eventId = newEventId,
             sessionId = sessionId,
             timestamp = now,
-            payload = ReportGenerated "Phase2で追加されたレポート（v2型定義）" parentEventId
+            payload = ContextDefined testContext
           }
 
   putStrLn ""
@@ -81,9 +91,9 @@ main = do
             putStrLn "  Existing data found:"
             putStrLn $ "  " ++ show existingData
 
-            -- 新しいファクト種別（ReportGenerated）を追加
+            -- 新しいファクト種別（ContextDefined）を追加
             putStrLn ""
-            putStrLn "Step 4: Inserting new event with ReportGenerated..."
+            putStrLn "Step 4: Inserting new event with ContextDefined..."
             insertResult <- withTransaction conn $ do
               case toInsertExpr [newEvent] "events" of
                 Left err -> error $ "toInsertExpr failed: " ++ show err
@@ -123,15 +133,15 @@ main = do
 
       -- データの存在確認
       let relationStr = show finalRelation
-      let hasInsight = "InsightExtracted" `isInfixOf` relationStr
       let hasReport = "ReportGenerated" `isInfixOf` relationStr
+      let hasContext = "ContextDefined" `isInfixOf` relationStr
 
       putStrLn "Verification:"
-      putStrLn $ "  - InsightExtracted (from Phase 1): " ++ (if hasInsight then "✓ FOUND" else "✗ NOT FOUND")
-      putStrLn $ "  - ReportGenerated (from Phase 2): " ++ (if hasReport then "✓ FOUND" else "✗ NOT FOUND")
+      putStrLn $ "  - ReportGenerated (from Phase 1): " ++ (if hasReport then "✓ FOUND" else "✗ NOT FOUND")
+      putStrLn $ "  - ContextDefined (from Phase 2): " ++ (if hasContext then "✓ FOUND" else "✗ NOT FOUND")
       putStrLn ""
 
-      if hasInsight && hasReport
+      if hasReport && hasContext
         then do
           putStrLn "=========================================="
           putStrLn "SUCCESS: Schema Evolution Verified!"

@@ -49,17 +49,19 @@ main = do
   sessionId <- nextRandom
   now <- getCurrentTime
 
-  -- v1では InsightExtracted のみ使用可能
+  refEventId <- nextRandom
+
+  -- v1では ReportGenerated を使用
   let event =
         Event
           { eventId = eventId,
             sessionId = sessionId,
             timestamp = now,
-            payload = InsightExtracted "Phase1で保存されたインサイト（v1型定義）"
+            payload = ReportGenerated "Phase1で保存されたレポート（v1型定義）" refEventId
           }
 
   putStrLn ""
-  putStrLn "Inserting event with InsightExtracted payload..."
+  putStrLn "Inserting event with ReportGenerated payload..."
 
   result <- withM36Connection (Persistent dbPath) $ \conn -> do
     migResult <- migrateSchema conn
