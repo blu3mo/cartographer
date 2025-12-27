@@ -24,8 +24,8 @@ project events = foldl applyEvent initialState (sortEvents events)
     -- イベントを適用して状態を更新する
     applyEvent :: CurrentState -> Event -> CurrentState
     applyEvent state (Event _ _ _ p) = case p of
-      ContextDefined ctx -> state {context = Just ctx}
-      other -> state {knowledgeGraph = other : state.knowledgeGraph}
+            ContextDefined ctx -> state {context = Just ctx}
+            other -> state {knowledgeGraph = other : state.knowledgeGraph}
 
     -- イベントを時系列順にソートする
     sortEvents :: [Event] -> [Event]

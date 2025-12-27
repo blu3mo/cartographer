@@ -14,7 +14,15 @@ module Effect.Persistence
 where
 
 import Data.Proxy (Proxy (..))
-import Domain.Types (Event, FactPayload, SessionContext)
+import Domain.Types
+  ( Event,
+    FactPayload,
+    SessionBackground,
+    SessionContext,
+    SessionPurpose,
+    SessionTitle,
+    SessionTopic,
+  )
 import ProjectM36.Atomable (toAddTypeExpr)
 import ProjectM36.Client
   ( ConnectionInfo (..),
@@ -79,7 +87,14 @@ withM36Connection config action = do
 -- 2. Event リレーション変数を定義 (toDefineExpr)
 migrateSchema :: DbConn -> IO (Either DbError ())
 migrateSchema conn = withTransaction conn $ do
-  -- ADT 型の登録 (カラム値として使う Sum 型)
+  -- Newtype 型の登録 (SessionContext の依存型)
+  -- M36はネストした型を自動登録しないため、依存順序に従って明示的に登録
+  execute (toAddTypeExpr (Proxy :: Proxy SessionTitle))
+  execute (toAddTypeExpr (Proxy :: Proxy SessionPurpose))
+  execute (toAddTypeExpr (Proxy :: Proxy SessionTopic))
+  execute (toAddTypeExpr (Proxy :: Proxy SessionBackground))
+
+  -- ADT 型の登録 (カラム値として使う複合型)
   execute (toAddTypeExpr (Proxy :: Proxy SessionContext))
   execute (toAddTypeExpr (Proxy :: Proxy FactPayload))
 

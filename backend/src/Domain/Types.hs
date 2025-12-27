@@ -55,11 +55,11 @@ data FactPayload
   | QuestionDerived Text ParentEventId
   | Answered Text UserId EventId
   | InsightExtracted Text
+  | ReportGenerated Text EventId -- 新規追加：レポート生成イベント
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData)
   deriving (Serialise) via WineryVariant FactPayload
 
--- | イベント (Record型)
 data Event = Event
   { eventId :: EventId,
     sessionId :: SessionId,
@@ -67,5 +67,5 @@ data Event = Event
     payload :: FactPayload
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (NFData, Tupleable)
+  deriving anyclass (Atomable, NFData, Tupleable)
   deriving (Serialise) via WineryRecord Event
