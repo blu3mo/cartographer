@@ -62,12 +62,13 @@ main = do
   putStrLn "Step 2: Generating events in memory..."
   events <- forM [1 .. numEvents] $ \i -> do
     eid <- nextRandom
+    refEid <- nextRandom
     pure
       Event
         { eventId = eid,
           sessionId = sessionId,
           timestamp = now,
-          payload = InsightExtracted $ pack $ "Perf test event " ++ show i
+          payload = ReportGenerated (pack $ "Perf test event " ++ show i) refEid
         }
 
   -- 強制評価（生成時間を測定から除外するため）

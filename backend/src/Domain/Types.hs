@@ -2,6 +2,7 @@ module Domain.Types where
 
 import Codec.Winery (Serialise, WineryRecord (..), WineryVariant (..))
 import Control.DeepSeq (NFData)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import Data.UUID (UUID)
@@ -12,21 +13,23 @@ import ProjectM36.Tupleable (Tupleable)
 -- IDエイリアス
 type SessionId = UUID
 
+type UserId = UUID
+
 type EventId = UUID
 
 newtype SessionTitle = SessionTitle Text
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData, Serialise)
+  deriving newtype (NFData, Serialise, FromJSON, ToJSON)
   deriving anyclass (Atomable)
 
 newtype SessionPurpose = SessionPurpose Text
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData, Serialise)
+  deriving newtype (NFData, Serialise, FromJSON, ToJSON)
   deriving anyclass (Atomable)
 
 newtype SessionBackground = SessionBackground Text
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData, Serialise)
+  deriving newtype (NFData, Serialise, FromJSON, ToJSON)
   deriving anyclass (Atomable)
 
 -- | セッションのコンテキスト情報 (Record型)
@@ -36,7 +39,7 @@ data SessionContext = SessionContext
     background :: SessionBackground
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (Atomable, NFData)
+  deriving anyclass (Atomable, NFData, FromJSON, ToJSON)
   deriving (Serialise) via WineryRecord SessionContext
 
 -- | ファクトのペイロード (Sum型/ADT)

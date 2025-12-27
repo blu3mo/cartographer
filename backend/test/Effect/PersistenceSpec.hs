@@ -10,7 +10,6 @@ import Domain.Types
     SessionContext (..),
     SessionPurpose (..),
     SessionTitle (..),
-    SessionTopic (..),
   )
 import Effect.Persistence
   ( DbConfig (..),
@@ -55,7 +54,6 @@ spec = do
                   SessionContext
                     { title = SessionTitle "テストセッション",
                       purpose = SessionPurpose "テスト目的",
-                      topic = SessionTopic "Haskell",
                       background = SessionBackground "背景情報"
                     }
                 testEvent =
@@ -92,13 +90,14 @@ spec = do
             eventId <- nextRandom
             sessionId <- nextRandom
             now <- getCurrentTime
-            -- SessionContextを含まない単純なInsightExtractedを使用してテスト
+            parentEventId <- nextRandom
+            -- 単純なReportGeneratedを使用してテスト
             let testEvent =
                   Event
                     { eventId = eventId,
                       sessionId = sessionId,
                       timestamp = now,
-                      payload = InsightExtracted "永続化テスト"
+                      payload = ReportGenerated "永続化テスト" parentEventId
                     }
             withTransaction conn $ do
               case toInsertExpr [testEvent] "events" of
@@ -135,12 +134,14 @@ spec = do
       sessionId <- nextRandom
       now <- getCurrentTime
 
+      parentEventId <- nextRandom
+
       let testEvent =
             Event
               { eventId = eventId,
                 sessionId = sessionId,
                 timestamp = now,
-                payload = InsightExtracted "永続化されたインサイト"
+                payload = ReportGenerated "永続化されたレポート" parentEventId
               }
 
       phase1Result <- withM36Connection (Persistent testDbPath) $ \conn -> do
@@ -223,9 +224,9 @@ spec = do
             e3 <- nextRandom
 
             let events =
-                  [ Event e1 sid now (InsightExtracted "インサイト1"),
-                    Event e2 sid now (QuestionDerived "質問" Nothing),
-                    Event e3 sid now (ReportGenerated "レポート" e1)
+                  [ Event e1 sid now (ReportGenerated "レポート1" e2),
+                    Event e2 sid now (ReportGenerated "レポート2" e1),
+                    Event e3 sid now (ReportGenerated "レポート3" e1)
                   ]
 
             withTransaction conn $ do
@@ -240,7 +241,7 @@ spec = do
         Right (Left err) -> expectationFailure $ "Query failed: " ++ show err
         Right (Right _relation) ->
           -- 3行存在することを確認
-          putStrLn "Multiple fact types coexist successfully"
+          putStrLn "Multiple ReportGenerated events coexist successfully"
 
     -- 完全なスキーマ進化シナリオテスト（同一DBで実行）
     it "complete schema evolution: same DB, multiple reconnections, strict assertions" $ do
@@ -275,7 +276,7 @@ spec = do
               { eventId = e1,
                 sessionId = sid,
                 timestamp = now,
-                payload = InsightExtracted "Phase1で挿入されたインサイト"
+                payload = ReportGenerated "Phase1で挿入されたレポート" e2
               }
 
       phase1Result <- withM36Connection (Persistent testDbPath) $ \conn -> do
@@ -303,8 +304,8 @@ spec = do
           -- showした文字列から行数を確認（M36のAPIで直接取得する方法もあるが簡易的に）
           let relationStr = show relation
           -- "RelationTuple"の出現回数 = 行数
-          relationStr `shouldContain` "InsightExtracted"
-          putStrLn "✓ Phase 1: 1 event inserted (InsightExtracted)"
+          relationStr `shouldContain` "ReportGenerated"
+          putStrLn "✓ Phase 1: 1 event inserted (ReportGenerated)"
 
       -- =========================================================
       -- Phase 2: 再接続、ReportGenerated挿入（同一DBに追加）
@@ -354,9 +355,8 @@ spec = do
           putStrLn "  → This is a KNOWN LIMITATION, not a test failure"
         Right (Right relation) -> do
           let relationStr = show relation
-          relationStr `shouldContain` "InsightExtracted"
           relationStr `shouldContain` "ReportGenerated"
-          putStrLn "✓ Phase 2: 2 events exist (InsightExtracted + ReportGenerated)"
+          putStrLn "✓ Phase 2: 2 events exist (ReportGenerated x 2)"
 
       -- =========================================================
       -- Phase 3: 新規DBで最初から両ファクト挿入（正常系の確認）
@@ -372,8 +372,8 @@ spec = do
           Left err -> pure (Left $ "Migration failed: " ++ show err)
           Right () -> do
             let bothEvents =
-                  [ Event e1 sid now (InsightExtracted "新DBのインサイト"),
-                    Event e2 sid now (ReportGenerated "新DBのレポート" e1)
+                  [ Event e1 sid now (ReportGenerated "新DBのレポート1" e2),
+                    Event e2 sid now (ReportGenerated "新DBのレポート2" e1)
                   ]
             txnResult <- withTransaction conn $ do
               case toInsertExpr bothEvents "events" of
@@ -392,9 +392,8 @@ spec = do
         Right (Right relation) -> do
           let relationStr = show relation
           -- 両方のファクト種別が存在することを確認
-          relationStr `shouldContain` "InsightExtracted"
           relationStr `shouldContain` "ReportGenerated"
-          putStrLn "✓ Phase 3: Fresh DB works correctly with both fact types"
+          putStrLn "✓ Phase 3: Fresh DB works correctly with multiple events"
 
       -- =========================================================
       -- Phase 4: Phase 3のDBに再接続して読み取り確認
@@ -427,7 +426,6 @@ spec = do
           putStrLn "  → Confirms: M36 migrateSchema is NOT idempotent"
         Right (Right relation) -> do
           let relationStr = show relation
-          relationStr `shouldContain` "InsightExtracted"
           relationStr `shouldContain` "ReportGenerated"
           putStrLn "✓ Phase 4: Data persisted and readable after reconnection"
 

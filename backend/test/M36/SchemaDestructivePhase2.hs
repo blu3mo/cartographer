@@ -3,16 +3,16 @@
 -- | Schema Destructive Change Phase 2: Read After Type Removal
 --
 -- このプログラムは破壊的スキーマ変更（型の削除）をテストするPhase 2です：
--- 1. Phase 1で保存されたデータ（InsightExtracted×2, ReportGenerated×1）が存在するDBに接続
--- 2. 型定義からReportGeneratedが削除された状態でデータを読み取り
+-- 1. Phase 1で保存されたデータ（ReportGenerated×2, ContextDefined×1）が存在するDBに接続
+-- 2. 型定義からContextDefinedが削除された状態でデータを読み取り
 -- 3. 何が起きるかを検証（エラー？部分的な読み取り？）
 --
 -- 前提:
--- - Types.hsからReportGeneratedがコメントアウトされていること
+-- - Types.hsからContextDefinedがコメントアウトされていること
 -- - Phase 1が実行済み
 --
 -- 使用方法:
---   # Types.hsからReportGeneratedをコメントアウト
+--   # Types.hsからContextDefinedをコメントアウト
 --   cabal run schema-destructive-phase2
 module Main where
 
@@ -48,10 +48,10 @@ main = do
   putStrLn $ "DB Path: " ++ dbPath
   putStrLn ""
   putStrLn "SCENARIO:"
-  putStrLn "  Phase 1 saved: InsightExtracted x 2, ReportGenerated x 1"
-  putStrLn "  Phase 2 type definition: ReportGenerated is REMOVED"
+  putStrLn "  Phase 1 saved: ReportGenerated x 2, ContextDefined x 1"
+  putStrLn "  Phase 2 type definition: ContextDefined is REMOVED"
   putStrLn ""
-  putStrLn "QUESTION: What happens to the ReportGenerated data?"
+  putStrLn "QUESTION: What happens to the ContextDefined data?"
   putStrLn ""
 
   putStrLn "Step 1: Connecting to existing DB..."
@@ -103,21 +103,21 @@ main = do
 
       -- ファクト種別の存在確認
       let relationStr = show relation
-      let hasInsight = "InsightExtracted" `isInfixOf` relationStr
       let hasReport = "ReportGenerated" `isInfixOf` relationStr
+      let hasContext = "ContextDefined" `isInfixOf` relationStr
 
       putStrLn "=========================================="
       putStrLn "Step 4: Data Verification"
       putStrLn "=========================================="
       putStrLn ""
       putStrLn "Verification:"
-      putStrLn $ "  - InsightExtracted: " ++ (if hasInsight then "✓ FOUND" else "✗ NOT FOUND")
-      putStrLn $ "  - ReportGenerated: " ++ (if hasReport then "✓ FOUND (unexpected!)" else "✗ NOT FOUND")
+      putStrLn $ "  - ReportGenerated: " ++ (if hasReport then "✓ FOUND" else "✗ NOT FOUND")
+      putStrLn $ "  - ContextDefined: " ++ (if hasContext then "✓ FOUND (unexpected!)" else "✗ NOT FOUND")
       putStrLn ""
 
-      if hasReport
+      if hasContext
         then do
-          putStrLn "RESULT: ReportGenerated data is STILL PRESENT"
+          putStrLn "RESULT: ContextDefined data is STILL PRESENT"
           putStrLn ""
           putStrLn "This indicates that M36 stores data with the type name"
           putStrLn "as part of the value, and can still read it even if"
@@ -127,11 +127,11 @@ main = do
           putStrLn "Phase 2 Complete: Backward Compatibility Confirmed"
           putStrLn "=========================================="
         else
-          if hasInsight
+          if hasReport
             then do
-              putStrLn "RESULT: Only InsightExtracted data is visible"
+              putStrLn "RESULT: Only ReportGenerated data is visible"
               putStrLn ""
-              putStrLn "ReportGenerated data may have been:"
+              putStrLn "ContextDefined data may have been:"
               putStrLn "  a) Filtered out silently"
               putStrLn "  b) Failed to deserialize"
               putStrLn "  c) Stored differently"

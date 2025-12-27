@@ -13,7 +13,7 @@
 module Main where
 
 import Control.Monad (when)
-import Data.Text (pack, unpack)
+import Data.Text (pack)
 import Data.Time (getCurrentTime)
 import Data.UUID.V4 (nextRandom)
 import Domain.Types
@@ -60,12 +60,13 @@ main = do
     _ <- migrateSchemaIfNeeded conn
 
     eventId <- nextRandom
+    refEventId <- nextRandom
     let event =
           Event
             { eventId = eventId,
               sessionId = sessionId,
               timestamp = now,
-              payload = InsightExtracted "Session 1 Data"
+              payload = ReportGenerated (pack "Session 1 Data") refEventId
             }
 
     withTransaction conn $ do
@@ -103,12 +104,13 @@ main = do
 
     -- 追加データの書き込み
     eventId2 <- nextRandom
+    refEventId2 <- nextRandom
     let event2 =
           Event
             { eventId = eventId2,
               sessionId = sessionId,
               timestamp = now,
-              payload = InsightExtracted "Session 2 Data"
+              payload = ReportGenerated (pack "Session 2 Data") refEventId2
             }
 
     withTransaction conn $ do

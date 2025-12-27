@@ -130,10 +130,10 @@ main = do
         pure False
       Right relation -> do
         let relationStr = show relation
-        let insightCount = countOccurrences "InsightExtracted" relationStr
-        putStrLn $ "  Total InsightExtracted events: " ++ show insightCount
+        let reportCount = countOccurrences "ReportGenerated" relationStr
+        putStrLn $ "  Total ReportGenerated events: " ++ show reportCount
 
-        if insightCount >= numThreads * eventsPerThread
+        if reportCount >= numThreads * eventsPerThread
           then do
             putStrLn ""
             putStrLn "=========================================="
@@ -181,6 +181,7 @@ clientWorker msgChan threadId = do
 
   results <- forM [1 .. eventsPerThread] $ \eventNum -> do
     eventId <- nextRandom
+    referenceEventId <- nextRandom
     now <- getCurrentTime
 
     let event =
@@ -189,9 +190,9 @@ clientWorker msgChan threadId = do
               sessionId = sessionId,
               timestamp = now,
               payload =
-                InsightExtracted $
-                  pack $
-                    "Thread " ++ show threadId ++ " Event " ++ show eventNum
+                ReportGenerated
+                  (pack $ "Thread " ++ show threadId ++ " Event " ++ show eventNum)
+                  referenceEventId
             }
 
     -- Writerに依頼

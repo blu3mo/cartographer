@@ -55,3 +55,4 @@ dist
 
 *.log
 .ghc.environment.*
+.m36-data/
