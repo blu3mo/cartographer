@@ -145,7 +145,7 @@ async function generateSuggestions(
             : r.value === 1
               ? "Yes"
               : r.value === 0
-                ? "わからない"
+                ? "どちらでもない"
                 : r.value === -1
                   ? "No"
                   : "Strong No";

@@ -10,7 +10,7 @@ function getResponseLabel(value: ResponseValue): string {
     case 1:
       return "同意";
     case 0:
-      return "わからない";
+      return "どちらでもない";
     case -1:
       return "反対";
     case -2:
@@ -566,7 +566,7 @@ function formatStatementStats(stats: StatementStat[]): string {
       return `${header}
 - 強く同意: ${stat.percentages.strongYes}%
 - 同意: ${stat.percentages.yes}%
-- わからない: ${stat.percentages.dontKnow}%
+- どちらでもない: ${stat.percentages.dontKnow}%
 - 反対: ${stat.percentages.no}%
 - 強く反対: ${stat.percentages.strongNo}%
 - 自由記述: ${stat.freeTextCount}件`;
