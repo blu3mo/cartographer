@@ -32,7 +32,7 @@ supabase-init: supabase-fetch supabase-up db-schema
 
 # Next.js アプリだけ起動
 dev-app:
-	npm run dev
+	cd frontend && npm run dev
 
 # ワンコマンド開発エントリーポイント
 # - Supabase を起動

@@ -20,9 +20,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        working-directory: ./frontend
         run: npm ci
 
       - name: Run tests (lint + build)
+        working-directory: ./frontend
         run: npm test
         env:
           NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
