@@ -5,7 +5,7 @@
 module Web.SessionSpec (spec) where
 
 import Control.Exception (bracket)
-import Control.Monad (unless)
+import Control.Monad (forM_, unless)
 import Data.Aeson (encode)
 import Data.List (isInfixOf)
 import Data.Proxy (Proxy (..))
@@ -43,7 +43,7 @@ spec = do
         -- Print initial state
         dumpEvents dbPath "Before Request (Snapshot)"
 
-        let req = CreateSessionRequest "My Session" "Testing" "Context" hostId
+        let req = CreateSessionRequest "My Session" "Testing" "Context" hostId Nothing
         res <- runClientM (createSession req) clientEnv
 
         case res of
@@ -54,18 +54,31 @@ spec = do
     it "persists hostUserId correctly" $ do
       withApp $ \clientEnv _ -> do
         hostId <- nextRandom
-        let req = CreateSessionRequest "Persistence Test" "Check DB" "Background" hostId
+        let req = CreateSessionRequest "Persistence Test" "Check DB" "Background" hostId Nothing
         res <- runClientM (createSession req) clientEnv
         case res of
           Left err -> expectationFailure $ "ClientError: " ++ show err
           Right (CreateSessionResponse _) -> pure ()
+
+    it "creates a session with initial questions" $ do
+      withApp $ \clientEnv dbPath -> do
+        hostId <- nextRandom
+        let questions = ["What is the goal?", "Who are the stakeholders?"]
+        let req = CreateSessionRequest "With Questions" "Testing" "Context" hostId (Just questions)
+        res <- runClientM (createSession req) clientEnv
+
+        case res of
+          Left err -> expectationFailure $ "ClientError: " ++ show err
+          Right (CreateSessionResponse sid) -> do
+            verifySessionPersisted dbPath sid
+            verifyStatementsPersisted dbPath questions
 
     it "Property: accepts any valid Text and UUID" $ property $ \t p b h -> wrapperProperty t p b h
 
 wrapperProperty :: Text -> Text -> Text -> UUID -> Property
 wrapperProperty t p b h = ioProperty $ do
   withApp $ \clientEnv _ -> do
-    let req = CreateSessionRequest t p b h
+    let req = CreateSessionRequest t p b h Nothing
     res <- runClientM (createSession req) clientEnv
     case res of
       Left _ -> pure False -- Fail
@@ -116,6 +129,20 @@ verifySessionPersisted dbPath sessionId = do
       unless ("ContextDefined" `isInfixOf` relStr) $ do
         putStrLn $ "DEBUG: Relation Content:\n" ++ relStr
         expectationFailure "Payload 'ContextDefined' not found in events relation"
+
+verifyStatementsPersisted :: FilePath -> [Text] -> IO ()
+verifyStatementsPersisted dbPath expectedQuestions = do
+  res <- withM36Connection (Persistent dbPath) $ \conn -> do
+    withTransaction conn $ do
+      query (RelationVariable "events" ())
+  case res of
+    Left err -> expectationFailure $ "DB Query failed: " ++ show err
+    Right (Left err) -> expectationFailure $ "Relational Error: " ++ show err
+    Right (Right rel) -> do
+      let relStr = show rel
+      forM_ expectedQuestions $ \q -> do
+        unless (T.unpack q `isInfixOf` relStr) $ do
+          expectationFailure $ "Question not found: " ++ show q
 
 -- Legacy dump helper (unused but kept if needed)
 
