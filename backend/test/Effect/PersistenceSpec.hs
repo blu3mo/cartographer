@@ -54,7 +54,8 @@ spec = do
                   SessionContext
                     { title = SessionTitle "テストセッション",
                       purpose = SessionPurpose "テスト目的",
-                      background = SessionBackground "背景情報"
+                      background = SessionBackground "背景情報",
+                      hostUserId = sessionId
                     }
                 testEvent =
                   Event

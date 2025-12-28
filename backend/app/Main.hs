@@ -29,13 +29,3 @@ main = do
     Right (Right ()) -> putStrLn "Schema ready."
 
   Warp.run 8080 (app dbConfig)
-
-app :: DbConfig -> Application
-app dbConfig = serve (Proxy @API) (hoistServer (Proxy @API) (interpretServer dbConfig) server)
-
-interpretServer :: DbConfig -> Sem '[Persistence, Error ServerError, Embed IO] a -> Handler a
-interpretServer dbConfig sem = do
-  res <- liftIO $ runM $ runError $ runPersistence dbConfig sem
-  case res of
-    Left err -> throwError err
-    Right val -> pure val

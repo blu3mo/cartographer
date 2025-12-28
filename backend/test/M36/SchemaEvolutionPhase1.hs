@@ -18,6 +18,10 @@ import Data.UUID.V4 (nextRandom)
 import Domain.Types
   ( Event (..),
     FactPayload (..),
+    SessionBackground (..),
+    SessionContext (..),
+    SessionPurpose (..),
+    SessionTitle (..),
   )
 import Effect.Persistence
   ( DbConfig (..),
@@ -49,15 +53,22 @@ main = do
   sessionId <- nextRandom
   now <- getCurrentTime
 
-  refEventId <- nextRandom
+  hostUserId <- nextRandom
+  let context =
+        SessionContext
+          { title = SessionTitle "Phase1セッション",
+            purpose = SessionPurpose "v1(ContextDefinedのみ)",
+            background = SessionBackground "M36 Integration",
+            hostUserId = hostUserId
+          }
 
-  -- v1では ReportGenerated を使用
+  -- v1では ContextDefined を使用 (ReportGeneratedは存在しない想定)
   let event =
         Event
           { eventId = eventId,
             sessionId = sessionId,
             timestamp = now,
-            payload = ReportGenerated "Phase1で保存されたレポート（v1型定義）" refEventId
+            payload = ContextDefined context
           }
 
   putStrLn ""

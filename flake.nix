@@ -124,10 +124,19 @@
                   # 互換性のない実行ファイルを無効化 (buildable: False を挿入)
                   sed -i '/executable schema-evolution-phase2/a \ \ buildable: False' cartographer-backend.cabal
                   sed -i '/executable schema-destructive-phase1/a \ \ buildable: False' cartographer-backend.cabal
+                  sed -i '/executable test-projection/a \ \ buildable: False' cartographer-backend.cabal
+                  sed -i '/executable test-concurrent/a \ \ buildable: False' cartographer-backend.cabal
+                  sed -i '/executable test-performance/a \ \ buildable: False' cartographer-backend.cabal
+                  sed -i '/executable test-recovery/a \ \ buildable: False' cartographer-backend.cabal
+
+                  # Disable test suite in this variant as well
+                  sed -i '/test-suite cartographer-backend-test/a \ \ buildable: False' cartographer-backend.cabal
                 '';
               });
 
-          checks = {
+          checks = config.haskellProjects.default.outputs.checks // {
+            cartographer-backend-test = pkgs.haskell.lib.doCheck self'.packages.cartographer-backend;
+
             # Schema Evolution Test: V1 (Old) -> V2 (New)
             schema-evolution =
               pkgs.runCommand "test-schema-evolution"

@@ -5,6 +5,7 @@ module Effect.Persistence
   ( -- * Effect
     Persistence (..),
     saveEvent,
+    saveEvents,
 
     -- * Types
     PersistenceError (..),
@@ -35,6 +36,8 @@ import Domain.Types
     SessionContext,
     SessionPurpose,
     SessionTitle,
+    Statement,
+    StatementContent,
   )
 import Polysemy (Embed, Member, Sem, embed, interpret, makeSem)
 import ProjectM36.Atomable (toAddTypeExpr)
@@ -68,6 +71,7 @@ data PersistenceError
 
 data Persistence m a where
   SaveEvent :: Event -> Persistence m (Either PersistenceError ())
+  SaveEvents :: [Event] -> Persistence m (Either PersistenceError ())
 
 makeSem ''Persistence
 
@@ -128,12 +132,23 @@ runPersistence config = interpret $ \case
         -- flatten inner Either first (execute returns Right () on success inside IO?)
         -- withTransaction returns IO (Either DbError a)
         -- execute returns Db ()
+        -- So result is IO (Either DbError ())
+        -- withM36Connection returns IO (Either DbError (Either DbError ()))
+        -- join res :: Either DbError ()
         pure $ case join res of -- join flattens Either DbError (Either DbError ()) -> Either DbError ()? No.
         -- withTransaction signature: (DbConn -> Db a -> IO (Either DbError a))
         -- execute returns Db ()
         -- So result is IO (Either DbError ())
         -- withM36Connection returns IO (Either DbError (Either DbError ()))
         -- join res :: Either DbError ()
+          Left err -> Left (ConnectionError err)
+          Right () -> Right ()
+  SaveEvents events -> embed $ do
+    case toInsertExpr events "events" of
+      Left err -> pure (Left (QueryError err))
+      Right expr -> do
+        res <- withM36Connection config (\conn -> withTransaction conn (execute expr))
+        pure $ case join res of
           Left err -> Left (ConnectionError err)
           Right () -> Right ()
 
@@ -152,6 +167,8 @@ migrateSchema conn = withTransaction conn $ do
   execute (toAddTypeExpr (Proxy :: Proxy SessionPurpose))
 
   execute (toAddTypeExpr (Proxy :: Proxy SessionBackground))
+  execute (toAddTypeExpr (Proxy :: Proxy StatementContent))
+  execute (toAddTypeExpr (Proxy :: Proxy Statement))
 
   -- ADT 型の登録 (カラム値として使う複合型)
   execute (toAddTypeExpr (Proxy :: Proxy SessionContext))

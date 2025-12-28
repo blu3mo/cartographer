@@ -17,6 +17,21 @@ type UserId = UUID
 
 type EventId = UUID
 
+type StatementId = UUID
+
+newtype StatementContent = StatementContent Text
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData, Serialise, FromJSON, ToJSON)
+  deriving anyclass (Atomable)
+
+data Statement = Statement
+  { id :: StatementId,
+    content :: StatementContent
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (Atomable, NFData, FromJSON, ToJSON)
+  deriving (Serialise) via WineryRecord Statement
+
 newtype SessionTitle = SessionTitle Text
   deriving stock (Eq, Show, Generic)
   deriving newtype (NFData, Serialise, FromJSON, ToJSON)
@@ -36,7 +51,8 @@ newtype SessionBackground = SessionBackground Text
 data SessionContext = SessionContext
   { title :: SessionTitle,
     purpose :: SessionPurpose,
-    background :: SessionBackground
+    background :: SessionBackground,
+    hostUserId :: UserId
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData, FromJSON, ToJSON)
@@ -45,6 +61,7 @@ data SessionContext = SessionContext
 -- | ファクトのペイロード (Sum型/ADT)
 data FactPayload
   = ContextDefined SessionContext
+  | StatementAdded Statement
   | ReportGenerated Text EventId
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData)

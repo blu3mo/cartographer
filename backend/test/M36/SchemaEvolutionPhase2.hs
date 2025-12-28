@@ -50,19 +50,14 @@ main = do
   sessionId <- nextRandom
   now <- getCurrentTime
 
-  let testContext =
-        SessionContext
-          { title = SessionTitle "Phase2セッション",
-            purpose = SessionPurpose "v2型定義テスト",
-            background = SessionBackground "Phase2で追加"
-          }
-
+  -- v2で追加された ReportGenerated を使用
+  refId <- nextRandom
   let newEvent =
         Event
           { eventId = newEventId,
             sessionId = sessionId,
             timestamp = now,
-            payload = ContextDefined testContext
+            payload = ReportGenerated "Phase2で追加されたレポート" refId
           }
 
   putStrLn ""
@@ -137,8 +132,8 @@ main = do
       let hasContext = "ContextDefined" `isInfixOf` relationStr
 
       putStrLn "Verification:"
-      putStrLn $ "  - ReportGenerated (from Phase 1): " ++ (if hasReport then "✓ FOUND" else "✗ NOT FOUND")
-      putStrLn $ "  - ContextDefined (from Phase 2): " ++ (if hasContext then "✓ FOUND" else "✗ NOT FOUND")
+      putStrLn $ "  - ContextDefined (from Phase 1): " ++ (if hasContext then "✓ FOUND" else "✗ NOT FOUND")
+      putStrLn $ "  - ReportGenerated (from Phase 2): " ++ (if hasReport then "✓ FOUND" else "✗ NOT FOUND")
       putStrLn ""
 
       if hasReport && hasContext
