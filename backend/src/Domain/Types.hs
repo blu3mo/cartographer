@@ -36,7 +36,8 @@ newtype SessionBackground = SessionBackground Text
 data SessionContext = SessionContext
   { title :: SessionTitle,
     purpose :: SessionPurpose,
-    background :: SessionBackground
+    background :: SessionBackground,
+    hostUserId :: UserId
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData, FromJSON, ToJSON)

@@ -9,6 +9,7 @@ where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
+import Data.UUID (UUID)
 import Domain.Types (SessionId)
 import GHC.Generics (Generic)
 
@@ -16,7 +17,8 @@ import GHC.Generics (Generic)
 data CreateSessionRequest = CreateSessionRequest
   { title :: Text,
     purpose :: Text,
-    background :: Text
+    background :: Text,
+    hostUserId :: UUID
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)

@@ -16,7 +16,8 @@ import Domain.Types
     SessionPurpose (..),
     SessionTitle (..),
   )
-import Effect.Persistence (Persistence, saveEvent)
+import Effect.Persistence (DbConfig, Persistence, runPersistence, saveEvent)
+import Network.Wai (Application)
 import Polysemy
 import Polysemy.Error
 import Servant
@@ -30,6 +31,16 @@ server ::
   ) =>
   ServerT API (Sem r)
 server = healthHandler :<|> sessionsHandler
+
+app :: DbConfig -> Application
+app dbConfig = serve (Proxy @API) (hoistServer (Proxy @API) (interpretServer dbConfig) server)
+
+interpretServer :: DbConfig -> Sem '[Persistence, Error ServerError, Embed IO] a -> Handler a
+interpretServer dbConfig sem = do
+  res <- liftIO $ runM $ runError $ runPersistence dbConfig sem
+  case res of
+    Left err -> throwError err
+    Right val -> pure val
 
 healthHandler :: Sem r Text
 healthHandler = pure "OK"
@@ -51,7 +62,8 @@ sessionsHandler req = do
         SessionContext
           { title = SessionTitle req.title,
             purpose = SessionPurpose req.purpose,
-            background = SessionBackground req.background
+            background = SessionBackground req.background,
+            hostUserId = req.hostUserId
           }
       payload = ContextDefined context
       event =

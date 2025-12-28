@@ -102,7 +102,8 @@ test-suite cartographer-backend-test
   hs-source-dirs: test
   main-is: Spec.hs
   build-depends:
-    base >=4.7 && <5,
+    QuickCheck,
+    aeson,
     cartographer-backend,
     directory >=1.3 && <2,
     hspec >=2.7 && <3,
@@ -111,7 +112,10 @@ test-suite cartographer-backend-test
     polysemy >=1.9 && <2,
     polysemy-plugin >=0.4 && <0.5,
     project-m36,
+    quickcheck-instances,
     servant-client,
+    servant-server,
+    text,
     time >=1.9 && <2,
     uuid >=1.3 && <2,
     warp,
