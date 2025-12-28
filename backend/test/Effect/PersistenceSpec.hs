@@ -60,6 +60,7 @@ spec = do
                 testEvent =
                   Event
                     { eventId = eventId,
+                      parentId = Nothing,
                       sessionId = sessionId,
                       timestamp = now,
                       payload = ContextDefined testContext
@@ -96,6 +97,7 @@ spec = do
             let testEvent =
                   Event
                     { eventId = eventId,
+                      parentId = Nothing,
                       sessionId = sessionId,
                       timestamp = now,
                       payload = ReportGenerated "永続化テスト" parentEventId
@@ -140,6 +142,7 @@ spec = do
       let testEvent =
             Event
               { eventId = eventId,
+                parentId = Nothing,
                 sessionId = sessionId,
                 timestamp = now,
                 payload = ReportGenerated "永続化されたレポート" parentEventId
@@ -192,6 +195,7 @@ spec = do
             let testEvent =
                   Event
                     { eventId = eventId,
+                      parentId = Nothing,
                       sessionId = sessionId,
                       timestamp = now,
                       payload = ReportGenerated "生成されたレポート" parentEventId
@@ -225,9 +229,9 @@ spec = do
             e3 <- nextRandom
 
             let events =
-                  [ Event e1 sid now (ReportGenerated "レポート1" e2),
-                    Event e2 sid now (ReportGenerated "レポート2" e1),
-                    Event e3 sid now (ReportGenerated "レポート3" e1)
+                  [ Event e1 Nothing sid now (ReportGenerated "レポート1" e2),
+                    Event e2 Nothing sid now (ReportGenerated "レポート2" e1),
+                    Event e3 Nothing sid now (ReportGenerated "レポート3" e1)
                   ]
 
             withTransaction conn $ do
@@ -275,6 +279,7 @@ spec = do
       let event1 =
             Event
               { eventId = e1,
+                parentId = Nothing,
                 sessionId = sid,
                 timestamp = now,
                 payload = ReportGenerated "Phase1で挿入されたレポート" e2
@@ -316,6 +321,7 @@ spec = do
       let event2 =
             Event
               { eventId = e2,
+                parentId = Nothing,
                 sessionId = sid,
                 timestamp = now,
                 payload = ReportGenerated "Phase2で追加されたレポート" e1
@@ -373,8 +379,8 @@ spec = do
           Left err -> pure (Left $ "Migration failed: " ++ show err)
           Right () -> do
             let bothEvents =
-                  [ Event e1 sid now (ReportGenerated "新DBのレポート1" e2),
-                    Event e2 sid now (ReportGenerated "新DBのレポート2" e1)
+                  [ Event e1 Nothing sid now (ReportGenerated "新DBのレポート1" e2),
+                    Event e2 Nothing sid now (ReportGenerated "新DBのレポート2" e1)
                   ]
             txnResult <- withTransaction conn $ do
               case toInsertExpr bothEvents "events" of

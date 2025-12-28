@@ -4,28 +4,36 @@
 
 module Main where
 
-import Control.Monad.IO.Class (liftIO)
-import Effect.Persistence (DbConfig (..), Persistence, migrateSchemaIfNeeded, runPersistence, withM36Connection)
+import Data.ByteString.Char8 qualified as BS
+import Effect.Persistence (DbConfig (..), migrateSchemaIfNeeded, withM36Connection)
+import Effect.Projection (PgConfig (..))
 import Network.Wai.Handler.Warp qualified as Warp
-import Polysemy
-import Polysemy.Error
-import Servant
-import Servant.Server
-import Web.API
-import Web.Server
+import System.Environment (lookupEnv)
+import Web.Server (AppConfig (..), app)
 
 main :: IO ()
 main = do
   putStrLn "Starting server on port 8080..."
-  -- データベースはプロジェクトルートの .m36-data に保存
-  let dbConfig = Persistent ".m36-data"
+
+  -- M36データベース設定
+  let m36Config = Persistent ".m36-data"
+
+  -- PostgreSQL設定（環境変数から取得、未設定なら無効）
+  pgConnStr <- lookupEnv "DATABASE_URL"
+  let pgConfig = PgConfig . BS.pack <$> pgConnStr
 
   -- 起動時にスキーママイグレーション（冪等、既存なら何もしない）
   putStrLn "Migrating schema..."
-  migrationResult <- withM36Connection dbConfig migrateSchemaIfNeeded
+  migrationResult <- withM36Connection m36Config migrateSchemaIfNeeded
   case migrationResult of
     Left err -> error $ "Failed to migrate schema: " ++ show err
     Right (Left err) -> error $ "Failed to migrate schema: " ++ show err
     Right (Right ()) -> putStrLn "Schema ready."
 
-  Warp.run 8080 (app dbConfig)
+  -- PostgreSQL Projection 設定状況を表示
+  case pgConfig of
+    Nothing -> putStrLn "PostgreSQL projection: DISABLED (set DATABASE_URL to enable)"
+    Just _ -> putStrLn "PostgreSQL projection: ENABLED"
+
+  let config = AppConfig {m36Config = m36Config, pgConfig = pgConfig}
+  Warp.run 8080 (app config)

@@ -15,7 +15,7 @@ type SessionId = UUID
 
 type UserId = UUID
 
-type EventId = UUID
+type EventId = UUID -- UUIDで一意識別、順序はtimestamp + parentIdで追跡
 
 type StatementId = UUID
 
@@ -52,7 +52,8 @@ data SessionContext = SessionContext
   { title :: SessionTitle,
     purpose :: SessionPurpose,
     background :: SessionBackground,
-    hostUserId :: UserId
+    hostUserId :: UserId,
+    adminAccessToken :: UUID
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData, FromJSON, ToJSON)
@@ -62,13 +63,14 @@ data SessionContext = SessionContext
 data FactPayload
   = ContextDefined SessionContext
   | StatementAdded Statement
-  | ReportGenerated Text EventId
+  | ReportGenerated Text EventId -- 参照先のEventId
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData)
   deriving (Serialise) via WineryVariant FactPayload
 
 data Event = Event
   { eventId :: EventId,
+    parentId :: Maybe EventId, -- 直前のイベントへの参照（依存関係）
     sessionId :: SessionId,
     timestamp :: UTCTime,
     payload :: FactPayload

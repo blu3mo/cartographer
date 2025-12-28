@@ -8,4 +8,5 @@ export interface CreateSessionRequest {
 
 export interface CreateSessionResponse {
   sessionId: string;
+  adminAccessToken: string;
 }

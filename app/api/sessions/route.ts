@@ -216,6 +216,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       session: {
         id: backendRes.sessionId,
+        adminAccessToken: backendRes.adminAccessToken,
       },
     });
   } catch (error) {

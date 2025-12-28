@@ -20,7 +20,7 @@ supabase-down:
 
 # Supabase のスキーマをローカル DB に適用
 db-schema:
-	cat supabase/schema.sql | docker compose -f infra/supabase/bundle/docker-compose.yml exec -T db psql -U postgres -d postgres
+	cat supabase/schemas/public.sql | docker compose -f infra/supabase/bundle/docker-compose.yml exec -T db psql -U postgres -d postgres
 
 # ローカル DB をリセットしてマイグレーションを適用
 db-reset:
