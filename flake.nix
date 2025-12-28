@@ -134,7 +134,9 @@
                 '';
               });
 
-          checks = {
+          checks = config.haskellProjects.default.outputs.checks // {
+            cartographer-backend-test = pkgs.haskell.lib.doCheck self'.packages.cartographer-backend;
+
             # Schema Evolution Test: V1 (Old) -> V2 (New)
             schema-evolution =
               pkgs.runCommand "test-schema-evolution"

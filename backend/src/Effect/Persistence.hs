@@ -128,6 +128,9 @@ runPersistence config = interpret $ \case
         -- flatten inner Either first (execute returns Right () on success inside IO?)
         -- withTransaction returns IO (Either DbError a)
         -- execute returns Db ()
+        -- So result is IO (Either DbError ())
+        -- withM36Connection returns IO (Either DbError (Either DbError ()))
+        -- join res :: Either DbError ()
         pure $ case join res of -- join flattens Either DbError (Either DbError ()) -> Either DbError ()? No.
         -- withTransaction signature: (DbConn -> Db a -> IO (Either DbError a))
         -- execute returns Db ()
