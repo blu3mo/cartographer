@@ -107,10 +107,10 @@ jobs:
   deploy:
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
-    # Deploy only on main branch AND when secrets are configured AND (push OR manual with deploy=true)
+    # Deploy on any push (TEMPORARY: for debugging) OR manual with deploy=true
     if: |
-      github.ref == 'refs/heads/main' && 
-      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy == true))
+      github.event_name == 'push' || 
+      (github.event_name == 'workflow_dispatch' && inputs.deploy == true)
     steps:
       - uses: actions/checkout@v4
 
