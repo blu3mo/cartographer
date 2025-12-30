@@ -45,6 +45,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useUserId } from "@/lib/useUserId";
 
 type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
@@ -1121,19 +1122,19 @@ export default function AdminPage({
 
   if (isUserIdLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400 dark:text-slate-500" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-slate-50 dark:bg-black">
         <div className="max-w-6xl mx-auto px-6 py-16">
-          <Card className="border-red-200/70 bg-red-50/80">
+          <Card className="border-red-200/70 bg-red-50/80 dark:border-red-800/70 dark:bg-red-950/50">
             <CardContent className="pt-6">
-              <p className="text-red-700">{error}</p>
+              <p className="text-red-700 dark:text-red-400">{error}</p>
             </CardContent>
           </Card>
         </div>
@@ -1143,22 +1144,23 @@ export default function AdminPage({
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black">
         <p className="text-muted-foreground">セッションが見つかりません。</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-black">
       <div className="max-w-[90rem] mx-auto px-6 py-10 space-y-10">
         <header className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
-              <h1 className="text-3xl font-semibold text-slate-900">
+              <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
                 {data.title}
               </h1>
             </div>
+            <ThemeToggle />
           </div>
         </header>
 
@@ -2497,15 +2499,15 @@ function MonitoringMetric({
 }: MonitoringMetricProps) {
   const toneClass =
     tone === "emerald"
-      ? "bg-emerald-50/80 border-emerald-100 text-emerald-700"
-      : "bg-slate-100/60 border-slate-100 text-slate-700";
+      ? "bg-emerald-50/80 border-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400"
+      : "bg-slate-100/60 border-slate-100 text-slate-700 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-300";
   return (
     <div className={`rounded-2xl border px-4 py-4 shadow-sm ${toneClass}`}>
-      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
+      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
         {label}
       </p>
       <p className="mt-2 text-xl font-semibold">{value}</p>
-      {subLabel && <p className="mt-2 text-xs text-slate-500">{subLabel}</p>}
+      {subLabel && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{subLabel}</p>}
     </div>
   );
 }
@@ -2528,26 +2530,26 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
       : 0;
 
   return (
-    <div className="flex h-full flex-col gap-2 rounded-xl border border-slate-200/70 bg-white/70 p-3 shadow-sm">
+    <div className="flex h-full flex-col gap-2 rounded-xl border border-slate-200/70 bg-white/70 p-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/70">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-slate-900">
+          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
             {participant.name || "名称未設定"}
           </p>
-          <p className="text-[10px] text-slate-400">{updatedLabel}に参加</p>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500">{updatedLabel}に参加</p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-slate-900">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             {completionLabel}
           </p>
-          <p className="text-[10px] text-slate-500">
+          <p className="text-[10px] text-slate-500 dark:text-slate-400">
             {participant.answeredCount}/{participant.totalStatements}
           </p>
         </div>
       </div>
-      <div className="mt-2 h-1 w-full rounded-full bg-slate-200">
+      <div className="mt-2 h-1 w-full rounded-full bg-slate-200 dark:bg-slate-700">
         <div
-          className="h-full rounded-full bg-indigo-500 transition-all"
+          className="h-full rounded-full bg-indigo-500 dark:bg-indigo-400 transition-all"
           style={{ width: `${progressRatio}%` }}
         />
       </div>
@@ -2581,23 +2583,23 @@ function StatementHighlightColumn({
 }: StatementHighlightColumnProps) {
   const toneClass =
     tone === "emerald"
-      ? "bg-emerald-50 border-emerald-100"
+      ? "bg-emerald-50 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-800"
       : tone === "amber"
-        ? "bg-amber-50 border-amber-100"
-        : "bg-slate-50 border-slate-100";
+        ? "bg-amber-50 border-amber-100 dark:bg-amber-950/30 dark:border-amber-800"
+        : "bg-slate-50 border-slate-100 dark:bg-slate-800 dark:border-slate-700";
 
   const badgeClass =
     tone === "emerald"
-      ? "bg-emerald-100 text-emerald-800"
+      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300"
       : tone === "amber"
-        ? "bg-amber-100 text-amber-800"
-        : "bg-slate-200 text-slate-700";
+        ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300"
+        : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
       {items.length === 0 ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           まだ十分な回答データがありません。
         </p>
       ) : (
@@ -2612,26 +2614,26 @@ function StatementHighlightColumn({
               >
                 #{index + 1}
               </span>
-              <div className="text-[11px] text-slate-500">
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">
                 回答率 {formatPercentage(item.responseRate)}
               </div>
             </div>
-            <p className="mt-3 text-sm text-slate-800 leading-relaxed">
+            <p className="mt-3 text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
               {item.statement.text}
             </p>
-            <div className="mt-4 flex items-center gap-3 text-[11px] text-slate-600">
-              <span className="font-medium text-emerald-700">
+            <div className="mt-4 flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-400">
+              <span className="font-medium text-emerald-700 dark:text-emerald-400">
                 Yes {formatPercentage(item.positive)}
               </span>
-              <span className="font-medium text-amber-700">
+              <span className="font-medium text-amber-700 dark:text-amber-400">
                 No {formatPercentage(item.negative)}
               </span>
               <span>わからない・自信がない {formatPercentage(item.neutral)}</span>
             </div>
             {item.statement.responses.freeTextCount > 0 && (
-              <div className="mt-3 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-[11px] text-slate-700 shadow-inner">
+              <div className="mt-3 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-[11px] text-slate-700 shadow-inner dark:border-slate-700/70 dark:bg-slate-900/70 dark:text-slate-300">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-800">
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
                     自由記述 {item.statement.responses.freeTextCount}件
                   </span>
                 </div>
@@ -2640,10 +2642,10 @@ function StatementHighlightColumn({
                     (sample, sampleIndex) => (
                       <li
                         key={`${item.statement.id}-sample-${sampleIndex}`}
-                        className="text-slate-600 whitespace-pre-wrap break-words"
+                        className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap break-words"
                       >
                         ・{sample.text}
-                        <span className="ml-2 text-[10px] text-slate-400">
+                        <span className="ml-2 text-[10px] text-slate-400 dark:text-slate-500">
                           —{" "}
                           {sample.participantUserId
                             ? (participantNameMap[sample.participantUserId] ??
@@ -2668,8 +2670,8 @@ function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
     <div
       className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
         shouldProceed
-          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-          : "bg-amber-50 text-amber-600 border border-amber-200"
+          ? "bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800"
+          : "bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800"
       }`}
     >
       {shouldProceed ? (

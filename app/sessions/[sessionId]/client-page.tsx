@@ -22,6 +22,7 @@ import {
   Skeleton,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 import { cn } from "@/lib/utils";
@@ -1545,22 +1546,25 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-slate-100 dark:bg-black">
       {/* Sticky Header */}
       {shouldShowHeader && (
-        <header className="sticky top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md z-50 border-b border-slate-200 flex items-center justify-center px-6 relative">
-          <div className="text-xs font-medium text-slate-500">
+        <header className="sticky top-0 left-0 right-0 h-16 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md z-50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-center px-6 relative">
+          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
             {currentQuestionNumber} / {totalQuestions} 問目
           </div>
+          <div className="absolute right-6 top-1/2 -translate-y-1/2">
+            <ThemeToggle />
+          </div>
           <div
-            className="absolute left-0 right-0 bottom-0 h-1 bg-slate-200/80"
+            className="absolute left-0 right-0 bottom-0 h-1 bg-slate-200/80 dark:bg-slate-700/80"
             role="progressbar"
             aria-valuenow={Math.round(progressPercent)}
             aria-valuemin={0}
             aria-valuemax={100}
           >
             <div
-              className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
+              className="h-full bg-indigo-500 dark:bg-indigo-400 transition-[width] duration-500 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>

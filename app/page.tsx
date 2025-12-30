@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 
@@ -82,7 +83,10 @@ export default function Home() {
       <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {/* Hero Section */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tight mb-3">倍速会議</h1>
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <h1 className="text-4xl font-bold tracking-tight">倍速会議</h1>
+            <ThemeToggle />
+          </div>
           <p className="text-lg text-muted-foreground">
             認識を可視化し、合意形成を促進するツール
           </p>

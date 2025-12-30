@@ -43,6 +43,45 @@
   --radius: 0.5rem;
 }
 
+.dark {
+  /* Background colors */
+  --background: 0 0% 0%;
+  --foreground: 0 0% 98%;
+
+  /* Card colors */
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 98%;
+
+  /* Popover colors */
+  --popover: 0 0% 8%;
+  --popover-foreground: 0 0% 98%;
+
+  /* Primary button - Light slate blue */
+  --primary: 0 0% 98%;
+  --primary-foreground: 222 47% 11%;
+
+  /* Secondary button - Dark gray */
+  --secondary: 215 25% 27%;
+  --secondary-foreground: 0 0% 98%;
+
+  /* Muted colors */
+  --muted: 215 25% 27%;
+  --muted-foreground: 215 16% 65%;
+
+  /* Accent colors */
+  --accent: 215 25% 20%;
+  --accent-foreground: 0 0% 98%;
+
+  /* Destructive colors */
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+
+  /* Border and input */
+  --border: 215 25% 27%;
+  --input: 215 25% 27%;
+  --ring: 0 0% 98%;
+}
+
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
