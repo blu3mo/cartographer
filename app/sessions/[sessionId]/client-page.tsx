@@ -103,7 +103,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: 0,
-    label: "わからない",
+    label: "わからない・自信がない",
     emoji: "🤔",
     idleClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
     activeClass:
@@ -1763,12 +1763,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                         </h3>
                       </div>
 
-                      {isFuture && distance === 1 && (
-                        <div className="mt-4 flex items-center text-slate-400 text-sm animate-pulse">
-                          <ArrowDown className="mr-2 h-4 w-4" />
-                        </div>
-                      )}
-
                       {isPast && response && (
                         <div className="mt-4 flex items-center gap-3 pt-4 border-t border-slate-100">
                           {response.responseType === "free_text" ? (
@@ -1808,6 +1802,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                           )}
                           <button
                             onClick={() => {
+                              isManualNavigationRef.current = true;
                               setCurrentStatement(statement);
                               setShowAlternatives(false);
                             }}
@@ -1853,8 +1848,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             <div className="text-xl sm:text-3xl">🤔</div>
                             <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
                               {showAlternatives
-                                ? "わからない▲"
-                                : "わからない▼"}
+                                ? "わからない・自信がない▲"
+                                : "わからない・自信がない▼"}
                             </span>
                           </button>
                           <button
