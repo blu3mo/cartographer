@@ -90,11 +90,6 @@ jobs:
           
           git add -f frontend-artifact
 
-      - name: helper for nix
-        run: |
-          # Ensure flake.lock is consistent
-          nix flake lock --update-input nixpkgs --monitor-fd 1
-        continue-on-error: true
 
       - name: Package frontend with Nix
         id: frontend-build
