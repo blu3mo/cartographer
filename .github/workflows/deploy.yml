@@ -9,11 +9,11 @@ on:
       deploy:
         description: 'Deploy after build'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 jobs:
-  build:
+  build-backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +31,34 @@ jobs:
         continue-on-error: true
 
       - name: Build Haskell backend
+        id: backend-build
         run: nix build .#cartographer-backend --print-build-logs
+        continue-on-error: true
+
+      - name: Push partial results to Cachix (even on failure)
+        if: always()
+        run: |
+          echo "Pushing built paths to Cachix..."
+          nix path-info --all 2>/dev/null | grep -v '\.drv$' | cachix push kotto5 || true
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Fail if build failed
+        if: steps.backend-build.outcome == 'failure'
+        run: |
+          echo "Backend build failed"
+          exit 1
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
       - name: Build Next.js frontend
         run: |
@@ -42,7 +69,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key' }}
 
   deploy:
-    needs: build
+    needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
     # Deploy only on main branch AND when secrets are configured AND (push OR manual with deploy=true)
     if: |
@@ -56,6 +83,11 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
             accept-flake-config = true
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: kotto5
+        continue-on-error: true
 
       - name: Check deployment secrets
         id: check-secrets
