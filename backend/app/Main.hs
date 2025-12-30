@@ -10,13 +10,15 @@ import Effect.Projection (PgConfig (..))
 import Network.Wai.Handler.Warp qualified as Warp
 import System.Environment (lookupEnv)
 import Web.Server (AppConfig (..), app)
+import Data.Maybe (fromMaybe)
 
 main :: IO ()
 main = do
   putStrLn "Starting server on port 8080..."
 
-  -- M36データベース設定
-  let m36Config = Persistent ".m36-data"
+  -- M36データベース設定（環境変数 M36_DATA_PATH があればそれを使用）
+  m36Path <- lookupEnv "M36_DATA_PATH"
+  let m36Config = Persistent (Data.Maybe.fromMaybe ".m36-data" m36Path)
 
   -- PostgreSQL設定（環境変数から取得、未設定なら無効）
   pgConnStr <- lookupEnv "DATABASE_URL"

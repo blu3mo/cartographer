@@ -7,6 +7,7 @@
     haskell-flake.url = "github:srid/haskell-flake";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     project-m36.url = "github:plural-reality/project-m36";
+    colmena.url = "github:zhaofengli/colmena";
   };
 
   outputs =
@@ -34,10 +35,18 @@
           system,
           lib,
           config,
-          pkgs,
           ...
         }:
         let
+          # Allow Terraform (BSL license)
+          pkgs = import inputs.nixpkgs {
+            inherit system;
+            config.allowUnfreePredicate =
+              pkg:
+              builtins.elem (lib.getName pkg) [
+                "terraform"
+              ];
+          };
           # project-m36 の lib を使って override を構築
           m36lib = inputs.project-m36.lib;
           fullOverrides = m36lib.composeOverrides m36lib.m36Overrides (m36lib.mkPkgsDependentOverrides pkgs);
@@ -241,6 +250,8 @@
                 git
                 watchman
                 libpq.pg_config
+                awscli2
+                terraform
                 config.haskellProjects.default.outputs.finalPackages.project-m36 # Provides tutd, project-m36-server
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
@@ -268,5 +279,45 @@
             '';
           };
         };
+
+      # Colmena configuration (outside perSystem)
+      flake = {
+        colmenaHive = inputs.colmena.lib.makeHive {
+          meta = {
+            nixpkgs = import nixpkgs {
+              system = "x86_64-linux";
+            };
+          };
+
+          defaults =
+            { pkgs, ... }:
+            {
+              environment.systemPackages = with pkgs; [
+                vim
+                htop
+                git
+              ];
+            };
+
+          cartographer-prod =
+            {
+              name,
+              nodes,
+              pkgs,
+              ...
+            }:
+            {
+              deployment = {
+                targetHost = null; # Set via CLI: --override targetHost=<IP>
+                targetUser = "root";
+                buildOnTarget = false;
+              };
+
+              imports = [
+                ./nixos/server.nix
+              ];
+            };
+        };
+      };
     };
 }
