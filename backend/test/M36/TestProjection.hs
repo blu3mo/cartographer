@@ -68,11 +68,13 @@ main = do
     -- Step 2: Create Events
     now <- getCurrentTime
 
+    hostUserId <- nextRandom
     let session1Context =
           SessionContext
             { title = SessionTitle "Project Plan",
               purpose = SessionPurpose "Design",
-              background = SessionBackground "M36 Integration"
+              background = SessionBackground "M36 Integration",
+              hostUserId = hostUserId
             }
 
     putStrLn ""

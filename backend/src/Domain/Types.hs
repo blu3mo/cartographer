@@ -15,7 +15,22 @@ type SessionId = UUID
 
 type UserId = UUID
 
-type EventId = UUID
+type EventId = UUID -- UUIDで一意識別、順序はtimestamp + parentIdで追跡
+
+type StatementId = UUID
+
+newtype StatementContent = StatementContent Text
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData, Serialise, FromJSON, ToJSON)
+  deriving anyclass (Atomable)
+
+data Statement = Statement
+  { id :: StatementId,
+    content :: StatementContent
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (Atomable, NFData, FromJSON, ToJSON)
+  deriving (Serialise) via WineryRecord Statement
 
 newtype SessionTitle = SessionTitle Text
   deriving stock (Eq, Show, Generic)
@@ -36,7 +51,9 @@ newtype SessionBackground = SessionBackground Text
 data SessionContext = SessionContext
   { title :: SessionTitle,
     purpose :: SessionPurpose,
-    background :: SessionBackground
+    background :: SessionBackground,
+    hostUserId :: UserId,
+    adminAccessToken :: UUID
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData, FromJSON, ToJSON)
@@ -45,13 +62,15 @@ data SessionContext = SessionContext
 -- | ファクトのペイロード (Sum型/ADT)
 data FactPayload
   = ContextDefined SessionContext
-  | ReportGenerated Text EventId
+  | StatementAdded Statement
+  | ReportGenerated Text EventId -- 参照先のEventId
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Atomable, NFData)
   deriving (Serialise) via WineryVariant FactPayload
 
 data Event = Event
   { eventId :: EventId,
+    parentId :: Maybe EventId, -- 直前のイベントへの参照（依存関係）
     sessionId :: SessionId,
     timestamp :: UTCTime,
     payload :: FactPayload

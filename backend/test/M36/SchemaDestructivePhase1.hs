@@ -62,7 +62,8 @@ main = do
         SessionContext
           { title = SessionTitle "テストセッション",
             purpose = SessionPurpose "破壊的変更テスト",
-            background = SessionBackground "Phase 1でのみ存在"
+            background = SessionBackground "Phase 1でのみ存在",
+            hostUserId = sessionId
           }
 
   let events =
