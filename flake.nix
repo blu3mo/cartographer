@@ -158,7 +158,7 @@
             version = "0.1.0";
             src = ./.;
             # Initial dummy hash - run build to get the correct one
-            npmDepsHash = "sha256-DmEU03Ao+NayQnfH2QQYeq/++YhWdJHEeOUKhKry/IQ=";
+            npmDepsHash = "sha256-Pidk+5OyAT7uAEU7sIPsd2fZjImKrZzD21DGuugAtr0=";
             
             # Using standalone output from Next.js
             installPhase = ''
