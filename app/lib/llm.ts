@@ -93,6 +93,88 @@ export async function callLLM(
   }
 }
 
+export async function callLLMStreaming(
+  messages: LLMMessage[],
+  onChunk: (chunk: string) => void,
+  model: string = MODEL,
+): Promise<void> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not set");
+  }
+
+  // Log input
+  console.log("=== LLM Streaming Input ===");
+  console.log("Model:", model);
+  messages.forEach((msg, index) => {
+    console.log(`\n[Message ${index + 1}]`);
+    console.log(`Role: ${msg.role}`);
+    console.log(msg.content);
+  });
+  console.log("\n================\n");
+
+  try {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://cartographer.app",
+        "X-Title": "Cartographer",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No reader available");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              onChunk(content);
+            }
+          } catch (e) {
+            // Skip invalid JSON
+            console.warn("Failed to parse streaming chunk:", e);
+          }
+        }
+      }
+    }
+
+    console.log("=== LLM Streaming Complete ===\n");
+  } catch (error) {
+    console.error("LLM Streaming Error:", error);
+    throw new Error("Failed to call LLM streaming API");
+  }
+}
+
 type IndividualReportResponse = {
   statementText: string;
   responseType: "scale" | "free_text";
@@ -120,7 +202,7 @@ export async function generateIndividualReport(input: {
           : r.value === 1
             ? "同意"
             : r.value === 0
-              ? "わからない"
+              ? "わからない・自信がない"
               : r.value === -1
                 ? "反対"
                 : "強く反対";

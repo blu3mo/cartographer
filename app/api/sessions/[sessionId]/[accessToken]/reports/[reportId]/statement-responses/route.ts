@@ -16,7 +16,7 @@ function getResponseLabel(value: ResponseValue): string {
     case 1:
       return "同意";
     case 0:
-      return "わからない";
+      return "わからない・自信がない";
     case -1:
       return "反対";
     case -2:
