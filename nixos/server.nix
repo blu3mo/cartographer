@@ -1,7 +1,10 @@
 # Cartographer NixOS Server Module
-{ pkgs, ... }:
+{ pkgs, modulesPath, ... }:
 
 {
+  imports = [
+    "${modulesPath}/virtualisation/amazon-image.nix"
+  ];
   # System packages
   environment.systemPackages = with pkgs; [
     vim
@@ -30,7 +33,7 @@
 
   # EFS mount point
   fileSystems."/mnt/efs" = {
-    device = "fs-PLACEHOLDER.efs.ap-northeast-1.amazonaws.com:/";
+    device = "fs-0f72db497533bbfde.efs.ap-northeast-1.amazonaws.com:/";
     fsType = "nfs4";
     options = [
       "nfsvers=4.1"

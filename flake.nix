@@ -308,9 +308,9 @@
             }:
             {
               deployment = {
-                targetHost = null; # Set via CLI: --override targetHost=<IP>
+                targetHost = "52.68.102.0";
                 targetUser = "root";
-                buildOnTarget = false;
+                buildOnTarget = true;
               };
 
               imports = [

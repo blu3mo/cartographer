@@ -1,11 +1,11 @@
-# NixOS AMI (community-maintained)
+# NixOS Community AMI
 data "aws_ami" "nixos" {
   most_recent = true
-  owners      = ["427812963091"]  # NixOS community
+  owners      = ["427812963091"] # NixOS community
 
   filter {
     name   = "name"
-    values = ["nixos/24.05*"]
+    values = ["nixos/25.11*-x86_64-linux"]
   }
 
   filter {
@@ -33,11 +33,12 @@ resource "aws_instance" "app" {
     volume_type = "gp3"
   }
 
-  # EFS mount via user_data
+  # Mount EFS
   user_data = <<-EOF
-    #!/bin/bash
+    #!/run/current-system/sw/bin/bash
     mkdir -p /mnt/efs
-    mount -t nfs4 -o nfsvers=4.1 ${aws_efs_file_system.m36.dns_name}:/ /mnt/efs
+    mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 ${aws_efs_file_system.m36.dns_name}:/ /mnt/efs
+    mkdir -p /mnt/efs/m36-data
   EOF
 
   tags = {
