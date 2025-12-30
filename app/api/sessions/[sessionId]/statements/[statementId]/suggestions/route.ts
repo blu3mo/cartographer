@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { callLLM } from "@/lib/llm";
+import { callLLMStreaming } from "@/lib/llm";
 import { supabase } from "@/lib/supabase";
 
 type StatementRow = {
@@ -105,13 +105,36 @@ export async function GET(
       );
     }
 
-    // Generate AI suggestions using LLM
-    const suggestions = await generateSuggestions(
-      (statement as StatementRow).text,
-      responses ?? [],
-    );
+    // Generate AI suggestions using LLM streaming
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          await generateSuggestionsStreaming(
+            (statement as StatementRow).text,
+            responses ?? [],
+            (suggestion: string) => {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ suggestion })}\n\n`),
+              );
+            },
+          );
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        } catch (error) {
+          console.error("Streaming error:", error);
+          controller.error(error);
+        }
+      },
+    });
 
-    return NextResponse.json({ suggestions });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (error) {
     console.error("Get suggestions error:", error);
     return NextResponse.json(
@@ -121,10 +144,11 @@ export async function GET(
   }
 }
 
-async function generateSuggestions(
+async function generateSuggestionsStreaming(
   currentStatementText: string,
   pastResponses: PastResponse[],
-): Promise<string[]> {
+  onSuggestion: (suggestion: string) => void,
+): Promise<void> {
   // Build context from past responses
   let contextText = "";
   if (pastResponses.length > 0) {
@@ -145,7 +169,7 @@ async function generateSuggestions(
             : r.value === 1
               ? "Yes"
               : r.value === 0
-                ? "わからない"
+                ? "わからない・自信がない"
                 : r.value === -1
                   ? "No"
                   : "Strong No";
@@ -180,30 +204,39 @@ ${contextText}
   const messages = [{ role: "user" as const, content: prompt }];
 
   try {
-    const response = await callLLM(messages, "anthropic/claude-sonnet-4.5");
-    const suggestions = response
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0 && line.length <= 50) // Max 50 chars for safety
-      .slice(0, 3); // Ensure exactly 3 suggestions
+    let fullText = "";
 
-    // Fallback if LLM doesn't return valid suggestions
-    if (suggestions.length < 3) {
-      return [
-        "状況によって賛成できる",
-        "一部には賛成だが全体には反対",
-        "今は判断できない",
-      ];
+    // Use Gemini 3 Flash for faster response times
+    await callLLMStreaming(
+      messages,
+      (chunk: string) => {
+        fullText += chunk;
+
+        // Check if we have complete lines
+        const lines = fullText.split("\n");
+        const completeLines = lines.slice(0, -1); // All but the last (potentially incomplete) line
+        fullText = lines[lines.length - 1] || ""; // Keep the incomplete line
+
+        // Send each complete line as a suggestion
+        for (const line of completeLines) {
+          const trimmed = line.trim();
+          if (trimmed.length > 0 && trimmed.length <= 50) {
+            onSuggestion(trimmed);
+          }
+        }
+      },
+      "google/gemini-3-flash-preview",
+    );
+
+    // Handle any remaining text
+    if (fullText.trim().length > 0 && fullText.trim().length <= 50) {
+      onSuggestion(fullText.trim());
     }
-
-    return suggestions;
   } catch (error) {
     console.error("Failed to generate suggestions:", error);
     // Return fallback suggestions
-    return [
-      "状況によって賛成できる",
-      "一部には賛成だが全体には反対",
-      "今は判断できない",
-    ];
+    onSuggestion("状況によって賛成できる");
+    onSuggestion("一部には賛成だが全体には反対");
+    onSuggestion("今は判断できない");
   }
 }
