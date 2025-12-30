@@ -205,6 +205,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
+  const isManualNavigationRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
   const currentQuestionRef = useRef<HTMLDivElement | null>(null);
@@ -641,6 +642,49 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     if (!userId || userLoading) return;
     if (state !== "ANSWERING") return;
     if (!currentStatement) return;
+
+    // Check if this is a manual navigation (e.g., clicking "修正する")
+    const isManualNav = isManualNavigationRef.current;
+    if (isManualNav) {
+      // Reset the flag
+      isManualNavigationRef.current = false;
+
+      // Still need to fetch suggestions for the current statement
+      setAiSuggestions([]);
+      setIsLoadingSuggestions(true);
+
+      const fetchCurrentSuggestions = async () => {
+        try {
+          const response = await axios.get(
+            `/api/sessions/${sessionId}/statements/${currentStatement.id}/suggestions`,
+            {
+              headers: createAuthorizationHeader(userId),
+            },
+          );
+
+          if (
+            response.data.suggestions &&
+            Array.isArray(response.data.suggestions)
+          ) {
+            setAiSuggestions(response.data.suggestions);
+          }
+        } catch (err) {
+          console.error("Failed to fetch AI suggestions:", err);
+          // Set fallback suggestions
+          setAiSuggestions([
+            "状況によって賛成できる",
+            "一部には賛成だが全体には反対",
+            "今は判断できない",
+          ]);
+        } finally {
+          setIsLoadingSuggestions(false);
+        }
+      };
+
+      fetchCurrentSuggestions();
+      // Don't prefetch next statement when manually navigating
+      return;
+    }
 
     // Check if this statement came from prefetch
     const isFromPrefetch =
