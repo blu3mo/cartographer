@@ -60,33 +60,40 @@ jobs:
             experimental-features = nix-command flakes
             accept-flake-config = true
 
-      - uses: cachix/cachix-action@v15
-        with:
-          name: kotto5
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - name: Inject secrets and Build Next.js frontend (Standard)
+        run: |
+          # Inject secrets for build
+          cat <<EOF > .env.production
+          NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EOF
+          
+          # Install and Build
+          npm ci
+          npm run build
+          
+          # Prepare artifact directory for Nix
+          mkdir -p frontend-artifact/.next/static
+          cp -r .next/standalone/* frontend-artifact/
+          cp -r .next/static frontend-artifact/.next/static
+          cp -r public frontend-artifact/public
+          
+          # Add artifact to git index so flake sees it
+          git add -f frontend-artifact
+        env:
+          NODE_ENV: production
+
+      - name: helper for nix
+        run: |
+          # Ensure flake.lock is consistent
+          nix flake lock --update-input nixpkgs --monitor-fd 1
         continue-on-error: true
 
-      - name: Inject secrets for build
-        run: |
-          cat <<EOF > build-env.nix
-          {
-            NEXT_PUBLIC_SUPABASE_URL = "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}";
-            NEXT_PUBLIC_SUPABASE_ANON_KEY = "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}";
-          }
-          EOF
-          git add -f build-env.nix
-
-      - name: Build Next.js frontend (Nix)
+      - name: Package frontend with Nix
         id: frontend-build
         run: nix build .#cartographer-frontend --print-build-logs
 
-      - name: Push frontend to Cachix
-        if: always()
-        run: |
-          echo "Pushing built paths to Cachix..."
-          nix path-info --all 2>/dev/null | grep -v '\.drv$' | cachix push kotto5 || true
-        env:
-          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      # Skipping Cachix push for frontend as requested (Direct copy via Colmena later)
 
       - name: Fail if frontend build failed
         if: steps.frontend-build.outcome == 'failure'

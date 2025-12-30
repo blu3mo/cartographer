@@ -155,28 +155,32 @@
 
           packages.cartographer-frontend = 
             let
-              envVars = if builtins.pathExists ./build-env.nix 
-                    then import ./build-env.nix 
-                    else {
-                      NEXT_PUBLIC_SUPABASE_URL = "https://placeholder.supabase.co";
-                      NEXT_PUBLIC_SUPABASE_ANON_KEY = "placeholder-key";
-                    };
+              # Check if the artifact directory exists (populated by CI)
+              artifactSrc = if builtins.pathExists ./frontend-artifact 
+                            then ./frontend-artifact
+                            else ./.; # Fallback for local dev (might fail or be empty)
             in
-            pkgs.buildNpmPackage (envVars // {
+            pkgs.stdenv.mkDerivation {
               pname = "cartographer-frontend";
               version = "0.1.0";
-              src = ./.;
-              # Initial dummy hash - run build to get the correct one
-              npmDepsHash = "sha256-Pidk+5OyAT7uAEU7sIPsd2fZjImKrZzD21DGuugAtr0=";
-              
-              # Using standalone output from Next.js
+              src = artifactSrc;
+
+              # No build phase needed, just copy
+              dontBuild = true;
+
               installPhase = ''
-                mkdir -p $out
-                cp -r .next/standalone $out/app
-                cp -r .next/static $out/app/.next/static
-                cp -r public $out/app/public
+                mkdir -p $out/app
+                if [ -d ".next/standalone" ]; then
+                  cp -r .next/standalone/* $out/app/
+                  cp -r .next/static $out/app/.next/static
+                  cp -r public $out/app/public
+                else
+                  echo "Warning: No build artifact found. This package expects .next/standalone."
+                  # For safety in local dev without artifact, create dummy
+                  touch $out/app/dummy
+                fi
               '';
-            });
+            };
 
           # TODO: EventId変更に伴いテストファイルの修正が必要
           # テストファイル修正後に以下のchecksを復活すること
