@@ -270,6 +270,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
   const isManualNavigationRef = useRef(false);
+  const previousStatementBeforeManualNavRef = useRef<Statement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
   const currentQuestionRef = useRef<HTMLDivElement | null>(null);
@@ -1133,6 +1134,12 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       ? { ...previousResponse }
       : null;
 
+    // Check if this is a manual navigation (e.g., editing a past response via "修正する")
+    const isManualNav = isManualNavigationRef.current;
+    if (isManualNav) {
+      isManualNavigationRef.current = false;
+    }
+
     setError(null);
     upsertParticipantResponse(previousStatement, {
       responseType: payload.responseType,
@@ -1153,6 +1160,81 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     const headers = createAuthorizationHeader(userId);
 
     try {
+      // If this is a manual navigation (editing a past response), save the response
+      // but don't advance to the next statement. Instead, return to the statement before editing.
+      if (isManualNav) {
+        setIsLoading(true);
+
+        const postResult = await axios.post(
+          `/api/sessions/${sessionId}/responses`,
+          {
+            statementId: previousStatement.id,
+            value: payload.value,
+            responseType: payload.responseType,
+            textResponse: payload.textResponse,
+          },
+          { headers },
+        );
+
+        const serverResponse = postResult.data?.response;
+        if (serverResponse) {
+          syncParticipantResponseFromServer(serverResponse);
+        }
+
+        clearPendingStatement();
+
+        // Return to the statement that was active before we clicked "修正する"
+        const statementToReturnTo = previousStatementBeforeManualNavRef.current;
+        previousStatementBeforeManualNavRef.current = null;
+
+        if (statementToReturnTo) {
+          setCurrentStatement(statementToReturnTo);
+
+          // Reset suggestions - will be fetched by useEffect
+          setAiSuggestions([]);
+          setIsLoadingSuggestions(true);
+          setPrefetchedAiSuggestions(undefined);
+        } else {
+          // Fallback: if we don't have the previous statement, find the latest unanswered one
+          const nextResponse = await axios.get(
+            `/api/sessions/${sessionId}/statements/next${buildExcludeQuery([previousStatement.id])}`,
+            { headers },
+          );
+
+          const nextStatement = nextResponse.data?.statement ?? null;
+          const remainingCount = nextResponse.data?.remainingCount ?? null;
+
+          if (nextStatement) {
+            setCurrentStatement(nextStatement);
+            setRemainingQuestions(remainingCount);
+
+            // Update all statements list if provided
+            if (nextResponse.data?.allStatements) {
+              setAllStatements(nextResponse.data.allStatements);
+              // Find current statement index
+              const index = nextResponse.data.allStatements.findIndex(
+                (s: Statement) => s.id === nextStatement.id,
+              );
+              setCurrentStatementIndex(index !== -1 ? index : null);
+            }
+
+            // Reset suggestions - will be fetched by useEffect
+            setAiSuggestions([]);
+            setIsLoadingSuggestions(true);
+            setPrefetchedAiSuggestions(undefined);
+          } else {
+            enterReflectionMode();
+          }
+        }
+
+        if (payload.responseType === "free_text") {
+          setFreeTextInput("");
+        }
+
+        setIsLoading(false);
+        return;
+      }
+
       if (cachedNextStatement === null) {
         setIsLoading(true);
 
@@ -1820,6 +1902,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                 <div
                   key={statement.id}
                   ref={isActive ? currentQuestionRef : null}
+                  data-testid="response-item"
                   className={cn(
                     "w-full transition-all duration-700 ease-in-out transform",
                     isActive && "scale-100 opacity-100 translate-y-0 z-20",
@@ -1873,7 +1956,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                               <span className="text-xs text-slate-400">
                                 あなたの回答:
                               </span>
-                              <div className="flex-1 text-sm text-slate-700 line-clamp-2">
+                              <div className="flex-1 text-sm text-slate-700 line-clamp-2" data-testid="response-value">
                                 {response.textResponse?.trim().length
                                   ? response.textResponse
                                   : "（記入なし）"}
@@ -1899,12 +1982,14 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     "bg-red-100 text-red-700",
                                 )}
                               >
-                                <span>{getResponseLabel(response.value)}</span>
+                                <span data-testid="response-value">{getResponseLabel(response.value)}</span>
                               </div>
                             </>
                           )}
                           <button
                             onClick={() => {
+                              // Save the current statement before navigating to edit
+                              previousStatementBeforeManualNavRef.current = currentStatement;
                               isManualNavigationRef.current = true;
                               setCurrentStatement(statement);
                               // If the response was free_text, open the alternatives section
