@@ -452,23 +452,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           responseType: response.responseType,
           value: response.value,
           textResponse: response.textResponse ?? null,
-          createdAt: existing?.createdAt ?? new Date().toISOString(),
+          createdAt: new Date().toISOString(), // Always update timestamp for sorting
         };
 
         if (existing) {
-          return sortResponsesByRecency(
-            prev.map((item) =>
-              item.statementId === statement.id
-                ? { ...item, ...nextResponse }
-                : item,
-            ),
-          );
+          // Update existing response - put it at the beginning (most recent)
+          const filtered = prev.filter((item) => item.statementId !== statement.id);
+          return [nextResponse, ...filtered];
         }
 
-        return sortResponsesByRecency([...prev, nextResponse]);
+        // Add new response at the beginning (most recent)
+        return [nextResponse, ...prev];
       });
     },
-    [sortResponsesByRecency],
+    [], // No dependencies - stable function
   );
 
   const revertParticipantResponse = useCallback(
@@ -476,20 +473,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       setParticipantResponses((prev) => {
         if (previous) {
           const exists = prev.some((item) => item.statementId === statementId);
-          const updatedList = exists
-            ? prev.map((item) =>
-                item.statementId === statementId ? previous : item,
-              )
-            : [...prev, previous];
-
-          return sortResponsesByRecency(updatedList);
+          if (exists) {
+            // Replace existing with previous version
+            return prev.map((item) =>
+              item.statementId === statementId ? previous : item,
+            );
+          }
+          // Add back the previous response
+          return [previous, ...prev];
         }
-        return sortResponsesByRecency(
-          prev.filter((item) => item.statementId !== statementId),
-        );
+        // Remove the response
+        return prev.filter((item) => item.statementId !== statementId);
       });
     },
-    [sortResponsesByRecency],
+    [], // No dependencies - stable function
   );
 
   const addUpdatingResponseId = useCallback((statementId: string) => {
@@ -519,27 +516,37 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       orderIndex?: number;
       createdAt: string;
     }) => {
-      setParticipantResponses((prev) =>
-        sortResponsesByRecency(
-          prev.map((item) =>
-            item.statementId === payload.statementId
-              ? {
-                  ...item,
-                  id: payload.id,
-                  value: payload.value as ResponseValue | null,
-                  responseType: payload.responseType,
-                  textResponse: payload.textResponse ?? item.textResponse,
-                  statementText:
-                    payload.statementText ?? item.statementText ?? "",
-                  orderIndex: payload.orderIndex ?? item.orderIndex ?? 0,
-                  createdAt: payload.createdAt,
-                }
-              : item,
-          ),
-        ),
-      );
+      setParticipantResponses((prev) => {
+        const existingIndex = prev.findIndex(
+          (item) => item.statementId === payload.statementId,
+        );
+
+        if (existingIndex === -1) return prev;
+
+        const updated = {
+          ...prev[existingIndex]!,
+          id: payload.id,
+          value: payload.value as ResponseValue | null,
+          responseType: payload.responseType,
+          textResponse: payload.textResponse ?? prev[existingIndex]!.textResponse,
+          statementText: payload.statementText ?? prev[existingIndex]!.statementText ?? "",
+          orderIndex: payload.orderIndex ?? prev[existingIndex]!.orderIndex ?? 0,
+          createdAt: payload.createdAt,
+        };
+
+        // Move to front if timestamp changed (indicates new update)
+        if (payload.createdAt !== prev[existingIndex]!.createdAt) {
+          const filtered = prev.filter((_, i) => i !== existingIndex);
+          return [updated, ...filtered];
+        }
+
+        // Just update in place if timestamp same
+        const newArray = [...prev];
+        newArray[existingIndex] = updated;
+        return newArray;
+      });
     },
-    [sortResponsesByRecency],
+    [], // No dependencies - stable function
   );
 
   const buildExcludeQuery = useCallback(
@@ -1100,25 +1107,21 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       }
 
       if (cachedNextStatement) {
+        // Batch all state updates together for performance
+        const hasPrefetchedSuggestions = prefetchedAiSuggestions !== undefined;
+
+        if (hasPrefetchedSuggestions) {
+          prefetchedStatementIdRef.current = cachedNextStatement.id;
+        }
+
+        // Single batched state update
         setCurrentStatement(cachedNextStatement);
         setPrefetchedStatement(undefined);
         setRemainingQuestions(prefetchedRemainingQuestions ?? null);
         setPrefetchedRemainingQuestions(null);
-
-        // Use prefetched suggestions for the next statement
-        if (prefetchedAiSuggestions !== undefined) {
-          // Suggestions are ready - mark this as a prefetch transition
-          prefetchedStatementIdRef.current = cachedNextStatement.id;
-          setAiSuggestions(prefetchedAiSuggestions);
-          setIsLoadingSuggestions(false);
-          setPrefetchedAiSuggestions(undefined);
-        } else {
-          // Fallback: suggestions weren't prefetched yet
-          // Don't set ref - let useEffect fetch suggestions normally
-          setAiSuggestions([]);
-          setIsLoadingSuggestions(true);
-          setPrefetchedAiSuggestions(undefined);
-        }
+        setAiSuggestions(hasPrefetchedSuggestions ? prefetchedAiSuggestions : []);
+        setIsLoadingSuggestions(!hasPrefetchedSuggestions);
+        setPrefetchedAiSuggestions(undefined);
 
         axios
           .post(
@@ -1181,8 +1184,12 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       const remainingCount = nextResponse.data?.remainingCount ?? null;
 
       if (nextStatement) {
+        // Batch all state updates together
         setCurrentStatement(nextStatement);
         setRemainingQuestions(remainingCount);
+        setAiSuggestions([]);
+        setIsLoadingSuggestions(true);
+        setPrefetchedAiSuggestions(undefined);
 
         // Update all statements list if provided
         if (nextResponse.data?.allStatements) {
@@ -1193,11 +1200,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           );
           setCurrentStatementIndex(index !== -1 ? index : null);
         }
-
-        // Reset suggestions - will be fetched by useEffect
-        setAiSuggestions([]);
-        setIsLoadingSuggestions(true);
-        setPrefetchedAiSuggestions(undefined);
       } else {
         enterReflectionMode();
       }
@@ -1358,11 +1360,11 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           nextStatementResponse.data?.remainingCount ?? null;
 
         if (statement) {
+          // Batch all state updates together
           setCurrentStatement(statement);
           setPrefetchedStatement(undefined);
           setState("ANSWERING");
           setRemainingQuestions(nextRemainingCount);
-          // Reset suggestions - will be fetched by useEffect
           setAiSuggestions([]);
           setIsLoadingSuggestions(true);
           setPrefetchedAiSuggestions(undefined);
