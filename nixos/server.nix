@@ -1,12 +1,19 @@
 # Cartographer NixOS Server Module
 # This module is imported by the Colmena configuration in flake.nix
+# This module is imported by the Colmena configuration in flake.nix
 # Application packages are passed via specialArgs
-{ pkgs, modulesPath, lib, ... }:
+{ pkgs, modulesPath, lib, cartographer-backend, cartographer-frontend, ... }:
 
 {
   imports = [
     "${modulesPath}/virtualisation/amazon-image.nix"
   ];
+
+  # Nix configuration for Cachix
+  nix.settings = {
+    substituters = [ "https://kotto5.cachix.org" ];
+    trusted-public-keys = [ "kotto5.cachix.org-1:kIqTVHIxWyPkkiJ24ceZpS6JVvs2BE8GTIA48virk/s=" ];
+  };
 
   # System packages
   environment.systemPackages = with pkgs; [
@@ -84,8 +91,7 @@
       User = "cartographer";
       Group = "cartographer";
       WorkingDirectory = "/var/lib/cartographer";
-      # This will be replaced with the actual package path when integrated
-      ExecStart = "/run/current-system/sw/bin/cartographer-backend";
+      ExecStart = "${lib.getExe cartographer-backend}";
       Restart = "always";
       RestartSec = 5;
     };
@@ -110,8 +116,8 @@
     serviceConfig = {
       Type = "simple";
       User = "root"; # Port 80 requires root or CAP_NET_BIND_SERVICE
-      WorkingDirectory = "/var/lib/cartographer/frontend";
-      ExecStart = "${pkgs.nodejs_20}/bin/node server.js";
+      WorkingDirectory = "${cartographer-frontend}/app";
+      ExecStart = "${pkgs.nodejs_20}/bin/node ${cartographer-frontend}/app/server.js";
       Restart = "always";
       RestartSec = 5;
     };

@@ -10,6 +10,11 @@
     colmena.url = "github:zhaofengli/colmena";
   };
 
+  nixConfig = {
+    extra-substituters = [ "https://kotto5.cachix.org" ];
+    extra-trusted-public-keys = [ "kotto5.cachix.org-1:kIqTVHIxWyPkkiJ24ceZpS6JVvs2BE8GTIA48virk/s=" ];
+  };
+
   outputs =
     inputs@{
       self,
@@ -147,6 +152,22 @@
                   sed -i '/test-suite cartographer-backend-test/a \ \ buildable: False' cartographer-backend.cabal
                 '';
               });
+
+          packages.cartographer-frontend = pkgs.buildNpmPackage {
+            pname = "cartographer-frontend";
+            version = "0.1.0";
+            src = ./.;
+            # Initial dummy hash - run build to get the correct one
+            npmDepsHash = "sha256-DmEU03Ao+NayQnfH2QQYeq/++YhWdJHEeOUKhKry/IQ=";
+            
+            # Using standalone output from Next.js
+            installPhase = ''
+              mkdir -p $out
+              cp -r .next/standalone $out/app
+              cp -r .next/static $out/app/.next/static
+              cp -r public $out/app/public
+            '';
+          };
 
           # TODO: EventId変更に伴いテストファイルの修正が必要
           # テストファイル修正後に以下のchecksを復活すること
@@ -308,8 +329,9 @@
               ...
             }:
             let
-              # Get the Haskell backend package for x86_64-linux
+              # Packages for x86_64-linux (Target Architecture)
               backendPackage = self.packages.x86_64-linux.cartographer-backend;
+              frontendPackage = self.packages.x86_64-linux.cartographer-frontend;
             in
             {
               deployment = {
@@ -318,12 +340,15 @@
                 buildOnTarget = false; # Build on CI (GitHub Actions), not on target
               };
 
-              # Add the backend to system packages so it's available in PATH
-              environment.systemPackages = [ backendPackage ];
-
               imports = [
                 ./nixos/server.nix
               ];
+
+              # Pass packages to the module
+              _module.args = {
+                cartographer-backend = backendPackage;
+                cartographer-frontend = frontendPackage;
+              };
             };
         };
       };
