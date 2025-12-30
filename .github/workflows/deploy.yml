@@ -26,7 +26,7 @@ jobs:
 
       - uses: cachix/cachix-action@v15
         with:
-          name: cartographer
+          name: kotto5
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
         continue-on-error: true
 
