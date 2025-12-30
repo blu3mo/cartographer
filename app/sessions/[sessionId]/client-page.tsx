@@ -132,6 +132,70 @@ const getResponseLabel = (value: ResponseValue | null) => {
   return choice ? `${choice.emoji} ${choice.label}` : "回答済み";
 };
 
+// Helper function to fetch suggestions with streaming
+async function fetchSuggestionsStreaming(
+  sessionId: string,
+  statementId: string,
+  userId: string,
+  onSuggestion: (suggestion: string) => void,
+  onComplete: () => void,
+  onError: (error: Error) => void,
+): Promise<void> {
+  try {
+    const response = await fetch(
+      `/api/sessions/${sessionId}/statements/${statementId}/suggestions`,
+      {
+        headers: createAuthorizationHeader(userId),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No reader available");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") {
+            onComplete();
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.suggestion) {
+              onSuggestion(parsed.suggestion);
+            }
+          } catch (e) {
+            console.warn("Failed to parse streaming data:", e);
+          }
+        }
+      }
+    }
+
+    onComplete();
+  } catch (error) {
+    console.error("Streaming error:", error);
+    onError(error as Error);
+  }
+}
+
 const normalizeGoalLabel = (label: string | null) => {
   if (!label) return null;
   const normalized = label.replace(/\s/g, "");
@@ -654,35 +718,75 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       setIsLoadingSuggestions(true);
 
       const fetchCurrentSuggestions = async () => {
-        try {
-          const response = await axios.get(
-            `/api/sessions/${sessionId}/statements/${currentStatement.id}/suggestions`,
-            {
-              headers: createAuthorizationHeader(userId),
-            },
-          );
+        const suggestions: string[] = [];
 
-          if (
-            response.data.suggestions &&
-            Array.isArray(response.data.suggestions)
-          ) {
-            setAiSuggestions(response.data.suggestions);
-          }
-        } catch (err) {
-          console.error("Failed to fetch AI suggestions:", err);
-          // Set fallback suggestions
-          setAiSuggestions([
-            "状況によって賛成できる",
-            "一部には賛成だが全体には反対",
-            "今は判断できない",
-          ]);
-        } finally {
-          setIsLoadingSuggestions(false);
-        }
+        await fetchSuggestionsStreaming(
+          sessionId,
+          currentStatement.id,
+          userId,
+          (suggestion) => {
+            suggestions.push(suggestion);
+            setAiSuggestions([...suggestions]);
+          },
+          () => {
+            setIsLoadingSuggestions(false);
+          },
+          (err) => {
+            console.error("Failed to fetch AI suggestions:", err);
+            // Set fallback suggestions
+            setAiSuggestions([
+              "状況によって賛成できる",
+              "一部には賛成だが全体には反対",
+              "今は判断できない",
+            ]);
+            setIsLoadingSuggestions(false);
+          },
+        );
       };
 
       fetchCurrentSuggestions();
-      // Don't prefetch next statement when manually navigating
+
+      // Prefetch the next statement in timeline (not the next unanswered)
+      setPrefetchedStatement(undefined);
+      setPrefetchedRemainingQuestions(null);
+      setPrefetchedAiSuggestions(undefined);
+
+      const currentIndex = allStatements.findIndex(
+        (s) => s.id === currentStatement.id,
+      );
+      if (currentIndex !== -1 && currentIndex < allStatements.length - 1) {
+        const nextStatementInTimeline = allStatements[currentIndex + 1];
+        if (nextStatementInTimeline) {
+          setPrefetchedStatement(nextStatementInTimeline);
+          // Prefetch suggestions for the next statement in timeline
+          const prefetchTimelineNextSuggestions = async () => {
+            const suggestions: string[] = [];
+            await fetchSuggestionsStreaming(
+              sessionId,
+              nextStatementInTimeline.id,
+              userId,
+              (suggestion) => {
+                suggestions.push(suggestion);
+              },
+              () => {
+                setPrefetchedAiSuggestions(suggestions);
+              },
+              (err) => {
+                console.error(
+                  "Failed to prefetch AI suggestions for timeline next statement:",
+                  err,
+                );
+                setPrefetchedAiSuggestions([
+                  "状況によって賛成できる",
+                  "一部には賛成だが全体には反対",
+                  "今は判断できない",
+                ]);
+              },
+            );
+          };
+          prefetchTimelineNextSuggestions();
+        }
+      }
       return;
     }
 
@@ -701,31 +805,30 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       setIsLoadingSuggestions(true);
 
       const prefetchCurrentSuggestions = async () => {
-        try {
-          const response = await axios.get(
-            `/api/sessions/${sessionId}/statements/${currentStatement.id}/suggestions`,
-            {
-              headers: createAuthorizationHeader(userId),
-            },
-          );
+        const suggestions: string[] = [];
 
-          if (
-            response.data.suggestions &&
-            Array.isArray(response.data.suggestions)
-          ) {
-            setAiSuggestions(response.data.suggestions);
-          }
-        } catch (err) {
-          console.error("Failed to fetch AI suggestions:", err);
-          // Set fallback suggestions
-          setAiSuggestions([
-            "状況によって賛成できる",
-            "一部には賛成だが全体には反対",
-            "今は判断できない",
-          ]);
-        } finally {
-          setIsLoadingSuggestions(false);
-        }
+        await fetchSuggestionsStreaming(
+          sessionId,
+          currentStatement.id,
+          userId,
+          (suggestion) => {
+            suggestions.push(suggestion);
+            setAiSuggestions([...suggestions]);
+          },
+          () => {
+            setIsLoadingSuggestions(false);
+          },
+          (err) => {
+            console.error("Failed to fetch AI suggestions:", err);
+            // Set fallback suggestions
+            setAiSuggestions([
+              "状況によって賛成できる",
+              "一部には賛成だが全体には反対",
+              "今は判断できない",
+            ]);
+            setIsLoadingSuggestions(false);
+          },
+        );
       };
 
       prefetchCurrentSuggestions();
@@ -751,35 +854,35 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           setPrefetchedStatement(nextStatement);
           setPrefetchedRemainingQuestions(response.data.remainingCount ?? null);
 
-          // Prefetch suggestions for the next statement
-          try {
-            const suggestionsResponse = await axios.get(
-              `/api/sessions/${sessionId}/statements/${nextStatement.id}/suggestions`,
-              {
-                headers: createAuthorizationHeader(userId),
-              },
-            );
+          // Prefetch suggestions for the next statement with streaming
+          const prefetchedSuggestions: string[] = [];
 
-            if (
-              suggestionsResponse.data.suggestions &&
-              Array.isArray(suggestionsResponse.data.suggestions)
-            ) {
-              setPrefetchedAiSuggestions(suggestionsResponse.data.suggestions);
-            } else {
-              setPrefetchedAiSuggestions([]);
-            }
-          } catch (err) {
-            console.error(
-              "Failed to prefetch AI suggestions for next statement:",
-              err,
-            );
-            // Set fallback suggestions for next statement
-            setPrefetchedAiSuggestions([
-              "状況によって賛成できる",
-              "一部には賛成だが全体には反対",
-              "今は判断できない",
-            ]);
-          }
+          fetchSuggestionsStreaming(
+            sessionId,
+            nextStatement.id,
+            userId,
+            (suggestion) => {
+              prefetchedSuggestions.push(suggestion);
+              setPrefetchedAiSuggestions([...prefetchedSuggestions]);
+            },
+            () => {
+              // Streaming complete
+            },
+            (err) => {
+              console.error(
+                "Failed to prefetch AI suggestions for next statement:",
+                err,
+              );
+              // Set fallback suggestions for next statement
+              setPrefetchedAiSuggestions([
+                "状況によって賛成できる",
+                "一部には賛成だが全体には反対",
+                "今は判断できない",
+              ]);
+            },
+          ).catch((err) => {
+            console.error("Prefetch streaming error:", err);
+          });
         } else {
           // null means this is the last question
           setPrefetchedStatement(null);
@@ -1804,7 +1907,21 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             onClick={() => {
                               isManualNavigationRef.current = true;
                               setCurrentStatement(statement);
-                              setShowAlternatives(false);
+                              // If the response was free_text, open the alternatives section
+                              const isFreeText = response.responseType === "free_text";
+                              setShowAlternatives(isFreeText);
+
+                              // Scroll to free text section after a short delay
+                              if (isFreeText) {
+                                requestAnimationFrame(() => {
+                                  setTimeout(() => {
+                                    freeTextSectionRef.current?.scrollIntoView({
+                                      behavior: "smooth",
+                                      block: "start",
+                                    });
+                                  }, 300);
+                                });
+                              }
                             }}
                             className="ml-auto text-xs text-indigo-500 hover:text-indigo-700 font-medium underline"
                           >
@@ -1821,9 +1938,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             type="button"
                             onClick={() => handleAnswer(2)}
                             disabled={isLoading}
-                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === 2
+                                ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700",
+                            )}
                           >
-                            <div className="text-xl sm:text-3xl">👍</div>
+                            <div className="text-xl sm:text-3xl leading-none">👍</div>
                             <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
                               強く同意
                             </span>
@@ -1832,9 +1956,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             type="button"
                             onClick={() => handleAnswer(1)}
                             disabled={isLoading}
-                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === 1
+                                ? "bg-green-400 hover:bg-green-500 text-white border-green-500 hover:border-green-600"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-green-400 hover:bg-green-500 text-white border-green-500 hover:border-green-600",
+                            )}
                           >
-                            <div className="text-xl sm:text-3xl">✓</div>
+                            <div className="text-xl sm:text-3xl leading-none">✓</div>
                             <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
                               同意
                             </span>
@@ -1843,9 +1974,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             type="button"
                             onClick={() => handleAnswer(0)}
                             disabled={isLoading}
-                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === 0
+                                ? "bg-amber-400 hover:bg-amber-500 text-gray-900 border-amber-500 hover:border-amber-600"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-amber-400 hover:bg-amber-500 text-gray-900 border-amber-500 hover:border-amber-600",
+                            )}
                           >
-                            <div className="text-xl sm:text-3xl">🤔</div>
+                            <div className="text-xl sm:text-3xl leading-none">🤔</div>
                             <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
                               {showAlternatives
                                 ? "わからない・自信がない▲"
@@ -1856,9 +1994,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             type="button"
                             onClick={() => handleAnswer(-1)}
                             disabled={isLoading}
-                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === -1
+                                ? "bg-rose-400 hover:bg-rose-500 text-white border-rose-500 hover:border-rose-600"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-rose-400 hover:bg-rose-500 text-white border-rose-500 hover:border-rose-600",
+                            )}
                           >
-                            <div className="text-xl sm:text-3xl">✗</div>
+                            <div className="text-xl sm:text-3xl leading-none">✗</div>
                             <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
                               反対
                             </span>
@@ -1867,17 +2012,24 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             type="button"
                             onClick={() => handleAnswer(-2)}
                             disabled={isLoading}
-                            className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === -2
+                                ? "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800",
+                            )}
                           >
-                            <div className="text-xl sm:text-3xl">👎</div>
+                            <div className="text-xl sm:text-3xl leading-none">👎</div>
                             <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
                               強く反対
                             </span>
                           </button>
                         </div>
 
-                        <div className="mt-6 space-y-3">
-                          {showAlternatives && (
+                        {showAlternatives && (
+                          <div className="mt-6 space-y-3">
                             <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
                               <div className="space-y-2">
                                 <p className="text-sm font-bold text-foreground">
@@ -1892,31 +2044,55 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     })
                                   }
                                   disabled={isLoading || isSubmittingFreeText}
-                                  className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className={cn(
+                                    "w-full px-4 py-3.5 text-left rounded-lg border text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                                    response?.value === 0
+                                      ? "border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-amber-700"
+                                      : response && response.responseType === "scale"
+                                        ? "border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-slate-400"
+                                        : "border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-amber-700",
+                                  )}
                                 >
                                   （自分はこの質問に対して）確信が持てない・情報を把握していない
                                 </button>
                               </div>
 
-                              {isLoadingSuggestions ? (
-                                <div className="space-y-2">
-                                  <div className="h-10 bg-muted rounded-md animate-pulse" />
-                                  <div className="h-10 bg-muted rounded-md animate-pulse" />
-                                  <div className="h-10 bg-muted rounded-md animate-pulse" />
+                              {isLoadingSuggestions && aiSuggestions.length === 0 ? (
+                                <div className="space-y-3">
+                                  <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <span>AIが選択肢を考えています...</span>
+                                  </div>
+                                  {[1, 2, 3].map((i) => (
+                                    <div
+                                      key={i}
+                                      className="relative h-14 bg-gradient-to-r from-muted via-muted/50 to-muted rounded-lg overflow-hidden"
+                                    >
+                                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                                      <div className="px-4 py-3.5 opacity-20 text-sm">
+                                        選択肢を生成しています...
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               ) : (
                                 <div className="space-y-3">
-                                  {aiSuggestions.map((suggestion) => (
+                                  {isLoadingSuggestions && (
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      <span>残りの選択肢を生成中...</span>
+                                    </div>
+                                  )}
+                                  {aiSuggestions.map((suggestion, index) => (
                                     <button
-                                      key={suggestion}
+                                      key={`${suggestion}-${index}`}
                                       type="button"
                                       onClick={() =>
                                         handleSuggestionClick(suggestion)
                                       }
-                                      disabled={
-                                        isLoading || isSubmittingFreeText
-                                      }
-                                      className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                      disabled={isLoading || isSubmittingFreeText}
+                                      className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed animate-fade-in"
+                                      style={{ animationDelay: `${index * 100}ms` }}
                                     >
                                       {suggestion}
                                     </button>
@@ -1966,8 +2142,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 </div>
                               </div>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
 
                         {error && (
                           <p className="text-sm text-destructive mt-4">
@@ -1981,10 +2157,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
               );
             })}
 
-            <div className="h-40 flex items-start justify-center pt-4 opacity-40">
+            <div className="h-40 flex items-start justify-center pt-4">
               <div className="text-center">
-                <div className="w-1 h-10 bg-slate-300 mx-auto rounded-full mb-2" />
-                <p className="text-xs text-slate-400">質問終了</p>
+                <p className="text-sm text-slate-600">質問は以上です</p>
               </div>
             </div>
           </main>
