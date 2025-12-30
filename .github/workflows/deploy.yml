@@ -78,10 +78,7 @@ jobs:
           cp -r .next/static frontend-artifact/.next/static
           cp -r public frontend-artifact/public
           
-          # Add artifact to git index so flake sees it
           git add -f frontend-artifact
-        env:
-          NODE_ENV: production
 
       - name: helper for nix
         run: |
