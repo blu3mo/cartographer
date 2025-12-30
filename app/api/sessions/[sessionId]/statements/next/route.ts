@@ -109,17 +109,24 @@ export async function GET(
 
     const remainingCount = unansweredStatements.length;
 
+    // Map all statements for the timeline view
+    const mappedAllStatements = (allStatements ?? []).map(mapStatement);
+
     if (unansweredStatements.length === 0) {
-      return NextResponse.json({ statement: null, remainingCount });
+      return NextResponse.json({
+        statement: null,
+        remainingCount,
+        allStatements: mappedAllStatements,
+      });
     }
 
-    // Return a random unanswered statement
-    const randomIndex = Math.floor(Math.random() * unansweredStatements.length);
-    const statement = unansweredStatements[randomIndex] as StatementRow;
+    // Return the next unanswered statement in order
+    const statement = unansweredStatements[0] as StatementRow;
 
     return NextResponse.json({
       statement: mapStatement(statement),
       remainingCount,
+      allStatements: mappedAllStatements,
     });
   } catch (error) {
     console.error("Get next statement error:", error);

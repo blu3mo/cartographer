@@ -347,7 +347,7 @@ export async function generateSurveyAnalysisMarkdown(input: {
       case 1:
         return "同意";
       case 0:
-        return "わからない";
+        return "わからない・自信がない";
       case -1:
         return "反対";
       case -2:
@@ -370,7 +370,7 @@ export async function generateSurveyAnalysisMarkdown(input: {
       const body = `${index + 1}. "${statement.text}" (回答人数: ${statement.totalCount}人)
 - 強く同意: ${dist.strongYes}%
 - 同意: ${dist.yes}%
-- わからない: ${dist.dontKnow}%
+- わからない・自信がない: ${dist.dontKnow}%
 - 反対: ${dist.no}%
 - 強く反対: ${dist.strongNo}%`;
       return freeTextSnippet ? `${body}\n${freeTextSnippet}` : body;

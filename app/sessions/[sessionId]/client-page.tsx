@@ -1,7 +1,13 @@
 "use client";
 
 import axios from "axios";
-import { FileText, Info, Loader2 } from "lucide-react";
+import {
+  ArrowDown,
+  FileText,
+  Loader2,
+  MessageCircleQuestion,
+  Navigation,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -53,6 +59,12 @@ type SessionInfo = {
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
 type ResponseType = "scale" | "free_text";
 
+type GoalSection = {
+  id: string;
+  label: string;
+  value: string;
+};
+
 type ParticipantResponse = {
   id?: string;
   statementId: string;
@@ -64,40 +76,6 @@ type ParticipantResponse = {
   createdAt: string;
 };
 
-type ParticipantReflection = {
-  id: string;
-  text: string;
-  createdAt: string;
-  submittedAt: string;
-};
-
-type HistoryEntry =
-  | {
-      type: "response";
-      createdAt: string;
-      response: ParticipantResponse;
-      key: string;
-    }
-  | {
-      type: "reflection";
-      createdAt: string;
-      reflection: ParticipantReflection;
-      key: string;
-    };
-
-const GOAL_PREVIEW_LIMIT = 140;
-
-type GoalHighlight = {
-  key: string;
-  label: string | null;
-  value: string;
-  raw: string;
-};
-
-type KeywordPattern = {
-  match: string;
-  label?: string;
-};
 
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
@@ -125,7 +103,7 @@ const RESPONSE_CHOICES: Array<{
   },
   {
     value: 0,
-    label: "わからない",
+    label: "わからない・自信がない",
     emoji: "🤔",
     idleClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
     activeClass:
@@ -149,14 +127,99 @@ const RESPONSE_CHOICES: Array<{
   },
 ];
 
+const getResponseLabel = (value: ResponseValue | null) => {
+  const choice = RESPONSE_CHOICES.find((item) => item.value === value);
+  return choice ? `${choice.emoji} ${choice.label}` : "回答済み";
+};
+
+// Helper function to fetch suggestions with streaming
+async function fetchSuggestionsStreaming(
+  sessionId: string,
+  statementId: string,
+  userId: string,
+  onSuggestion: (suggestion: string) => void,
+  onComplete: () => void,
+  onError: (error: Error) => void,
+): Promise<void> {
+  try {
+    const response = await fetch(
+      `/api/sessions/${sessionId}/statements/${statementId}/suggestions`,
+      {
+        headers: createAuthorizationHeader(userId),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No reader available");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") {
+            onComplete();
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.suggestion) {
+              onSuggestion(parsed.suggestion);
+            }
+          } catch (e) {
+            console.warn("Failed to parse streaming data:", e);
+          }
+        }
+      }
+    }
+
+    onComplete();
+  } catch (error) {
+    console.error("Streaming error:", error);
+    onError(error as Error);
+  }
+}
+
+const normalizeGoalLabel = (label: string | null) => {
+  if (!label) return null;
+  const normalized = label.replace(/\s/g, "");
+  if (normalized.includes("何のため") || normalized.includes("目的")) {
+    return "purpose" as const;
+  }
+  if (normalized.includes("何の認識") || normalized.includes("認識")) {
+    return "focus" as const;
+  }
+  return null;
+};
+
+const GOAL_LABELS = {
+  purpose: "何のために洗い出しますか？",
+  focus: "何の認識を洗い出しますか？",
+} as const;
+
 export default function SessionPage({ sessionId }: { sessionId: string }) {
   const { userId, isLoading: userLoading } = useUserId();
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [isSessionInfoLoading, setIsSessionInfoLoading] = useState(true);
   const [sessionInfoError, setSessionInfoError] = useState<string | null>(null);
   const [state, setState] = useState<SessionState>("NEEDS_NAME");
-  const [showFullGoal, setShowFullGoal] = useState(false);
-  const [isGoalCollapsed, setIsGoalCollapsed] = useState(true);
+  const [hasStarted, setHasStarted] = useState(false);
   const [name, setName] = useState("");
   const [currentStatement, setCurrentStatement] = useState<Statement | null>(
     null,
@@ -169,7 +232,13 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   );
   const [prefetchedRemainingQuestions, setPrefetchedRemainingQuestions] =
     useState<number | null>(null);
+  const [allStatements, setAllStatements] = useState<Statement[]>([]);
+  const [currentStatementIndex, setCurrentStatementIndex] = useState<
+    number | null
+  >(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const [showScrollToActive, setShowScrollToActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [freeTextInput, setFreeTextInput] = useState("");
   const [isSubmittingFreeText, setIsSubmittingFreeText] = useState(false);
@@ -192,11 +261,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const [updatingResponseIds, setUpdatingResponseIds] = useState<Set<string>>(
     new Set(),
   );
-  const [participantReflections, setParticipantReflections] = useState<
-    ParticipantReflection[]
-  >([]);
-  const [isLoadingReflections, setIsLoadingReflections] = useState(false);
-  const [reflectionsError, setReflectionsError] = useState<string | null>(null);
   const [reflectionText, setReflectionText] = useState("");
   const [isSubmittingReflection, setIsSubmittingReflection] = useState(false);
   const [reflectionSubmissionError, setReflectionSubmissionError] = useState<
@@ -205,9 +269,21 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
-  const historySectionRef = useRef<HTMLDivElement | null>(null);
+  const currentQuestionRef = useRef<HTMLDivElement | null>(null);
   const sessionInfoId = sessionInfo?.id;
+  const totalQuestions = allStatements.length;
+  const progressPercent =
+    totalQuestions > 0 && remainingQuestions !== null
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((totalQuestions - remainingQuestions) / totalQuestions) * 100,
+          ),
+        )
+      : null;
   const sortResponsesByRecency = useCallback((items: ParticipantResponse[]) => {
     return [...items].sort((a, b) => {
       const timeDiff =
@@ -219,29 +295,97 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       return a.orderIndex - b.orderIndex;
     });
   }, []);
-  const historyItems = useMemo<HistoryEntry[]>(() => {
-    const responses = participantResponses.map((response) => ({
-      type: "response" as const,
-      createdAt: response.createdAt,
-      response,
-      key: `response-${response.statementId}`,
-    }));
-    const reflections = participantReflections.map((reflection) => ({
-      type: "reflection" as const,
-      createdAt: reflection.submittedAt ?? reflection.createdAt,
-      reflection,
-      key: `reflection-${reflection.id}`,
-    }));
+  const previewStatement = useMemo(() => {
+    const answeredIds = new Set(participantResponses.map((r) => r.statementId));
+    if (currentStatementIndex === null || currentStatementIndex < 0) {
+      return prefetchedStatement ?? null;
+    }
 
-    return [...responses, ...reflections].sort((a, b) => {
-      const diff =
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      if (diff !== 0) {
-        return diff;
+    for (let i = currentStatementIndex + 1; i < allStatements.length; i++) {
+      if (!answeredIds.has(allStatements[i]!.id)) {
+        return allStatements[i]!;
       }
-      return a.key.localeCompare(b.key);
+    }
+
+    return prefetchedStatement ?? null;
+  }, [
+    allStatements,
+    participantResponses,
+    currentStatementIndex,
+    prefetchedStatement,
+  ]);
+
+  const responsesByStatementId = useMemo(() => {
+    return new Map(
+      participantResponses.map((response) => [response.statementId, response]),
+    );
+  }, [participantResponses]);
+
+  const orderedStatements = useMemo(() => {
+    const statementMap = new Map<string, Statement>();
+    const addStatement = (statement: Statement | null | undefined) => {
+      if (!statement) return;
+      statementMap.set(statement.id, statement);
+    };
+
+    allStatements.forEach(addStatement);
+    participantResponses.forEach((response) => {
+      if (!statementMap.has(response.statementId)) {
+        statementMap.set(response.statementId, {
+          id: response.statementId,
+          text: response.statementText,
+          orderIndex: response.orderIndex,
+          sessionId,
+        });
+      }
     });
-  }, [participantResponses, participantReflections]);
+    addStatement(currentStatement);
+    addStatement(previewStatement);
+
+    return Array.from(statementMap.values()).sort(
+      (a, b) => a.orderIndex - b.orderIndex,
+    );
+  }, [
+    allStatements,
+    participantResponses,
+    currentStatement,
+    previewStatement,
+    sessionId,
+  ]);
+
+  const activeStatementIndex = useMemo(() => {
+    if (!currentStatement) return null;
+    const index = orderedStatements.findIndex(
+      (statement) => statement.id === currentStatement.id,
+    );
+    return index >= 0 ? index : null;
+  }, [orderedStatements, currentStatement]);
+  const currentQuestionNumber = useMemo(() => {
+    if (activeStatementIndex !== null) {
+      return activeStatementIndex + 1;
+    }
+    if (currentStatementIndex !== null) {
+      return currentStatementIndex + 1;
+    }
+    return null;
+  }, [activeStatementIndex, currentStatementIndex]);
+  const shouldShowHeader =
+    state === "ANSWERING" &&
+    progressPercent !== null &&
+    currentQuestionNumber !== null &&
+    totalQuestions > 0;
+
+  useEffect(() => {
+    if (!currentStatement) {
+      setCurrentStatementIndex(null);
+      return;
+    }
+    if (allStatements.length === 0) return;
+    const index = allStatements.findIndex(
+      (statement) => statement.id === currentStatement.id,
+    );
+    setCurrentStatementIndex(index !== -1 ? index : null);
+  }, [currentStatement?.id, allStatements]);
   const fetchParticipantResponses = useCallback(async () => {
     if (!userId) return;
     setIsLoadingResponses(true);
@@ -289,55 +433,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       setIsLoadingResponses(false);
     }
   }, [sessionId, userId, sortResponsesByRecency]);
-  const fetchParticipantReflections = useCallback(async () => {
-    if (!userId) return;
-    setIsLoadingReflections(true);
-    setReflectionsError(null);
-
-    try {
-      const response = await axios.get(
-        `/api/sessions/${sessionId}/reflections`,
-        {
-          headers: createAuthorizationHeader(userId),
-        },
-      );
-
-      const items = (response.data.reflections ?? []) as Array<{
-        id: string;
-        text: string;
-        createdAt?: string;
-        submittedAt?: string;
-      }>;
-
-      setParticipantReflections(
-        items
-          .map((item) => ({
-            id: item.id,
-            text: item.text,
-            createdAt: item.createdAt ?? new Date().toISOString(),
-            submittedAt: item.submittedAt ?? new Date().toISOString(),
-          }))
-          .sort(
-            (a, b) =>
-              new Date(b.submittedAt).getTime() -
-              new Date(a.submittedAt).getTime(),
-          ),
-      );
-    } catch (err) {
-      console.error("Failed to fetch participant reflections:", err);
-      if (axios.isAxiosError(err) && err.response?.status === 404) {
-        setParticipantReflections([]);
-        setReflectionsError(null);
-      } else {
-        setReflectionsError(
-          "これまでのふりかえりを取得できませんでした。更新して再度お試しください。",
-        );
-      }
-    } finally {
-      setIsLoadingReflections(false);
-    }
-  }, [sessionId, userId]);
-
   const upsertParticipantResponse = useCallback(
     (
       statement: Statement,
@@ -357,23 +452,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           responseType: response.responseType,
           value: response.value,
           textResponse: response.textResponse ?? null,
-          createdAt: existing?.createdAt ?? new Date().toISOString(),
+          createdAt: new Date().toISOString(), // Always update timestamp for sorting
         };
 
         if (existing) {
-          return sortResponsesByRecency(
-            prev.map((item) =>
-              item.statementId === statement.id
-                ? { ...item, ...nextResponse }
-                : item,
-            ),
-          );
+          // Update existing response - put it at the beginning (most recent)
+          const filtered = prev.filter((item) => item.statementId !== statement.id);
+          return [nextResponse, ...filtered];
         }
 
-        return sortResponsesByRecency([...prev, nextResponse]);
+        // Add new response at the beginning (most recent)
+        return [nextResponse, ...prev];
       });
     },
-    [sortResponsesByRecency],
+    [], // No dependencies - stable function
   );
 
   const revertParticipantResponse = useCallback(
@@ -381,20 +473,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       setParticipantResponses((prev) => {
         if (previous) {
           const exists = prev.some((item) => item.statementId === statementId);
-          const updatedList = exists
-            ? prev.map((item) =>
-                item.statementId === statementId ? previous : item,
-              )
-            : [...prev, previous];
-
-          return sortResponsesByRecency(updatedList);
+          if (exists) {
+            // Replace existing with previous version
+            return prev.map((item) =>
+              item.statementId === statementId ? previous : item,
+            );
+          }
+          // Add back the previous response
+          return [previous, ...prev];
         }
-        return sortResponsesByRecency(
-          prev.filter((item) => item.statementId !== statementId),
-        );
+        // Remove the response
+        return prev.filter((item) => item.statementId !== statementId);
       });
     },
-    [sortResponsesByRecency],
+    [], // No dependencies - stable function
   );
 
   const addUpdatingResponseId = useCallback((statementId: string) => {
@@ -424,27 +516,37 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       orderIndex?: number;
       createdAt: string;
     }) => {
-      setParticipantResponses((prev) =>
-        sortResponsesByRecency(
-          prev.map((item) =>
-            item.statementId === payload.statementId
-              ? {
-                  ...item,
-                  id: payload.id,
-                  value: payload.value as ResponseValue | null,
-                  responseType: payload.responseType,
-                  textResponse: payload.textResponse ?? item.textResponse,
-                  statementText:
-                    payload.statementText ?? item.statementText ?? "",
-                  orderIndex: payload.orderIndex ?? item.orderIndex ?? 0,
-                  createdAt: payload.createdAt,
-                }
-              : item,
-          ),
-        ),
-      );
+      setParticipantResponses((prev) => {
+        const existingIndex = prev.findIndex(
+          (item) => item.statementId === payload.statementId,
+        );
+
+        if (existingIndex === -1) return prev;
+
+        const updated = {
+          ...prev[existingIndex]!,
+          id: payload.id,
+          value: payload.value as ResponseValue | null,
+          responseType: payload.responseType,
+          textResponse: payload.textResponse ?? prev[existingIndex]!.textResponse,
+          statementText: payload.statementText ?? prev[existingIndex]!.statementText ?? "",
+          orderIndex: payload.orderIndex ?? prev[existingIndex]!.orderIndex ?? 0,
+          createdAt: payload.createdAt,
+        };
+
+        // Move to front if timestamp changed (indicates new update)
+        if (payload.createdAt !== prev[existingIndex]!.createdAt) {
+          const filtered = prev.filter((_, i) => i !== existingIndex);
+          return [updated, ...filtered];
+        }
+
+        // Just update in place if timestamp same
+        const newArray = [...prev];
+        newArray[existingIndex] = updated;
+        return newArray;
+      });
     },
-    [sortResponsesByRecency],
+    [], // No dependencies - stable function
   );
 
   const buildExcludeQuery = useCallback(
@@ -553,11 +655,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         if (response.data.statement) {
           setCurrentStatement(response.data.statement);
           setState("ANSWERING");
+          setRemainingQuestions(response.data.remainingCount ?? null);
+          if (response.data.allStatements) {
+            setAllStatements(response.data.allStatements);
+            const index = response.data.allStatements.findIndex(
+              (s: Statement) => s.id === response.data.statement.id,
+            );
+            setCurrentStatementIndex(index !== -1 ? index : null);
+          }
           setSessionInfo((prev) =>
             prev ? { ...prev, isParticipant: true } : prev,
           );
         } else {
           setState("COMPLETED");
+          setRemainingQuestions(response.data.remainingCount ?? 0);
           setSessionInfo((prev) =>
             prev ? { ...prev, isParticipant: true } : prev,
           );
@@ -617,31 +728,30 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       setIsLoadingSuggestions(true);
 
       const prefetchCurrentSuggestions = async () => {
-        try {
-          const response = await axios.get(
-            `/api/sessions/${sessionId}/statements/${currentStatement.id}/suggestions`,
-            {
-              headers: createAuthorizationHeader(userId),
-            },
-          );
+        const suggestions: string[] = [];
 
-          if (
-            response.data.suggestions &&
-            Array.isArray(response.data.suggestions)
-          ) {
-            setAiSuggestions(response.data.suggestions);
-          }
-        } catch (err) {
-          console.error("Failed to fetch AI suggestions:", err);
-          // Set fallback suggestions
-          setAiSuggestions([
-            "状況によって賛成できる",
-            "一部には賛成だが全体には反対",
-            "今は判断できない",
-          ]);
-        } finally {
-          setIsLoadingSuggestions(false);
-        }
+        await fetchSuggestionsStreaming(
+          sessionId,
+          currentStatement.id,
+          userId,
+          (suggestion) => {
+            suggestions.push(suggestion);
+            setAiSuggestions([...suggestions]);
+          },
+          () => {
+            setIsLoadingSuggestions(false);
+          },
+          (err) => {
+            console.error("Failed to fetch AI suggestions:", err);
+            // Set fallback suggestions
+            setAiSuggestions([
+              "状況によって賛成できる",
+              "一部には賛成だが全体には反対",
+              "今は判断できない",
+            ]);
+            setIsLoadingSuggestions(false);
+          },
+        );
       };
 
       prefetchCurrentSuggestions();
@@ -667,35 +777,35 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           setPrefetchedStatement(nextStatement);
           setPrefetchedRemainingQuestions(response.data.remainingCount ?? null);
 
-          // Prefetch suggestions for the next statement
-          try {
-            const suggestionsResponse = await axios.get(
-              `/api/sessions/${sessionId}/statements/${nextStatement.id}/suggestions`,
-              {
-                headers: createAuthorizationHeader(userId),
-              },
-            );
+          // Prefetch suggestions for the next statement with streaming
+          const prefetchedSuggestions: string[] = [];
 
-            if (
-              suggestionsResponse.data.suggestions &&
-              Array.isArray(suggestionsResponse.data.suggestions)
-            ) {
-              setPrefetchedAiSuggestions(suggestionsResponse.data.suggestions);
-            } else {
-              setPrefetchedAiSuggestions([]);
-            }
-          } catch (err) {
-            console.error(
-              "Failed to prefetch AI suggestions for next statement:",
-              err,
-            );
-            // Set fallback suggestions for next statement
-            setPrefetchedAiSuggestions([
-              "状況によって賛成できる",
-              "一部には賛成だが全体には反対",
-              "今は判断できない",
-            ]);
-          }
+          fetchSuggestionsStreaming(
+            sessionId,
+            nextStatement.id,
+            userId,
+            (suggestion) => {
+              prefetchedSuggestions.push(suggestion);
+              setPrefetchedAiSuggestions([...prefetchedSuggestions]);
+            },
+            () => {
+              // Streaming complete
+            },
+            (err) => {
+              console.error(
+                "Failed to prefetch AI suggestions for next statement:",
+                err,
+              );
+              // Set fallback suggestions for next statement
+              setPrefetchedAiSuggestions([
+                "状況によって賛成できる",
+                "一部には賛成だが全体には反対",
+                "今は判断できない",
+              ]);
+            },
+          ).catch((err) => {
+            console.error("Prefetch streaming error:", err);
+          });
         } else {
           // null means this is the last question
           setPrefetchedStatement(null);
@@ -754,18 +864,68 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     fetchIndividualReport();
   }, [userId, userLoading, sessionId, state]);
 
+  // Auto-scroll to current question when it changes
+  useEffect(() => {
+    if (state !== "ANSWERING" || !currentStatement) return;
+    if (!currentQuestionRef.current) return;
+
+    let finishTimeout: number | null = null;
+    const startTimeout = window.setTimeout(() => {
+      setIsAutoScrolling(true);
+      setShowScrollToActive(false);
+      currentQuestionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      finishTimeout = window.setTimeout(() => {
+        setIsAutoScrolling(false);
+      }, 800);
+    }, 150);
+
+    return () => {
+      window.clearTimeout(startTimeout);
+      if (finishTimeout) {
+        window.clearTimeout(finishTimeout);
+      }
+    };
+  }, [currentStatement?.id, state]);
+
+  useEffect(() => {
+    if (state !== "ANSWERING") return;
+    if (!currentQuestionRef.current) return;
+
+    const target = currentQuestionRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!isAutoScrolling) {
+          setShowScrollToActive(!entry.isIntersecting);
+        }
+      },
+      {
+        root: null,
+        threshold: 0.2,
+        rootMargin: "0px",
+      },
+    );
+
+    observer.observe(target);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [currentStatement?.id, state, isAutoScrolling]);
+
   useEffect(() => {
     if (!userId || userLoading) return;
     if (state === "NEEDS_NAME") return;
 
     fetchParticipantResponses();
-    fetchParticipantReflections();
   }, [
     userId,
     userLoading,
     state,
     fetchParticipantResponses,
-    fetchParticipantReflections,
   ]);
 
   // Auto-generate report when all questions are answered (even before reflection submission)
@@ -839,6 +999,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         setCurrentStatement(response.data.statement);
         setState("ANSWERING");
         setRemainingQuestions(response.data.remainingCount ?? null);
+
+        // Store all statements for timeline view
+        if (response.data.allStatements) {
+          setAllStatements(response.data.allStatements);
+          // Find current statement index
+          const index = response.data.allStatements.findIndex(
+            (s: Statement) => s.id === response.data.statement.id,
+          );
+          setCurrentStatementIndex(index !== -1 ? index : null);
+        }
       } else {
         // Set flag to trigger auto-generation (edge case: no questions in session)
         hasJustCompletedRef.current = true;
@@ -937,25 +1107,21 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       }
 
       if (cachedNextStatement) {
+        // Batch all state updates together for performance
+        const hasPrefetchedSuggestions = prefetchedAiSuggestions !== undefined;
+
+        if (hasPrefetchedSuggestions) {
+          prefetchedStatementIdRef.current = cachedNextStatement.id;
+        }
+
+        // Single batched state update
         setCurrentStatement(cachedNextStatement);
         setPrefetchedStatement(undefined);
         setRemainingQuestions(prefetchedRemainingQuestions ?? null);
         setPrefetchedRemainingQuestions(null);
-
-        // Use prefetched suggestions for the next statement
-        if (prefetchedAiSuggestions !== undefined) {
-          // Suggestions are ready - mark this as a prefetch transition
-          prefetchedStatementIdRef.current = cachedNextStatement.id;
-          setAiSuggestions(prefetchedAiSuggestions);
-          setIsLoadingSuggestions(false);
-          setPrefetchedAiSuggestions(undefined);
-        } else {
-          // Fallback: suggestions weren't prefetched yet
-          // Don't set ref - let useEffect fetch suggestions normally
-          setAiSuggestions([]);
-          setIsLoadingSuggestions(true);
-          setPrefetchedAiSuggestions(undefined);
-        }
+        setAiSuggestions(hasPrefetchedSuggestions ? prefetchedAiSuggestions : []);
+        setIsLoadingSuggestions(!hasPrefetchedSuggestions);
+        setPrefetchedAiSuggestions(undefined);
 
         axios
           .post(
@@ -977,11 +1143,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           .catch((err) => {
             console.error("Failed to submit answer:", err);
             revertOnFailure();
-            if (axios.isAxiosError(err) && err.response?.data?.error) {
-              setError(`エラー: ${err.response.data.error}`);
-            } else {
-              setError("回答の送信に失敗しました。");
-            }
+            // Don't show error message for background submission
           })
           .finally(() => {
             clearPendingStatement();
@@ -1022,12 +1184,22 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       const remainingCount = nextResponse.data?.remainingCount ?? null;
 
       if (nextStatement) {
+        // Batch all state updates together
         setCurrentStatement(nextStatement);
         setRemainingQuestions(remainingCount);
-        // Reset suggestions - will be fetched by useEffect
         setAiSuggestions([]);
         setIsLoadingSuggestions(true);
         setPrefetchedAiSuggestions(undefined);
+
+        // Update all statements list if provided
+        if (nextResponse.data?.allStatements) {
+          setAllStatements(nextResponse.data.allStatements);
+          // Find current statement index
+          const index = nextResponse.data.allStatements.findIndex(
+            (s: Statement) => s.id === nextStatement.id,
+          );
+          setCurrentStatementIndex(index !== -1 ? index : null);
+        }
       } else {
         enterReflectionMode();
       }
@@ -1075,11 +1247,17 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     });
   };
 
-  const handleScrollToHistory = () => {
-    historySectionRef.current?.scrollIntoView({
+  const scrollToActive = () => {
+    if (!currentQuestionRef.current) return;
+    setIsAutoScrolling(true);
+    setShowScrollToActive(false);
+    currentQuestionRef.current.scrollIntoView({
       behavior: "smooth",
-      block: "start",
+      block: "center",
     });
+    window.setTimeout(() => {
+      setIsAutoScrolling(false);
+    }, 1000);
   };
 
   const handleInfoClick = () => {
@@ -1169,33 +1347,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         { headers: createAuthorizationHeader(userId) },
       );
 
-      const reflection = response.data?.reflection as
-        | {
-            id: string;
-            text: string;
-            createdAt?: string;
-            submittedAt?: string;
-          }
-        | undefined;
-
-      if (reflection) {
-        setParticipantReflections((prev) =>
-          [
-            {
-              id: reflection.id,
-              text: reflection.text,
-              createdAt: reflection.createdAt ?? new Date().toISOString(),
-              submittedAt: reflection.submittedAt ?? new Date().toISOString(),
-            },
-            ...prev,
-          ].sort(
-            (a, b) =>
-              new Date(b.submittedAt).getTime() -
-              new Date(a.submittedAt).getTime(),
-          ),
-        );
-      }
-
       setReflectionText("");
       setIsLoading(true);
 
@@ -1209,11 +1360,11 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           nextStatementResponse.data?.remainingCount ?? null;
 
         if (statement) {
+          // Batch all state updates together
           setCurrentStatement(statement);
           setPrefetchedStatement(undefined);
           setState("ANSWERING");
           setRemainingQuestions(nextRemainingCount);
-          // Reset suggestions - will be fetched by useEffect
           setAiSuggestions([]);
           setIsLoadingSuggestions(true);
           setPrefetchedAiSuggestions(undefined);
@@ -1280,80 +1431,72 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     };
   }, [sessionInfo?.title]);
 
-  useEffect(() => {
-    setIsGoalCollapsed(state !== "NEEDS_NAME");
-  }, [state]);
+  const goalSections = useMemo<GoalSection[]>(() => {
+    const goal = sessionInfo?.goal?.trim();
+    if (!goal) return [];
 
-  const sessionGoalHighlights = useMemo((): GoalHighlight[] => {
-    if (!sessionInfo?.goal) return [];
-    const lines = sessionInfo.goal.split("\n");
-    const purposeKeywords: KeywordPattern[] = [
-      { match: "このセッションの目的: ", label: "このセッションの目的: " },
-      { match: "何のために洗い出しますか？", label: "このセッションの目的: " },
-    ];
-    const focusKeywords: KeywordPattern[] = [
-      {
-        match: "そのために、次のような質問をします: ",
-        label: "そのために、次のような質問をします: ",
-      },
-      {
-        match: "何の認識を洗い出しますか？",
-        label: "そのために、次のような質問をします: ",
-      },
-    ];
-
-    const findLineByKeywords = (keywords: KeywordPattern[]) => {
-      for (const keyword of keywords) {
-        const foundLine = lines.find((line) => line.includes(keyword.match));
-        if (foundLine) return { line: foundLine, label: keyword.label ?? null };
-      }
-      return null;
+    const lines = goal.split("\n").map((line) => line.trim()).filter(Boolean);
+    const buckets: Record<"purpose" | "focus", string[]> = {
+      purpose: [],
+      focus: [],
     };
+    const fallback: string[] = [];
 
-    const purposeLine = findLineByKeywords(purposeKeywords);
-    const focusLine = findLineByKeywords(focusKeywords);
+    for (const line of lines) {
+      let label: string | null = null;
+      let value = line;
+      const bracketMatch = line.match(/^【(.+?)】(.*)$/);
+      if (bracketMatch) {
+        label = bracketMatch[1]?.trim() || null;
+        value = bracketMatch[2]?.trim() || "";
+      } else {
+        const asciiIndex = line.indexOf(":");
+        const jpIndex = line.indexOf("：");
+        const colonIndex =
+          asciiIndex === -1
+            ? jpIndex
+            : jpIndex === -1
+              ? asciiIndex
+              : Math.min(asciiIndex, jpIndex);
+        if (colonIndex !== -1) {
+          label = line.slice(0, colonIndex).trim() || null;
+          value = line.slice(colonIndex + 1).trim() || "";
+        }
+      }
 
-    const pickLines = [];
-    if (purposeLine) pickLines.push(purposeLine);
-    if (focusLine) pickLines.push(focusLine);
-    if (pickLines.length === 0 && sessionInfo.goal) {
-      pickLines.push({ line: sessionInfo.goal, label: null });
+      if (!value) continue;
+      const normalized = normalizeGoalLabel(label);
+      if (normalized) {
+        buckets[normalized].push(value);
+      } else {
+        fallback.push(label ? `${label} ${value}` : value);
+      }
     }
 
-    return pickLines.map(({ line, label: labelOverride }) => {
-      const bracketMatch = line.match(/^[【](.+?)[】](.*)$/);
-      if (bracketMatch) {
-        const label = bracketMatch?.[1]?.trim() || null;
-        const value = bracketMatch?.[2]?.trim() || line;
-        return { key: line, label: labelOverride ?? label, value, raw: line };
-      }
+    const sections: GoalSection[] = [];
+    if (buckets.purpose.length > 0) {
+      sections.push({
+        id: "purpose",
+        label: GOAL_LABELS.purpose,
+        value: buckets.purpose.join("\n"),
+      });
+    }
+    if (buckets.focus.length > 0) {
+      sections.push({
+        id: "focus",
+        label: GOAL_LABELS.focus,
+        value: buckets.focus.join("\n"),
+      });
+    }
+    if (sections.length === 0 && fallback.length > 0) {
+      sections.push({
+        id: "goal",
+        label: "目的",
+        value: fallback.join("\n"),
+      });
+    }
 
-      const colonIndex = (() => {
-        const ascii = line.indexOf(":");
-        const jp = line.indexOf("：");
-        if (ascii === -1) return jp;
-        if (jp === -1) return ascii;
-        return Math.min(ascii, jp);
-      })();
-
-      if (colonIndex !== -1) {
-        const label = line.slice(0, colonIndex).trim() || null;
-        const value = line.slice(colonIndex + 1).trim() || line;
-        return {
-          key: line,
-          label: labelOverride ?? label,
-          value,
-          raw: line,
-        };
-      }
-
-      return {
-        key: line,
-        label: labelOverride ?? null,
-        value: line,
-        raw: line,
-      };
-    });
+    return sections;
   }, [sessionInfo?.goal]);
 
   if (userLoading || isSessionInfoLoading || isCheckingParticipation) {
@@ -1402,133 +1545,94 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-100">
+      {/* Sticky Header */}
+      {shouldShowHeader && (
+        <header className="sticky top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md z-50 border-b border-slate-200 flex items-center justify-center px-6 relative">
+          <div className="text-xs font-medium text-slate-500">
+            {currentQuestionNumber} / {totalQuestions} 問目
+          </div>
+          <div
+            className="absolute left-0 right-0 bottom-0 h-1 bg-slate-200/80"
+            role="progressbar"
+            aria-valuenow={Math.round(progressPercent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </header>
+      )}
+
+      <div
+        className={`max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 ${
+          state === "ANSWERING" ? "pt-4 pb-0" : "pt-4 pb-12"
+        }`}
+      >
         <div className="mb-8 space-y-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {sessionInfo?.title ?? "セッション"}
-            </h1>
-            {sessionGoalHighlights.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {state !== "NEEDS_NAME" ? (
-                  <div className="space-y-2">
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="sm"
-                      className="px-0 underline underline-offset-4"
-                      onClick={() => setIsGoalCollapsed((prev) => !prev)}
-                    >
-                      {isGoalCollapsed
-                        ? "▼ クリックしてセッション概要を表示"
-                        : "▲ クリックしてセッション概要を隠す"}
-                    </Button>
-                    {!isGoalCollapsed && (
-                      <div className="space-y-3 text-muted-foreground">
-                        {sessionGoalHighlights.map((item) => {
-                          const shouldTruncate =
-                            !showFullGoal &&
-                            item.value.length > GOAL_PREVIEW_LIMIT;
-                          const displayText = shouldTruncate
-                            ? `${item.value.slice(0, GOAL_PREVIEW_LIMIT)}...`
-                            : item.value;
-
-                          return (
-                            <div key={item.key} className="space-y-0.5">
-                              {item.label && (
-                                <p className="text-sm font-medium text-foreground">
-                                  {item.label}
-                                </p>
-                              )}
-                              <p
-                                className="whitespace-pre-line"
-                                title={item.raw}
-                              >
-                                {displayText}
-                              </p>
-                            </div>
-                          );
-                        })}
-                        {sessionGoalHighlights.some(
-                          (item) => item.value.length > GOAL_PREVIEW_LIMIT,
-                        ) && (
-                          <div className="pt-1">
-                            <Button
-                              type="button"
-                              variant="link"
-                              size="sm"
-                              className="px-0"
-                              onClick={() => setShowFullGoal((prev) => !prev)}
-                            >
-                              {showFullGoal ? "折りたたむ" : "全文を見る"}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-3 space-y-3 text-muted-foreground">
-                    {sessionGoalHighlights.map((item) => {
-                      const shouldTruncate =
-                        !showFullGoal && item.value.length > GOAL_PREVIEW_LIMIT;
-                      const displayText = shouldTruncate
-                        ? `${item.value.slice(0, GOAL_PREVIEW_LIMIT)}...`
-                        : item.value;
-
-                      return (
-                        <div key={item.key} className="space-y-0.5">
-                          {item.label && (
-                            <p className="text-sm font-medium text-foreground">
-                              {item.label}
-                            </p>
-                          )}
-                          <p className="whitespace-pre-line" title={item.raw}>
-                            {displayText}
-                          </p>
-                        </div>
-                      );
-                    })}
-                    {sessionGoalHighlights.some(
-                      (item) => item.value.length > GOAL_PREVIEW_LIMIT,
-                    ) && (
-                      <div className="pt-1">
-                        <Button
-                          type="button"
-                          variant="link"
-                          size="sm"
-                          className="px-0"
-                          onClick={() => setShowFullGoal((prev) => !prev)}
-                        >
-                          {showFullGoal ? "折りたたむ" : "全文を見る"}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {(!isGoalCollapsed || state === "NEEDS_NAME") && (
-                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                    <p>
-                      皆さんには、AIが生成した問い・仮説に対して、強く同意、同意、わからない、反対、強く反対の中から1つ選んで回答していただきます。
-                    </p>
-                    <p className="mt-1 font-semibold text-foreground">
-                      どれにも当てはまらない場合は、積極的に「わからない」を押してください。
-                    </p>
-                  </div>
-                )}
-              </div>
+            {state === "NEEDS_NAME" && (
+              <h1 className="text-3xl font-bold tracking-tight mb-3">
+                {sessionInfo?.title ?? "セッション"}
+              </h1>
             )}
           </div>
         </div>
 
-        {state === "NEEDS_NAME" && (
+        {state === "NEEDS_NAME" && !hasStarted && (
+          <Card>
+            <CardContent className="space-y-4 pt-6">
+              {goalSections.length > 0 && (
+                <div className="space-y-3">
+                  {goalSections.map((section) => (
+                    <div key={section.id} className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        {section.label}
+                      </p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-line">
+                        {section.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {sessionInfo?.context &&
+                sessionInfo.context.trim().length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">
+                      背景
+                    </p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                      {sessionInfo.context}
+                    </p>
+                  </div>
+                )}
+              {goalSections.length === 0 &&
+                !sessionInfo?.context?.trim() && (
+                  <p className="text-sm text-muted-foreground">
+                    セッション概要はまだ設定されていません。
+                  </p>
+                )}
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => setHasStarted(true)}
+              >
+                始める
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {state === "NEEDS_NAME" && hasStarted && (
           <Card>
             <CardHeader>
               <CardTitle>ようこそ</CardTitle>
               <CardDescription>
-                このセッションに参加するには、まず名前を入力してください
+                まず名前を入力してください
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1603,196 +1707,405 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         )}
 
         {state === "ANSWERING" && currentStatement && (
-          <Card className={isLoading ? "opacity-50 pointer-events-none" : ""}>
-            <CardContent className="pt-6">
-              <div
-                key={currentStatement.id}
-                className="mb-8 space-y-2 question-change"
-              >
-                {typeof remainingQuestions === "number" &&
-                  remainingQuestions > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      あと{remainingQuestions}個の質問があります
-                    </p>
+          <main
+            ref={containerRef}
+            className="relative w-full max-w-xl mx-auto min-h-screen flex flex-col items-center gap-6 pb-40"
+          >
+            {responsesError && (
+              <div className="w-full rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                <p className="text-sm text-destructive">{responsesError}</p>
+              </div>
+            )}
+
+            {orderedStatements.map((statement, index) => {
+              const response = responsesByStatementId.get(statement.id);
+              const isActive = statement.id === currentStatement.id;
+              const isPast =
+                activeStatementIndex !== null && index < activeStatementIndex;
+              const isFuture =
+                activeStatementIndex !== null && index > activeStatementIndex;
+              const distance =
+                activeStatementIndex !== null
+                  ? index - activeStatementIndex
+                  : 0;
+
+              const isPending = pendingAnswerStatementIdsRef.current.has(
+                statement.id,
+              );
+              const isUpdating = updatingResponseIds.has(statement.id);
+
+              return (
+                <div
+                  key={statement.id}
+                  ref={isActive ? currentQuestionRef : null}
+                  data-testid="response-item"
+                  className={cn(
+                    "w-full transform transition-all duration-500 ease-out",
+                    isActive && "scale-100 opacity-100 translate-y-0 z-20",
+                    isPast && "scale-[0.96] opacity-60 -translate-y-2 z-10",
+                    isFuture && "scale-[0.94] translate-y-4 z-0 blur-[0.5px]",
                   )}
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
-                  onClick={handleInfoClick}
-                  aria-label="質問が私たちの前提を把握できていない"
+                  style={{
+                    opacity: isFuture
+                      ? Math.max(0.5, 0.9 - distance * 0.1)
+                      : isPast
+                        ? 0.6
+                        : 1,
+                    willChange: isActive ? 'transform, opacity' : 'auto',
+                    transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
                 >
-                  <Info className="h-4 w-4" />
-                  質問が矛盾している・自分たちの前提を把握できていない場合
-                </button>
-                <p className="mt-3 text-xl font-medium leading-relaxed">
-                  {currentStatement.text}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-6 gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={handleScrollToHistory}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-white hover:bg-gray-50 text-black border-2 border-black hover:border-gray-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="質問への回答履歴に戻る"
-                >
-                  <div className="text-xl sm:text-3xl">↩︎</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    前の質問へ戻る
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(2)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-emerald-600 hover:border-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">👍</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    強く同意
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(1)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-green-400 hover:bg-green-500 text-white border-2 border-green-500 hover:border-green-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">✓</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    同意
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(0)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-amber-400 hover:bg-amber-500 text-gray-900 border-2 border-amber-500 hover:border-amber-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">🤔</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    {showAlternatives ? "わからない▲" : "わからない▼"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(-1)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-rose-400 hover:bg-rose-500 text-white border-2 border-rose-500 hover:border-rose-600 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">✗</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    反対
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnswer(-2)}
-                  disabled={isLoading}
-                  className="group relative flex flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3 py-3 sm:py-5 bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 hover:border-red-800 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-xl sm:text-3xl">👎</div>
-                  <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                    強く反対
-                  </span>
-                </button>
-              </div>
-
-              <div className="mt-6 space-y-3">
-                {showAlternatives && (
-                  <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold text-foreground">
-                        その他の選択肢
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleSubmitResponse({
-                            responseType: "scale",
-                            value: 0,
-                          })
-                        }
-                        disabled={isLoading || isSubmittingFreeText}
-                        className="w-full px-4 py-3.5 text-left rounded-lg border border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-sm font-semibold text-amber-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  <Card
+                    className={cn(
+                      "relative bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500 ease-out",
+                      isActive &&
+                        "shadow-xl ring-4 ring-indigo-50/50 border-indigo-100",
+                      isActive &&
+                        isLoading &&
+                        "opacity-50 pointer-events-none",
+                      isFuture &&
+                        "bg-slate-50/50 border-dashed pointer-events-none",
+                    )}
+                    style={{
+                      transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}
+                  >
+                    <div className="p-6 md:p-8">
+                      <div
+                        key={isActive ? currentStatement.id : undefined}
+                        className={cn(
+                          "space-y-2",
+                          isActive && "mb-8 question-change",
+                        )}
                       >
-                        （自分はこの質問に対して）確信が持てない・情報を把握していない
-                      </button>
+                        <h3
+                          className={cn(
+                            "font-bold text-xl md:text-2xl leading-snug mb-2",
+                            isActive && "text-slate-800",
+                            isPast && "text-slate-600",
+                            isFuture && "text-slate-400",
+                          )}
+                        >
+                          {statement.text}
+                        </h3>
+                      </div>
+
+                      {isPast && response && (
+                        <div className="mt-4 flex items-center gap-3 pt-4 border-t border-slate-100">
+                          {response.responseType === "free_text" ? (
+                            <>
+                              <span className="text-xs text-slate-400">
+                                あなたの回答:
+                              </span>
+                              <div className="flex-1 text-sm text-slate-700 line-clamp-2" data-testid="response-value">
+                                {response.textResponse?.trim().length
+                                  ? response.textResponse
+                                  : "（記入なし）"}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs text-slate-400">
+                                あなたの回答:
+                              </span>
+                              <div
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2",
+                                  response.value === 2 &&
+                                    "bg-emerald-100 text-emerald-700",
+                                  response.value === 1 &&
+                                    "bg-green-100 text-green-700",
+                                  response.value === 0 &&
+                                    "bg-amber-100 text-amber-700",
+                                  response.value === -1 &&
+                                    "bg-rose-100 text-rose-700",
+                                  response.value === -2 &&
+                                    "bg-red-100 text-red-700",
+                                )}
+                              >
+                                <span data-testid="response-value">{getResponseLabel(response.value)}</span>
+                              </div>
+                            </>
+                          )}
+                          <button
+                            onClick={() => {
+                              setCurrentStatement(statement);
+                              // If the response was free_text, open the alternatives section
+                              const isFreeText = response.responseType === "free_text";
+                              setShowAlternatives(isFreeText);
+
+                              // Scroll to free text section after a short delay
+                              if (isFreeText) {
+                                requestAnimationFrame(() => {
+                                  setTimeout(() => {
+                                    freeTextSectionRef.current?.scrollIntoView({
+                                      behavior: "smooth",
+                                      block: "start",
+                                    });
+                                  }, 300);
+                                });
+                              }
+                            }}
+                            className="ml-auto text-xs text-indigo-500 hover:text-indigo-700 font-medium underline"
+                          >
+                            修正する
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    {isLoadingSuggestions ? (
-                      <div className="space-y-2">
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                        <div className="h-10 bg-muted rounded-md animate-pulse" />
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {aiSuggestions.map((suggestion) => (
+                    {isActive && (
+                      <div className="bg-slate-50/80 backdrop-blur-sm border-t border-slate-100 p-3 sm:p-4">
+                        <div className="grid grid-cols-5 gap-2 sm:gap-3">
                           <button
-                            key={suggestion}
                             type="button"
-                            onClick={() => handleSuggestionClick(suggestion)}
-                            disabled={isLoading || isSubmittingFreeText}
-                            className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => handleAnswer(2)}
+                            disabled={isLoading}
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === 2
+                                ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700",
+                            )}
                           >
-                            {suggestion}
+                            <div className="text-xl sm:text-3xl leading-none">👍</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              強く同意
+                            </span>
                           </button>
-                        ))}
+                          <button
+                            type="button"
+                            onClick={() => handleAnswer(1)}
+                            disabled={isLoading}
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === 1
+                                ? "bg-green-400 hover:bg-green-500 text-white border-green-500 hover:border-green-600"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-green-400 hover:bg-green-500 text-white border-green-500 hover:border-green-600",
+                            )}
+                          >
+                            <div className="text-xl sm:text-3xl leading-none">✓</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              同意
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAnswer(0)}
+                            disabled={isLoading}
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === 0
+                                ? "bg-amber-400 hover:bg-amber-500 text-gray-900 border-amber-500 hover:border-amber-600"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-amber-400 hover:bg-amber-500 text-gray-900 border-amber-500 hover:border-amber-600",
+                            )}
+                          >
+                            <div className="text-xl sm:text-3xl leading-none">🤔</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              {showAlternatives
+                                ? "わからない・自信がない▲"
+                                : "わからない・自信がない▼"}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAnswer(-1)}
+                            disabled={isLoading}
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === -1
+                                ? "bg-rose-400 hover:bg-rose-500 text-white border-rose-500 hover:border-rose-600"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-rose-400 hover:bg-rose-500 text-white border-rose-500 hover:border-rose-600",
+                            )}
+                          >
+                            <div className="text-xl sm:text-3xl leading-none">✗</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              反対
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAnswer(-2)}
+                            disabled={isLoading}
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                              response?.value === -2
+                                ? "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800"
+                                : response && response.responseType === "scale"
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  : "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800",
+                            )}
+                          >
+                            <div className="text-xl sm:text-3xl leading-none">👎</div>
+                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                              強く反対
+                            </span>
+                          </button>
+                        </div>
+
+                        {showAlternatives && (
+                          <div className="mt-6 space-y-3">
+                            <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
+                              <div className="space-y-2">
+                                <p className="text-sm font-bold text-foreground">
+                                  その他の選択肢
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleSubmitResponse({
+                                      responseType: "scale",
+                                      value: 0,
+                                    })
+                                  }
+                                  disabled={isLoading || isSubmittingFreeText}
+                                  className={cn(
+                                    "w-full px-4 py-3.5 text-left rounded-lg border text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                                    response?.value === 0
+                                      ? "border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-amber-700"
+                                      : response && response.responseType === "scale"
+                                        ? "border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-slate-400"
+                                        : "border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-amber-700",
+                                  )}
+                                >
+                                  （自分はこの質問に対して）確信が持てない・情報を把握していない
+                                </button>
+                              </div>
+
+                              {isLoadingSuggestions && aiSuggestions.length === 0 ? (
+                                <div className="space-y-3">
+                                  <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <span>AIが選択肢を考えています...</span>
+                                  </div>
+                                  {[1, 2, 3].map((i) => (
+                                    <div
+                                      key={i}
+                                      className="relative h-14 bg-gradient-to-r from-muted via-muted/50 to-muted rounded-lg overflow-hidden"
+                                    >
+                                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                                      <div className="px-4 py-3.5 opacity-20 text-sm">
+                                        選択肢を生成しています...
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  {isLoadingSuggestions && (
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      <span>残りの選択肢を生成中...</span>
+                                    </div>
+                                  )}
+                                  {aiSuggestions.map((suggestion, index) => (
+                                    <button
+                                      key={`${suggestion}-${index}`}
+                                      type="button"
+                                      onClick={() =>
+                                        handleSuggestionClick(suggestion)
+                                      }
+                                      disabled={isLoading || isSubmittingFreeText}
+                                      className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed animate-fade-in"
+                                      style={{ animationDelay: `${index * 100}ms` }}
+                                    >
+                                      {suggestion}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="pt-3 border-t border-border/60 space-y-3">
+                                <div ref={freeTextSectionRef} />
+                                <div>
+                                  <p className="text-sm font-bold text-foreground mb-1">
+                                    自由記述で回答する
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
+                                  </p>
+                                </div>
+                                <textarea
+                                  value={freeTextInput}
+                                  onChange={(event) =>
+                                    setFreeTextInput(event.target.value)
+                                  }
+                                  rows={4}
+                                  className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                  placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
+                                  disabled={isLoading || isSubmittingFreeText}
+                                />
+                                <div className="flex justify-end">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                      handleSubmitResponse({
+                                        responseType: "free_text",
+                                        textResponse: freeTextInput,
+                                      })
+                                    }
+                                    disabled={
+                                      isLoading ||
+                                      isSubmittingFreeText ||
+                                      freeTextInput.trim().length === 0
+                                    }
+                                    isLoading={isSubmittingFreeText}
+                                  >
+                                    自由記述を送信
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {error && (
+                          <p className="text-sm text-destructive mt-4">
+                            {error}
+                          </p>
+                        )}
                       </div>
                     )}
+                  </Card>
+                </div>
+              );
+            })}
 
-                    <div className="pt-3 border-t border-border/60 space-y-3">
-                      <div ref={freeTextSectionRef} />
-                      <div>
-                        <p className="text-sm font-semibold text-foreground mb-1">
-                          自由記述で回答する
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
-                        </p>
-                      </div>
-                      <textarea
-                        value={freeTextInput}
-                        onChange={(event) =>
-                          setFreeTextInput(event.target.value)
-                        }
-                        rows={4}
-                        className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
-                        disabled={isLoading || isSubmittingFreeText}
-                      />
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() =>
-                            handleSubmitResponse({
-                              responseType: "free_text",
-                              textResponse: freeTextInput,
-                            })
-                          }
-                          disabled={
-                            isLoading ||
-                            isSubmittingFreeText ||
-                            freeTextInput.trim().length === 0
-                          }
-                          isLoading={isSubmittingFreeText}
-                        >
-                          自由記述を送信
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+            <div className="h-40 flex items-start justify-center pt-4">
+              <div className="text-center">
+                <p className="text-sm text-slate-600">質問は以上です</p>
               </div>
+            </div>
+          </main>
+        )}
 
-              {error && (
-                <p className="text-sm text-destructive mt-4">{error}</p>
-              )}
-            </CardContent>
-          </Card>
+        {state === "ANSWERING" && (
+          <div
+            className={cn(
+              "fixed bottom-6 right-6 z-50 transition-all duration-300",
+              showScrollToActive
+                ? "translate-y-0 opacity-100"
+                : "translate-y-6 opacity-0 pointer-events-none",
+            )}
+          >
+            <Button
+              type="button"
+              onClick={scrollToActive}
+              className="rounded-full px-5 py-2.5 shadow-lg"
+            >
+              最新の質問へ戻る
+              <MessageCircleQuestion className="h-4 w-4" />
+            </Button>
+          </div>
         )}
 
         {state === "COMPLETED" && (
@@ -1809,243 +2122,79 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           </Card>
         )}
 
-        {/* Previous Responses & Individual Report - Show after joining */}
-        {(state === "ANSWERING" ||
-          state === "REFLECTION" ||
-          state === "COMPLETED") && (
-          <>
-            <div ref={historySectionRef}>
-              <Card className="mt-8">
-                <CardHeader>
-                  <CardTitle>質問への回答履歴</CardTitle>
-                  <CardDescription>
-                    あなたの回答とふりかえりの履歴を時系列で確認できます。
-                    <span className="font-bold">
-                      回答を変更したい場合、質問の回答を再度選択することで変更できます。
-                    </span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {(responsesError || reflectionsError) && (
-                    <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3">
-                      {responsesError && (
-                        <p className="text-sm text-destructive">
-                          {responsesError}
-                        </p>
-                      )}
-                      {reflectionsError && (
-                        <p className="text-sm text-destructive">
-                          {reflectionsError}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {isLoadingResponses || isLoadingReflections ? (
-                    <div className="space-y-3">
-                      {[0, 1, 2].map((index) => (
-                        <div
-                          key={index}
-                          className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3"
-                        >
-                          <Skeleton className="h-4 w-3/4" />
-                          <div className="flex gap-2">
-                            <Skeleton className="h-6 w-20" />
-                            <Skeleton className="h-6 w-16" />
-                            <Skeleton className="h-6 w-24" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : historyItems.length > 0 ? (
-                    <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-                      {historyItems.map((item) => {
-                        if (item.type === "response") {
-                          const response = item.response;
-                          const isPending =
-                            pendingAnswerStatementIdsRef.current.has(
-                              response.statementId,
-                            );
-                          const isUpdating = updatingResponseIds.has(
-                            response.statementId,
-                          );
-
-                          if (response.responseType === "free_text") {
-                            return (
-                              <div
-                                key={item.key}
-                                className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <p className="text-sm font-medium text-foreground">
-                                    {response.statementText}
-                                  </p>
-                                </div>
-                                <div className="mt-3 rounded-md border border-border/70 bg-background px-3 py-2">
-                                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                                    {response.textResponse?.trim().length
-                                      ? response.textResponse
-                                      : "（記入なし）"}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div
-                              key={item.key}
-                              className="rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <p className="text-sm font-medium text-foreground">
-                                  {response.statementText}
-                                </p>
-                              </div>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {RESPONSE_CHOICES.map((choice) => {
-                                  const isActive =
-                                    response.value === choice.value;
-                                  const isDisabled =
-                                    isPending ||
-                                    isUpdating ||
-                                    isLoading ||
-                                    isActive;
-
-                                  return (
-                                    <button
-                                      key={choice.value}
-                                      type="button"
-                                      onClick={() =>
-                                        handleUpdateResponse(
-                                          response.statementId,
-                                          choice.value,
-                                        )
-                                      }
-                                      disabled={isDisabled}
-                                      className={cn(
-                                        "flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                        isActive
-                                          ? choice.activeClass
-                                          : choice.idleClass,
-                                        (isPending || isUpdating) &&
-                                          "opacity-70",
-                                      )}
-                                    >
-                                      <span>{choice.emoji}</span>
-                                      <span>{choice.label}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        const { reflection } = item;
-                        return (
-                          <div
-                            key={item.key}
-                            className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/20 p-3 shadow-sm"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
-                                ふりかえり
-                              </span>
-                            </div>
-                            <div className="mt-3 rounded-md border border-gray-300 bg-gray-50 px-3 py-3 shadow-inner">
-                              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-                                {reflection.text.trim().length > 0
-                                  ? reflection.text
-                                  : "（記入なし）"}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 py-8 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        回答やふりかえりを進めると、ここに履歴が表示されます
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card className="mt-8">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>じぶんレポート</CardTitle>
-                  <Button
-                    onClick={handleGenerateReport}
-                    disabled={isGeneratingReport}
-                    isLoading={isGeneratingReport}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    {individualReport ? "レポートを更新" : "レポートを生成"}
-                  </Button>
+        {/* Individual Report - Show after finishing all questions */}
+        {(state === "REFLECTION" || state === "COMPLETED") && (
+          <Card className="mt-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>じぶんレポート</CardTitle>
+                <Button
+                  onClick={handleGenerateReport}
+                  disabled={isGeneratingReport}
+                  isLoading={isGeneratingReport}
+                  variant="secondary"
+                  size="sm"
+                >
+                  {individualReport ? "レポートを更新" : "レポートを生成"}
+                </Button>
+              </div>
+              <CardDescription>
+                あなたの回答から生成された個別分析レポート
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {error && (
+                <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                  <p className="text-sm text-destructive">{error}</p>
                 </div>
-                <CardDescription>
-                  あなたの回答から生成された個別分析レポート
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {error && (
-                  <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
-                    <p className="text-sm text-destructive">{error}</p>
-                  </div>
-                )}
-                {isGeneratingReport && (
-                  <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <div className="space-y-2 text-center">
-                      <p className="text-base font-medium text-foreground">
-                        レポートを生成しています...
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        あなたの回答を分析しています。少々お待ちください。
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {isLoadingReport ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-5/6" />
-                    <Skeleton className="h-4 w-4/5" />
-                    <div className="pt-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="mt-3 h-4 w-full" />
-                      <Skeleton className="mt-3 h-4 w-3/4" />
-                    </div>
-                  </div>
-                ) : individualReport ? (
-                  <div
-                    className={cn(
-                      "markdown-body prose prose-sm max-w-none",
-                      isGeneratingReport && "opacity-60",
-                    )}
-                  >
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {individualReport.contentMarkdown}
-                    </ReactMarkdown>
-                  </div>
-                ) : !isGeneratingReport ? (
-                  <div className="py-8 text-center">
-                    <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                      <FileText className="h-6 w-6 text-muted-foreground" />
-                    </div>
+              )}
+              {isGeneratingReport && (
+                <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <div className="space-y-2 text-center">
+                    <p className="text-base font-medium text-foreground">
+                      レポートを生成しています...
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      回答を進めると、あなた専用の分析レポートがここに表示されます
+                      あなたの回答を分析しています。少々お待ちください。
                     </p>
                   </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          </>
+                </div>
+              )}
+              {isLoadingReport ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-4/5" />
+                  <div className="pt-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="mt-3 h-4 w-full" />
+                    <Skeleton className="mt-3 h-4 w-3/4" />
+                  </div>
+                </div>
+              ) : individualReport ? (
+                <div
+                  className={cn(
+                    "markdown-body prose prose-sm max-w-none",
+                    isGeneratingReport && "opacity-60",
+                  )}
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {individualReport.contentMarkdown}
+                  </ReactMarkdown>
+                </div>
+              ) : !isGeneratingReport ? (
+                <div className="py-8 text-center">
+                  <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <FileText className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    回答を進めると、あなた専用の分析レポートがここに表示されます
+                  </p>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
