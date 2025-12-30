@@ -252,6 +252,7 @@
                 libpq.pg_config
                 awscli2
                 terraform
+                gh # GitHub CLI for workflow management
                 config.haskellProjects.default.outputs.finalPackages.project-m36 # Provides tutd, project-m36-server
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
@@ -306,12 +307,19 @@
               pkgs,
               ...
             }:
+            let
+              # Get the Haskell backend package for x86_64-linux
+              backendPackage = self.packages.x86_64-linux.cartographer-backend;
+            in
             {
               deployment = {
                 targetHost = "52.68.102.0";
                 targetUser = "root";
-                buildOnTarget = true;
+                buildOnTarget = false; # Build on CI (GitHub Actions), not on target
               };
+
+              # Add the backend to system packages so it's available in PATH
+              environment.systemPackages = [ backendPackage ];
 
               imports = [
                 ./nixos/server.nix

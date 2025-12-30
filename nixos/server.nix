@@ -1,10 +1,13 @@
 # Cartographer NixOS Server Module
-{ pkgs, modulesPath, ... }:
+# This module is imported by the Colmena configuration in flake.nix
+# Application packages are passed via specialArgs
+{ pkgs, modulesPath, lib, ... }:
 
 {
   imports = [
     "${modulesPath}/virtualisation/amazon-image.nix"
   ];
+
   # System packages
   environment.systemPackages = with pkgs; [
     vim
@@ -28,6 +31,7 @@
     allowedTCPPorts = [
       22
       80
+      8080 # Haskell backend
     ];
   };
 
@@ -61,6 +65,8 @@
   ];
 
   # Haskell backend service
+  # NOTE: The actual binary path will be set when we integrate the package
+  # For now, this expects the binary to be in the system PATH
   systemd.services.cartographer-backend = {
     description = "Cartographer Haskell Backend";
     after = [
@@ -71,7 +77,6 @@
 
     environment = {
       M36_DATA_PATH = "/mnt/efs/m36-data";
-      # DATABASE_URL is set via deployment.keys
     };
 
     serviceConfig = {
@@ -79,6 +84,7 @@
       User = "cartographer";
       Group = "cartographer";
       WorkingDirectory = "/var/lib/cartographer";
+      # This will be replaced with the actual package path when integrated
       ExecStart = "/run/current-system/sw/bin/cartographer-backend";
       Restart = "always";
       RestartSec = 5;
@@ -86,6 +92,7 @@
   };
 
   # Next.js frontend service
+  # For now, using a standalone Next.js server
   systemd.services.cartographer-frontend = {
     description = "Cartographer Next.js Frontend";
     after = [

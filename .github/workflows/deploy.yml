@@ -1,9 +1,16 @@
-name: Deploy to AWS
+name: Build and Deploy
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy after build'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   build:
@@ -24,17 +31,23 @@ jobs:
         continue-on-error: true
 
       - name: Build Haskell backend
-        run: nix build .#cartographer-backend
+        run: nix build .#cartographer-backend --print-build-logs
 
       - name: Build Next.js frontend
         run: |
           npm ci
           npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key' }}
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # Deploy only on main branch AND when secrets are configured AND (push OR manual with deploy=true)
+    if: |
+      github.ref == 'refs/heads/main' && 
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy == true))
     steps:
       - uses: actions/checkout@v4
 
@@ -42,16 +55,31 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Check deployment secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ] || [ -z "${{ secrets.SERVER_IP }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Deployment secrets not configured. Skipping deploy."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup SSH
+        if: steps.check-secrets.outputs.skip != 'true'
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy via Colmena
+        if: steps.check-secrets.outputs.skip != 'true'
         run: |
           nix run github:zhaofengli/colmena -- apply \
             --on cartographer-prod \
-            --override targetHost=${{ secrets.SERVER_IP }}
+            --verbose
+        env:
+          NIX_SSHOPTS: "-i ~/.ssh/id_ed25519"
