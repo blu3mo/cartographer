@@ -153,31 +153,30 @@
                 '';
               });
 
-          packages.cartographer-frontend = pkgs.buildNpmPackage {
-            pname = "cartographer-frontend";
-            version = "0.1.0";
-            src = ./.;
-            # Initial dummy hash - run build to get the correct one
-            npmDepsHash = "sha256-Pidk+5OyAT7uAEU7sIPsd2fZjImKrZzD21DGuugAtr0=";
-            
-            # Using standalone output from Next.js
-            installPhase = ''
-              mkdir -p $out
-              cp -r .next/standalone $out/app
-              cp -r .next/static $out/app/.next/static
-              cp -r public $out/app/public
-            '';
-
-            # Inject environment variables (Secrets)
-            # In CI, we generate build-env.nix with secrets.
-            # Locally, we use placeholders or user-provided file.
-            env = if builtins.pathExists ./build-env.nix 
-                  then import ./build-env.nix 
-                  else {
-                    NEXT_PUBLIC_SUPABASE_URL = "https://placeholder.supabase.co";
-                    NEXT_PUBLIC_SUPABASE_ANON_KEY = "placeholder-key";
-                  };
-          };
+          packages.cartographer-frontend = 
+            let
+              envVars = if builtins.pathExists ./build-env.nix 
+                    then import ./build-env.nix 
+                    else {
+                      NEXT_PUBLIC_SUPABASE_URL = "https://placeholder.supabase.co";
+                      NEXT_PUBLIC_SUPABASE_ANON_KEY = "placeholder-key";
+                    };
+            in
+            pkgs.buildNpmPackage (envVars // {
+              pname = "cartographer-frontend";
+              version = "0.1.0";
+              src = ./.;
+              # Initial dummy hash - run build to get the correct one
+              npmDepsHash = "sha256-Pidk+5OyAT7uAEU7sIPsd2fZjImKrZzD21DGuugAtr0=";
+              
+              # Using standalone output from Next.js
+              installPhase = ''
+                mkdir -p $out
+                cp -r .next/standalone $out/app
+                cp -r .next/static $out/app/.next/static
+                cp -r public $out/app/public
+              '';
+            });
 
           # TODO: EventId変更に伴いテストファイルの修正が必要
           # テストファイル修正後に以下のchecksを復活すること
