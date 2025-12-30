@@ -71,16 +71,16 @@ const renderSuggestionCard = (
   if (fieldSuggestions.length === 0) return null;
 
   return (
-    <Card className="border-blue-200 bg-blue-50/50">
+    <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900/60 dark:bg-blue-950/40">
       <CardContent className="pt-6">
         <div className="flex items-start gap-3">
           <div className="flex-1 space-y-3">
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/60 dark:text-blue-100">
               <Sparkles className="h-3 w-3" />
               AI入力アシスト
             </span>
             {fieldSuggestions.length === 1 ? (
-              <p className="text-sm leading-relaxed text-blue-900">
+              <p className="text-sm leading-relaxed text-blue-900 dark:text-blue-100">
                 {fieldSuggestions[0].message}
               </p>
             ) : (
@@ -88,7 +88,7 @@ const renderSuggestionCard = (
                 {fieldSuggestions.map((suggestion, index) => (
                   <li
                     key={`${suggestion.field}-${index}`}
-                    className="text-sm leading-relaxed text-blue-900"
+                    className="text-sm leading-relaxed text-blue-900 dark:text-blue-100"
                   >
                     {suggestion.message}
                   </li>
@@ -453,9 +453,9 @@ function NewSessionContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="order-2 lg:order-1">
             {isPreviewLoading && (
-              <Card className="border-indigo-100 bg-indigo-50/40 min-h-[600px] flex items-center justify-center">
+              <Card className="border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/50 min-h-[600px] flex items-center justify-center">
                 <CardContent className="pt-6 flex items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600 dark:text-indigo-300" />
                 </CardContent>
               </Card>
             )}
@@ -471,9 +471,9 @@ function NewSessionContent() {
             )}
 
             {!isPreviewLoading && previewQuestions.length > 0 && (
-              <Card className="border-indigo-100 bg-indigo-50/40 min-h-[600px] flex flex-col">
+              <Card className="border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/50 min-h-[600px] flex flex-col">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base text-indigo-900 flex items-center gap-2">
+                  <CardTitle className="text-base text-indigo-900 dark:text-indigo-100 flex items-center gap-2">
                     <Sparkles className="h-4 w-4" />
                     質問のプレビュー
                   </CardTitle>
@@ -486,20 +486,20 @@ function NewSessionContent() {
                     {previewQuestions.map((q, index) => (
                       <div
                         key={`${q}-${index}`}
-                        className="rounded-lg border border-border/60 bg-white shadow-sm"
+                        className="rounded-lg border border-border/60 bg-white dark:bg-slate-950/40 shadow-sm"
                       >
                         <div
-                          className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors group"
+                          className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group"
                           onClick={() => handleQuestionClick(index)}
                         >
-                          <p className="text-sm leading-relaxed text-slate-900 flex-1">
+                          <p className="text-sm leading-relaxed text-slate-900 dark:text-slate-100 flex-1">
                             {q}
                           </p>
                           <div
                             className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
                               expandedQuestionIndex === index
-                                ? "bg-indigo-100 text-indigo-700"
-                                : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
+                                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/70 dark:text-indigo-200"
+                                : "bg-slate-100 text-slate-600 group-hover:bg-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:group-hover:bg-slate-700/70"
                             }`}
                           >
                             <Pencil className="h-3 w-3" />
@@ -657,13 +657,15 @@ function NewSessionContent() {
               </div>
 
               {error && (
-                <Card className="border-red-300 bg-red-50">
+                <Card className="border-red-300 bg-red-50 dark:border-red-900/60 dark:bg-red-950/40">
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
-                        <span className="text-red-600 text-sm font-bold">!</span>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/70 flex items-center justify-center">
+                        <span className="text-red-600 dark:text-red-200 text-sm font-bold">!</span>
                       </div>
-                      <p className="text-sm text-red-800 font-medium">{error}</p>
+                      <p className="text-sm text-red-800 dark:text-red-100 font-medium">
+                        {error}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
