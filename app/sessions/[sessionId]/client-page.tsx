@@ -269,8 +269,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
-  const isManualNavigationRef = useRef(false);
-  const previousStatementBeforeManualNavRef = useRef<Statement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
   const currentQuestionRef = useRef<HTMLDivElement | null>(null);
@@ -708,89 +706,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     if (state !== "ANSWERING") return;
     if (!currentStatement) return;
 
-    // Check if this is a manual navigation (e.g., clicking "修正する")
-    const isManualNav = isManualNavigationRef.current;
-    if (isManualNav) {
-      // Reset the flag
-      isManualNavigationRef.current = false;
-
-      // Still need to fetch suggestions for the current statement
-      setAiSuggestions([]);
-      setIsLoadingSuggestions(true);
-
-      const fetchCurrentSuggestions = async () => {
-        const suggestions: string[] = [];
-
-        await fetchSuggestionsStreaming(
-          sessionId,
-          currentStatement.id,
-          userId,
-          (suggestion) => {
-            suggestions.push(suggestion);
-            setAiSuggestions([...suggestions]);
-          },
-          () => {
-            setIsLoadingSuggestions(false);
-          },
-          (err) => {
-            console.error("Failed to fetch AI suggestions:", err);
-            // Set fallback suggestions
-            setAiSuggestions([
-              "状況によって賛成できる",
-              "一部には賛成だが全体には反対",
-              "今は判断できない",
-            ]);
-            setIsLoadingSuggestions(false);
-          },
-        );
-      };
-
-      fetchCurrentSuggestions();
-
-      // Prefetch the next statement in timeline (not the next unanswered)
-      setPrefetchedStatement(undefined);
-      setPrefetchedRemainingQuestions(null);
-      setPrefetchedAiSuggestions(undefined);
-
-      const currentIndex = allStatements.findIndex(
-        (s) => s.id === currentStatement.id,
-      );
-      if (currentIndex !== -1 && currentIndex < allStatements.length - 1) {
-        const nextStatementInTimeline = allStatements[currentIndex + 1];
-        if (nextStatementInTimeline) {
-          setPrefetchedStatement(nextStatementInTimeline);
-          // Prefetch suggestions for the next statement in timeline
-          const prefetchTimelineNextSuggestions = async () => {
-            const suggestions: string[] = [];
-            await fetchSuggestionsStreaming(
-              sessionId,
-              nextStatementInTimeline.id,
-              userId,
-              (suggestion) => {
-                suggestions.push(suggestion);
-              },
-              () => {
-                setPrefetchedAiSuggestions(suggestions);
-              },
-              (err) => {
-                console.error(
-                  "Failed to prefetch AI suggestions for timeline next statement:",
-                  err,
-                );
-                setPrefetchedAiSuggestions([
-                  "状況によって賛成できる",
-                  "一部には賛成だが全体には反対",
-                  "今は判断できない",
-                ]);
-              },
-            );
-          };
-          prefetchTimelineNextSuggestions();
-        }
-      }
-      return;
-    }
-
     // Check if this statement came from prefetch
     const isFromPrefetch =
       prefetchedStatementIdRef.current === currentStatement.id;
@@ -1134,12 +1049,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
       ? { ...previousResponse }
       : null;
 
-    // Check if this is a manual navigation (e.g., editing a past response via "修正する")
-    const isManualNav = isManualNavigationRef.current;
-    if (isManualNav) {
-      isManualNavigationRef.current = false;
-    }
-
     setError(null);
     upsertParticipantResponse(previousStatement, {
       responseType: payload.responseType,
@@ -1160,81 +1069,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     const headers = createAuthorizationHeader(userId);
 
     try {
-      // If this is a manual navigation (editing a past response), save the response
-      // but don't advance to the next statement. Instead, return to the statement before editing.
-      if (isManualNav) {
-        setIsLoading(true);
-
-        const postResult = await axios.post(
-          `/api/sessions/${sessionId}/responses`,
-          {
-            statementId: previousStatement.id,
-            value: payload.value,
-            responseType: payload.responseType,
-            textResponse: payload.textResponse,
-          },
-          { headers },
-        );
-
-        const serverResponse = postResult.data?.response;
-        if (serverResponse) {
-          syncParticipantResponseFromServer(serverResponse);
-        }
-
-        clearPendingStatement();
-
-        // Return to the statement that was active before we clicked "修正する"
-        const statementToReturnTo = previousStatementBeforeManualNavRef.current;
-        previousStatementBeforeManualNavRef.current = null;
-
-        if (statementToReturnTo) {
-          setCurrentStatement(statementToReturnTo);
-
-          // Reset suggestions - will be fetched by useEffect
-          setAiSuggestions([]);
-          setIsLoadingSuggestions(true);
-          setPrefetchedAiSuggestions(undefined);
-        } else {
-          // Fallback: if we don't have the previous statement, find the latest unanswered one
-          const nextResponse = await axios.get(
-            `/api/sessions/${sessionId}/statements/next${buildExcludeQuery([previousStatement.id])}`,
-            { headers },
-          );
-
-          const nextStatement = nextResponse.data?.statement ?? null;
-          const remainingCount = nextResponse.data?.remainingCount ?? null;
-
-          if (nextStatement) {
-            setCurrentStatement(nextStatement);
-            setRemainingQuestions(remainingCount);
-
-            // Update all statements list if provided
-            if (nextResponse.data?.allStatements) {
-              setAllStatements(nextResponse.data.allStatements);
-              // Find current statement index
-              const index = nextResponse.data.allStatements.findIndex(
-                (s: Statement) => s.id === nextStatement.id,
-              );
-              setCurrentStatementIndex(index !== -1 ? index : null);
-            }
-
-            // Reset suggestions - will be fetched by useEffect
-            setAiSuggestions([]);
-            setIsLoadingSuggestions(true);
-            setPrefetchedAiSuggestions(undefined);
-          } else {
-            enterReflectionMode();
-          }
-        }
-
-        if (payload.responseType === "free_text") {
-          setFreeTextInput("");
-        }
-
-        setIsLoading(false);
-        return;
-      }
-
       if (cachedNextStatement === null) {
         setIsLoading(true);
 
@@ -1988,9 +1822,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                           )}
                           <button
                             onClick={() => {
-                              // Save the current statement before navigating to edit
-                              previousStatementBeforeManualNavRef.current = currentStatement;
-                              isManualNavigationRef.current = true;
                               setCurrentStatement(statement);
                               // If the response was free_text, open the alternatives section
                               const isFreeText = response.responseType === "free_text";
