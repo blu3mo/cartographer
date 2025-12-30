@@ -167,6 +167,16 @@
               cp -r .next/static $out/app/.next/static
               cp -r public $out/app/public
             '';
+
+            # Inject environment variables (Secrets)
+            # In CI, we generate build-env.nix with secrets.
+            # Locally, we use placeholders or user-provided file.
+            env = if builtins.pathExists ./build-env.nix 
+                  then import ./build-env.nix 
+                  else {
+                    NEXT_PUBLIC_SUPABASE_URL = "https://placeholder.supabase.co";
+                    NEXT_PUBLIC_SUPABASE_ANON_KEY = "placeholder-key";
+                  };
           };
 
           # TODO: EventId変更に伴いテストファイルの修正が必要

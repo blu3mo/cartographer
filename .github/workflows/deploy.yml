@@ -66,6 +66,16 @@ jobs:
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
         continue-on-error: true
 
+      - name: Inject secrets for build
+        run: |
+          cat <<EOF > build-env.nix
+          {
+            NEXT_PUBLIC_SUPABASE_URL = "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}";
+            NEXT_PUBLIC_SUPABASE_ANON_KEY = "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}";
+          }
+          EOF
+          git add -f build-env.nix
+
       - name: Build Next.js frontend (Nix)
         id: frontend-build
         run: nix build .#cartographer-frontend --print-build-logs
