@@ -72,10 +72,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       color: isDark ? '#0f172a' : '#ffffff',
     } : {};
 
+    // セカンダリボタンのスタイルを動的に設定
+    const secondaryButtonStyle = variant === "secondary" ? {
+      backgroundColor: isDark ? '#ffffff' : '#e2e8f0',
+      color: '#0f172a',
+      borderColor: isDark ? '#e5e7eb' : '#cbd5e1',
+    } : {};
+
     return (
       <button
         className={cn(buttonVariants({ variant, size, className }))}
-        style={defaultButtonStyle}
+        style={{ ...defaultButtonStyle, ...secondaryButtonStyle }}
         ref={ref}
         disabled={disabled || isLoading}
         {...props}

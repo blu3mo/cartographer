@@ -136,3 +136,67 @@ body {
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
+
+/* Dark mode styles for markdown content */
+.dark .markdown-body {
+  color-scheme: dark;
+  --color-fg-default: #e6edf3;
+  --color-fg-muted: #8b949e;
+  --color-fg-subtle: #6e7681;
+  --color-canvas-default: transparent;
+  --color-canvas-subtle: #161b22;
+  --color-border-default: #30363d;
+  --color-border-muted: #21262d;
+  --color-neutral-muted: rgba(110, 118, 129, 0.4);
+  --color-accent-fg: #58a6ff;
+  --color-accent-emphasis: #1f6feb;
+  --color-danger-fg: #f85149;
+  --color-attention-fg: #d29922;
+  --color-success-fg: #3fb950;
+  --color-attention-subtle: rgba(187, 128, 9, 0.15);
+  --color-danger-subtle: rgba(248, 81, 73, 0.15);
+  --color-success-subtle: rgba(46, 160, 67, 0.15);
+}
+
+.dark .markdown-body,
+.dark .markdown-body p,
+.dark .markdown-body h1,
+.dark .markdown-body h2,
+.dark .markdown-body h3,
+.dark .markdown-body h4,
+.dark .markdown-body h5,
+.dark .markdown-body h6,
+.dark .markdown-body li,
+.dark .markdown-body strong,
+.dark .markdown-body em,
+.dark .markdown-body code,
+.dark .markdown-body pre {
+  color: #e6edf3 !important;
+}
+
+.dark .markdown-body a {
+  color: #58a6ff !important;
+}
+
+.dark .markdown-body code {
+  background-color: rgba(110, 118, 129, 0.2) !important;
+}
+
+.dark .markdown-body pre {
+  background-color: #161b22 !important;
+}
+
+.dark .markdown-body blockquote {
+  color: #8b949e !important;
+  border-left-color: #30363d !important;
+}
+
+.dark .markdown-body table tr {
+  background-color: transparent !important;
+  border-top-color: #30363d !important;
+}
+
+.dark .markdown-body table th,
+.dark .markdown-body table td {
+  border-color: #30363d !important;
+}
