@@ -27,7 +27,7 @@ import Test.QuickCheck
 import Test.QuickCheck.Instances.Text ()
 import Test.QuickCheck.Instances.UUID ()
 import Web.API (API)
-import Web.Server (app)
+import Web.Server (AppConfig (..), app)
 import Web.Types (CreateSessionRequest (..), CreateSessionResponse (..))
 
 -- TODO: Reuse logic from Main.hs or extract app creation to avoid duplication
@@ -99,8 +99,11 @@ withApp action = do
   -- Initialize DB schema
   _ <- withM36Connection dbConfig migrateSchemaIfNeeded
 
+  -- App Config
+  let appConfig = AppConfig {m36Config = dbConfig, pgConfig = Nothing}
+
   -- Start server
-  Warp.testWithApplication (pure $ app dbConfig) $ \port -> do
+  Warp.testWithApplication (pure $ app appConfig) $ \port -> do
     manager <- newManager defaultManagerSettings
     let baseUrl = BaseUrl Http "localhost" port ""
     let clientEnv = mkClientEnv manager baseUrl

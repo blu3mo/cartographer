@@ -25,7 +25,8 @@ data CreateSessionRequest = CreateSessionRequest
   deriving anyclass (FromJSON, ToJSON)
 
 data CreateSessionResponse = CreateSessionResponse
-  { sessionId :: SessionId
+  { sessionId :: SessionId,
+    adminAccessToken :: UUID
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)

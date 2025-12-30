@@ -41,7 +41,7 @@ import Domain.Types
   )
 import Polysemy (Embed, Member, Sem, embed, interpret, makeSem)
 import ProjectM36.Atomable (toAddTypeExpr)
-import ProjectM36.Base (RelationalExprBase (..))
+import ProjectM36.Base (Relation, RelationCardinality (..), RelationalExprBase (..))
 import ProjectM36.Client
   ( ConnectionInfo (..),
     NotificationCallback,
@@ -58,6 +58,7 @@ import ProjectM36.Client.Simple
   )
 import ProjectM36.DatabaseContext (basicDatabaseContext)
 import ProjectM36.Error (RelationalError)
+import ProjectM36.Relation (cardinality)
 import ProjectM36.Tupleable (toDefineExpr, toInsertExpr)
 
 -------------------------------------------------------------------------------
