@@ -873,8 +873,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
       finishTimeout = window.setTimeout(() => {
         setIsAutoScrolling(false);
-      }, 1000);
-    }, 200);
+      }, 800);
+    }, 150);
 
     return () => {
       window.clearTimeout(startTimeout);
@@ -1738,10 +1738,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                   ref={isActive ? currentQuestionRef : null}
                   data-testid="response-item"
                   className={cn(
-                    "w-full transition-all duration-700 ease-in-out transform",
+                    "w-full transform transition-all duration-500 ease-out",
                     isActive && "scale-100 opacity-100 translate-y-0 z-20",
-                    isPast && "scale-[0.98] opacity-50 -translate-y-4 z-10",
-                    isFuture && "scale-[0.95] translate-y-4 z-0 blur-[0.5px]",
+                    isPast && "scale-[0.96] opacity-60 -translate-y-2 z-10",
+                    isFuture && "scale-[0.94] translate-y-4 z-0 blur-[0.5px]",
                   )}
                   style={{
                     opacity: isFuture
@@ -1749,11 +1749,13 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                       : isPast
                         ? 0.6
                         : 1,
+                    willChange: isActive ? 'transform, opacity' : 'auto',
+                    transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
                   <Card
                     className={cn(
-                      "relative bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500",
+                      "relative bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500 ease-out",
                       isActive &&
                         "shadow-xl ring-4 ring-indigo-50/50 border-indigo-100",
                       isActive &&
@@ -1762,6 +1764,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                       isFuture &&
                         "bg-slate-50/50 border-dashed pointer-events-none",
                     )}
+                    style={{
+                      transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}
                   >
                     <div className="p-6 md:p-8">
                       <div
