@@ -62,6 +62,16 @@ jobs:
 
       - name: Inject secrets and Build Next.js frontend (Standard)
         run: |
+          # Validate Secrets
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "::error::Secret NEXT_PUBLIC_SUPABASE_URL is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" ]; then
+            echo "::error::Secret NEXT_PUBLIC_SUPABASE_ANON_KEY is not set"
+            exit 1
+          fi
+
           # Inject secrets for build
           cat <<EOF > .env.production
           NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
