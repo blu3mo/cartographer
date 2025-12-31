@@ -112,7 +112,7 @@ export async function GET(
   }
 
   const statementNumber = parseInt(statementNumberParam, 10);
-  if (isNaN(statementNumber) || statementNumber < 1) {
+  if (Number.isNaN(statementNumber) || statementNumber < 1) {
     return NextResponse.json(
       { error: "Invalid statementNumber" },
       { status: 400 },
@@ -125,10 +125,7 @@ export async function GET(
     const report = await getSessionReportById(reportId);
 
     if (!report || report.sessionId !== sessionId) {
-      return NextResponse.json(
-        { error: "Report not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     const snapshotStatement = getStatementFromSnapshot(
@@ -208,6 +205,7 @@ export async function GET(
       const value = response.value as ResponseValue | null;
 
       return {
+        participantUserId: response.participant_user_id,
         participantName:
           participantMap.get(response.participant_user_id) ?? "Unknown",
         responseType: response.response_type as "scale" | "free_text",

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface StatementResponse {
+  participantUserId: string | null;
   participantName: string;
   responseType: "scale" | "free_text";
   value: number | null;
@@ -46,7 +47,7 @@ export function StatementTagPopover({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const containerRef = useRef<HTMLSpanElement>(null);
+  const containerRef = useRef<HTMLButtonElement>(null);
 
   const cacheKey = `${sessionId}-${statementNumber}`;
 
@@ -118,11 +119,15 @@ export function StatementTagPopover({
   };
 
   return (
-    <span
+    <button
       ref={containerRef}
-      className="relative inline-block"
+      type="button"
+      className="relative inline-block bg-transparent p-0"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onFocus={handleMouseEnter}
+      onBlur={handleMouseLeave}
+      aria-expanded={isOpen}
     >
       <Badge
         variant="secondary"
@@ -132,11 +137,7 @@ export function StatementTagPopover({
       </Badge>
 
       {isOpen && (
-        <span
-          className="absolute left-1/2 z-50 mt-2 block w-80 -translate-x-1/2 transform"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
+        <span className="absolute left-1/2 z-50 mt-2 block w-80 -translate-x-1/2 transform">
           <span className="block rounded-lg border border-border bg-white p-4 shadow-lg">
             {loading && (
               <span className="flex items-center justify-center py-4">
@@ -167,9 +168,11 @@ export function StatementTagPopover({
                   </span>
                 ) : (
                   <span className="block max-h-48 space-y-2 overflow-y-auto">
-                    {data.responses.map((response, index) => (
+                    {data.responses.map((response) => (
                       <span
-                        key={index}
+                        key={
+                          response.participantUserId ?? response.participantName
+                        }
                         className="flex items-start gap-2 text-sm"
                       >
                         <span className="shrink-0 font-medium text-slate-700">
@@ -198,6 +201,6 @@ export function StatementTagPopover({
           <span className="absolute -top-2 left-1/2 block h-0 w-0 -translate-x-1/2 transform border-x-8 border-b-8 border-x-transparent border-b-white drop-shadow-sm" />
         </span>
       )}
-    </span>
+    </button>
   );
 }

@@ -7,10 +7,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { StatementTagPopover } from "@/components/report/StatementTagPopover";
-import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
 import { useUserId } from "@/lib/useUserId";
+import { cn } from "@/lib/utils";
 
 type SessionReportStatus = "pending" | "generating" | "completed" | "failed";
 
@@ -53,11 +53,17 @@ const getSnapshotSession = (
     return null;
   }
 
-  const { title, goal, context } = session as SessionSnapshot["session"];
+  const sessionData = session as {
+    title?: unknown;
+    goal?: unknown;
+    context?: unknown;
+  };
   return {
-    title: typeof title === "string" ? title : undefined,
-    goal: typeof goal === "string" ? goal : undefined,
-    context: typeof context === "string" ? context : undefined,
+    title:
+      typeof sessionData.title === "string" ? sessionData.title : undefined,
+    goal: typeof sessionData.goal === "string" ? sessionData.goal : undefined,
+    context:
+      typeof sessionData.context === "string" ? sessionData.context : undefined,
   };
 };
 
@@ -74,7 +80,9 @@ export default function SessionReportPrintPage({
   const [report, setReport] = useState<SessionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
   const [infoOpen, setInfoOpen] = useState({ goal: true, context: false });
 
   // Process a single string to replace #n with interactive popovers
@@ -84,12 +92,13 @@ export default function SessionReportPrintPage({
 
       const parts: ReactNode[] = [];
       let lastIndex = 0;
-      let match: RegExpExecArray | null;
+      let match: RegExpExecArray | null = null;
 
       // Reset regex state
       STATEMENT_TAG_REGEX.lastIndex = 0;
 
-      while ((match = STATEMENT_TAG_REGEX.exec(text)) !== null) {
+      match = STATEMENT_TAG_REGEX.exec(text);
+      while (match !== null) {
         // Add text before the match
         if (match.index > lastIndex) {
           parts.push(text.slice(lastIndex, match.index));
@@ -108,6 +117,7 @@ export default function SessionReportPrintPage({
         );
 
         lastIndex = match.index + match[0].length;
+        match = STATEMENT_TAG_REGEX.exec(text);
       }
 
       // Add remaining text after last match
@@ -115,7 +125,7 @@ export default function SessionReportPrintPage({
         parts.push(text.slice(lastIndex));
       }
 
-      return parts.length > 0 ? <>{parts}</> : text;
+      return parts.length > 0 ? parts : text;
     },
     [userId, sessionId, accessToken, reportId],
   );
@@ -134,19 +144,14 @@ export default function SessionReportPrintPage({
       }
 
       if (Array.isArray(children)) {
-        return children.map((child, index) => {
-          const processed = processStatementTags(child);
-          // Wrap in fragment with key if it's a processed node
-          if (typeof child === "string" || typeof child === "number") {
-            return <span key={index}>{processed}</span>;
-          }
-          return processed;
-        });
+        return children.map((child) => processStatementTags(child));
       }
 
       // Handle React elements - we need to check if it's an element and process its children
       if (children && typeof children === "object" && "props" in children) {
-        const element = children as React.ReactElement<{ children?: ReactNode }>;
+        const element = children as React.ReactElement<{
+          children?: ReactNode;
+        }>;
         if (element.props?.children) {
           // Don't clone, just return original - the component renderers handle children
           return children;
@@ -206,7 +211,9 @@ export default function SessionReportPrintPage({
       <div className="min-h-screen bg-background dark:bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">レポートを読み込んでいます...</p>
+          <p className="text-sm text-muted-foreground">
+            レポートを読み込んでいます...
+          </p>
         </div>
       </div>
     );
@@ -220,7 +227,8 @@ export default function SessionReportPrintPage({
             {error ? "エラーが発生しました" : "レポートが見つかりません"}
           </h2>
           <p className="text-sm text-muted-foreground leading-7">
-            {error ?? "指定されたレポートは存在しないか、アクセス権限がありません。"}
+            {error ??
+              "指定されたレポートは存在しないか、アクセス権限がありません。"}
           </p>
         </div>
         <Button
@@ -327,7 +335,6 @@ export default function SessionReportPrintPage({
               </div>
             </div>
           </div>
-
         </header>
 
         {report.requestMarkdown ? (
@@ -462,7 +469,9 @@ export default function SessionReportPrintPage({
               <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
                 セッションID
               </dt>
-              <dd className="break-all font-mono text-foreground/80">{sessionId}</dd>
+              <dd className="break-all font-mono text-foreground/80">
+                {sessionId}
+              </dd>
             </div>
             <div className="space-y-1 sm:col-span-3">
               <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
