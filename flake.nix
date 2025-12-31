@@ -170,12 +170,16 @@
 
               installPhase = ''
                 mkdir -p $out/app
-                if [ -d ".next/standalone" ]; then
+                # CI artifact has standalone content directly (server.js at root)
+                if [ -f "server.js" ]; then
+                  cp -r . $out/app/
+                # Local dev might have .next/standalone structure
+                elif [ -d ".next/standalone" ]; then
                   cp -r .next/standalone/* $out/app/
                   cp -r .next/static $out/app/.next/static
                   cp -r public $out/app/public
                 else
-                  echo "Warning: No build artifact found. This package expects .next/standalone."
+                  echo "Warning: No build artifact found. This package expects server.js or .next/standalone."
                   # For safety in local dev without artifact, create dummy
                   touch $out/app/dummy
                 fi
