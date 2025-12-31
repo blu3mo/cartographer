@@ -153,12 +153,10 @@
                 '';
               });
 
-          packages.cartographer-frontend = 
+          packages.cartographer-frontend =
             let
               # Check if the artifact directory exists (populated by CI)
-              artifactSrc = if builtins.pathExists ./frontend-artifact 
-                            then ./frontend-artifact
-                            else ./.; # Fallback for local dev (might fail or be empty)
+              artifactSrc = if builtins.pathExists ./frontend-artifact then ./frontend-artifact else ./.; # Fallback for local dev (might fail or be empty)
             in
             pkgs.stdenv.mkDerivation {
               pname = "cartographer-frontend";
@@ -334,6 +332,24 @@
               ];
             };
 
+          # OS configuration only - always works from Mac
+          # Usage: colmena apply --on cartographer-infra
+          cartographer-infra =
+            { pkgs, ... }:
+            {
+              deployment = {
+                targetHost = "52.68.102.0";
+                targetUser = "root";
+                buildOnTarget = true;
+              };
+
+              imports = [
+                ./nixos/infrastructure.nix
+              ];
+            };
+
+          # Full deployment with applications - requires x86_64-linux build
+          # Usage: colmena apply --on cartographer-prod (from CI or EC2)
           cartographer-prod =
             {
               name,
@@ -342,7 +358,6 @@
               ...
             }:
             let
-              # Packages for x86_64-linux (Target Architecture)
               backendPackage = self.packages.x86_64-linux.cartographer-backend;
               frontendPackage = self.packages.x86_64-linux.cartographer-frontend;
             in
@@ -350,14 +365,14 @@
               deployment = {
                 targetHost = "52.68.102.0";
                 targetUser = "root";
-                buildOnTarget = false; # Build on CI (GitHub Actions), not on target
+                buildOnTarget = false; # Build on CI, not on target
               };
 
               imports = [
-                ./nixos/server.nix
+                ./nixos/infrastructure.nix
+                ./nixos/application.nix
               ];
 
-              # Pass packages to the module
               _module.args = {
                 cartographer-backend = backendPackage;
                 cartographer-frontend = frontendPackage;
