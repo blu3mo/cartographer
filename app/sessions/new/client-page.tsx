@@ -1,7 +1,13 @@
 "use client";
 
 import axios from "axios";
-import { ArrowUpRight, Loader2, MessageSquare, Pencil, Sparkles } from "lucide-react";
+import {
+  ArrowUpRight,
+  Loader2,
+  MessageSquare,
+  Pencil,
+  Sparkles,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
@@ -13,15 +19,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Field,
-  FieldLabel,
   FieldDescription,
   FieldError,
+  FieldLabel,
 } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 
@@ -322,7 +328,9 @@ function NewSessionContent() {
   const textareaClasses = (field: SuggestionField, hasError?: boolean) =>
     [
       "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y",
-      highlightedField === field ? "ring-2 ring-indigo-400 border-indigo-400" : "",
+      highlightedField === field
+        ? "ring-2 ring-indigo-400 border-indigo-400"
+        : "",
       hasError ? "border-red-500 focus-visible:ring-red-500" : "",
     ]
       .filter(Boolean)
@@ -332,8 +340,9 @@ function NewSessionContent() {
     const hasSuggestions = suggestions.some(
       (suggestion) => suggestion.field === field,
     );
+    const hasAnyInput = Boolean(backgroundInfo.trim() || purpose.trim());
 
-    if (isSuggestionsLoading && (backgroundInfo.trim() || purpose.trim())) {
+    if (isSuggestionsLoading && hasAnyInput && !hasSuggestions) {
       return (
         <Card className="border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/50">
           <CardContent className="pt-6">
@@ -352,7 +361,7 @@ function NewSessionContent() {
       );
     }
 
-    if (!hasSuggestions) {
+    if (!hasAnyInput || !hasSuggestions) {
       return <FieldDescription>{fallback}</FieldDescription>;
     }
     return renderSuggestionCard(field, suggestions, handleSuggestionClick);
@@ -461,6 +470,8 @@ function NewSessionContent() {
     );
   }
 
+  const hasPreviewQuestions = previewQuestions.length > 0;
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
@@ -486,16 +497,14 @@ function NewSessionContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="order-2 lg:order-1">
-            {isPreviewLoading && (
+            {!previewError && isPreviewLoading && !hasPreviewQuestions && (
               <Card className="border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/50 min-h-[600px] flex flex-col">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base text-indigo-900 dark:text-indigo-100 flex items-center gap-2">
                     <Sparkles className="h-4 w-4" />
                     質問のプレビュー
                   </CardTitle>
-                  <CardDescription>
-                    AIが質問を生成しています...
-                  </CardDescription>
+                  <CardDescription>AIが質問を生成しています...</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-hidden flex flex-col">
                   <div className="flex-1 space-y-3 overflow-y-auto pr-1">
@@ -523,9 +532,9 @@ function NewSessionContent() {
               </Card>
             )}
 
-            {!isPreviewLoading && previewQuestions.length > 0 && (
+            {!previewError && hasPreviewQuestions && (
               <Card className="border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/50 min-h-[600px] flex flex-col">
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-3 relative">
                   <CardTitle className="text-base text-indigo-900 dark:text-indigo-100 flex items-center gap-2">
                     <Sparkles className="h-4 w-4" />
                     質問のプレビュー
@@ -533,73 +542,93 @@ function NewSessionContent() {
                   <CardDescription>
                     参加者が回答する質問のプレビューです。質問をクリックすると、補足情報や修正点をフィードバックできます。
                   </CardDescription>
+                  <div
+                    className={`absolute right-6 top-6 flex items-center gap-2 text-xs text-muted-foreground transition-opacity ${
+                      isPreviewLoading ? "opacity-100" : "opacity-0"
+                    }`}
+                    aria-live="polite"
+                  >
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>更新中...</span>
+                  </div>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-hidden flex flex-col">
                   <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-                    {previewQuestions.map((q, index) => (
-                      <div
-                        key={`${q}-${index}`}
-                        className="rounded-lg border border-border/60 bg-white dark:bg-slate-950/40 shadow-sm"
-                      >
+                    {previewQuestions.map((q, index) => {
+                      const feedbackId = `question-feedback-${index}`;
+
+                      return (
                         <div
-                          className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group"
-                          onClick={() => handleQuestionClick(index)}
+                          key={`${q}-${index}`}
+                          className="rounded-lg border border-border/60 bg-white dark:bg-slate-950/40 shadow-sm"
                         >
-                          <p className="text-sm leading-relaxed text-slate-900 dark:text-slate-100 flex-1">
-                            {q}
-                          </p>
-                          <div
-                            className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
-                              expandedQuestionIndex === index
-                                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/70 dark:text-indigo-200"
-                                : "bg-muted text-slate-600 group-hover:bg-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:group-hover:bg-slate-700/70"
-                            }`}
+                          <button
+                            type="button"
+                            className="group flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                            onClick={() => handleQuestionClick(index)}
                           >
-                            <Pencil className="h-3 w-3" />
-                            <span className="text-xs font-medium">補足</span>
-                          </div>
-                        </div>
-                        {expandedQuestionIndex === index && (
-                          <div className="border-t border-border/60 px-4 py-3 space-y-2">
-                            <label className="text-xs text-muted-foreground">
-                              この質問についての補足や修正点
-                            </label>
-                            <Textarea
-                              value={questionFeedback}
-                              onChange={(e) => setQuestionFeedback(e.target.value)}
-                              rows={3}
-                              placeholder="例: この質問は前提が違います。実際には..."
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedQuestionIndex(null);
-                                  setQuestionFeedback("");
-                                }}
+                            <span className="text-sm leading-relaxed text-slate-900 dark:text-slate-100 flex-1">
+                              {q}
+                            </span>
+                            <span
+                              className={`flex items-center gap-1 rounded-md px-2 py-1 transition-all ${
+                                expandedQuestionIndex === index
+                                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/70 dark:text-indigo-200"
+                                  : "bg-muted text-slate-600 group-hover:bg-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:group-hover:bg-slate-700/70"
+                              }`}
+                            >
+                              <Pencil className="h-3 w-3" />
+                              <span className="text-xs font-medium">補足</span>
+                            </span>
+                          </button>
+                          {expandedQuestionIndex === index && (
+                            <div className="border-t border-border/60 px-4 py-3 space-y-2">
+                              <label
+                                htmlFor={feedbackId}
+                                className="text-xs text-muted-foreground"
                               >
-                                キャンセル
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleFeedbackSubmit(q, index);
-                                }}
-                                disabled={!questionFeedback.trim()}
-                              >
-                                追加
-                              </Button>
+                                この質問についての補足や修正点
+                              </label>
+                              <Textarea
+                                id={feedbackId}
+                                value={questionFeedback}
+                                onChange={(e) =>
+                                  setQuestionFeedback(e.target.value)
+                                }
+                                rows={3}
+                                placeholder="例: この質問は前提が違います。実際には..."
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedQuestionIndex(null);
+                                    setQuestionFeedback("");
+                                  }}
+                                >
+                                  キャンセル
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleFeedbackSubmit(q, index);
+                                  }}
+                                  disabled={!questionFeedback.trim()}
+                                >
+                                  追加
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="mt-6 flex justify-end">
                     <Button
@@ -616,117 +645,127 @@ function NewSessionContent() {
               </Card>
             )}
 
-            {!isPreviewLoading &&
-              !previewError &&
-              previewQuestions.length === 0 && (
-                <Card className="border-muted min-h-[600px] flex items-center justify-center">
-                  <CardContent className="pt-6">
-                    <p className="text-sm text-muted-foreground text-center">
-                      目的を入力すると、質問のプレビューが表示されます
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+            {!isPreviewLoading && !previewError && !hasPreviewQuestions && (
+              <Card className="border-muted min-h-[600px] flex items-center justify-center">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground text-center">
+                    目的を入力すると、質問のプレビューが表示されます
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="order-1 lg:order-2 lg:sticky lg:top-6 lg:self-start">
             <Card className="min-h-[600px]">
               <CardContent className="pt-6">
                 <form onSubmit={handleSubmit} className="space-y-6">
-              <Field data-invalid={!!titleError}>
-                <FieldLabel htmlFor="title" className="text-base font-semibold">
-                  セッションのタイトル{" "}
-                  <span className="text-red-500">*</span>
-                </FieldLabel>
-                <Input
-                  type="text"
-                  id="title"
-                  value={title}
-                  onChange={(e) => {
-                    setTitle(e.target.value);
-                    if (titleError) setTitleError(null);
-                  }}
-                  placeholder="例: 社内チャットツールの入れ替えに関する各メンバーの現状認識のすり合わせ"
-                  aria-invalid={!!titleError}
-                  className={titleError ? "border-red-500 focus-visible:ring-red-500" : ""}
-                />
-                {titleError ? (
-                  <FieldError>{titleError}</FieldError>
-                ) : (
-                  <FieldDescription>
-                    それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
-                  </FieldDescription>
-                )}
-              </Field>
+                  <Field data-invalid={!!titleError}>
+                    <FieldLabel
+                      htmlFor="title"
+                      className="text-base font-semibold"
+                    >
+                      セッションのタイトル{" "}
+                      <span className="text-red-500">*</span>
+                    </FieldLabel>
+                    <Input
+                      type="text"
+                      id="title"
+                      value={title}
+                      onChange={(e) => {
+                        setTitle(e.target.value);
+                        if (titleError) setTitleError(null);
+                      }}
+                      placeholder="例: 社内チャットツールの入れ替えに関する各メンバーの現状認識のすり合わせ"
+                      aria-invalid={!!titleError}
+                      className={
+                        titleError
+                          ? "border-red-500 focus-visible:ring-red-500"
+                          : ""
+                      }
+                    />
+                    {titleError ? (
+                      <FieldError>{titleError}</FieldError>
+                    ) : (
+                      <FieldDescription>
+                        それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
+                      </FieldDescription>
+                    )}
+                  </Field>
 
-              <Field data-invalid={!!purposeError}>
-                <FieldLabel htmlFor="purpose" className="text-base font-semibold">
-                  何をするために倍速会議を使うのですか？{" "}
-                  <span className="text-red-500">*</span>
-                </FieldLabel>
-                <Textarea
-                  id="purpose"
-                  value={purpose}
-                  onChange={(e) => {
-                    setPurpose(e.target.value);
-                    if (purposeError) setPurposeError(null);
-                  }}
-                  rows={6}
-                  className={textareaClasses("purpose", !!purposeError)}
-                  placeholder="例: 社内チャットツールの入れ替えを検討しているが、チーム内で認識のずれがありそう。導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にしたい。現状の使い方、課題、懸念点、導入後の期待などをすり合わせたい。"
-                  aria-invalid={!!purposeError}
-                />
-                {purposeError ? (
-                  <FieldError>{purposeError}</FieldError>
-                ) : (
-                  renderFieldAid(
-                    "purpose",
-                    "倍速会議を使う目的や、洗い出したい認識の内容を自由に記載してください。",
-                  )
-                )}
-              </Field>
+                  <Field data-invalid={!!purposeError}>
+                    <FieldLabel
+                      htmlFor="purpose"
+                      className="text-base font-semibold"
+                    >
+                      何をするために倍速会議を使うのですか？{" "}
+                      <span className="text-red-500">*</span>
+                    </FieldLabel>
+                    <Textarea
+                      id="purpose"
+                      value={purpose}
+                      onChange={(e) => {
+                        setPurpose(e.target.value);
+                        if (purposeError) setPurposeError(null);
+                      }}
+                      rows={6}
+                      className={textareaClasses("purpose", !!purposeError)}
+                      placeholder="例: 社内チャットツールの入れ替えを検討しているが、チーム内で認識のずれがありそう。導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にしたい。現状の使い方、課題、懸念点、導入後の期待などをすり合わせたい。"
+                      aria-invalid={!!purposeError}
+                    />
+                    {purposeError ? (
+                      <FieldError>{purposeError}</FieldError>
+                    ) : (
+                      renderFieldAid(
+                        "purpose",
+                        "倍速会議を使う目的や、洗い出したい認識の内容を自由に記載してください。",
+                      )
+                    )}
+                  </Field>
 
-              <Field>
-                <FieldLabel
-                  htmlFor="backgroundInfo"
-                  className="text-base font-semibold"
-                >
-                  背景情報{" "}
-                  <span className="ml-1.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/60 dark:text-yellow-100">
-                    任意
-                  </span>
-                </FieldLabel>
-                <Textarea
-                  id="backgroundInfo"
-                  value={backgroundInfo}
-                  onChange={(e) => setBackgroundInfo(e.target.value)}
-                  rows={4}
-                  className={textareaClasses("backgroundInfo")}
-                  placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
-                />
-                {renderFieldAid(
-                  "backgroundInfo",
-                  "認識のズレを感じた具体的なきっかけや、解決したい困りごとはありますか？今の状況や背景を少し詳しく何えると、セッションをよりスムーズに進めるための良いヒントになります。",
-                )}
-              </Field>
+                  <Field>
+                    <FieldLabel
+                      htmlFor="backgroundInfo"
+                      className="text-base font-semibold"
+                    >
+                      背景情報{" "}
+                      <span className="ml-1.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/60 dark:text-yellow-100">
+                        任意
+                      </span>
+                    </FieldLabel>
+                    <Textarea
+                      id="backgroundInfo"
+                      value={backgroundInfo}
+                      onChange={(e) => setBackgroundInfo(e.target.value)}
+                      rows={4}
+                      className={textareaClasses("backgroundInfo")}
+                      placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
+                    />
+                    {renderFieldAid(
+                      "backgroundInfo",
+                      "認識のズレを感じた具体的なきっかけや、解決したい困りごとはありますか？今の状況や背景を少し詳しく何えると、セッションをよりスムーズに進めるための良いヒントになります。",
+                    )}
+                  </Field>
 
-              {error && (
-                <Card className="border-red-300 bg-red-50 dark:border-red-900/60 dark:bg-red-950/40">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/70 flex items-center justify-center">
-                        <span className="text-red-600 dark:text-red-200 text-sm font-bold">!</span>
-                      </div>
-                      <p className="text-sm text-red-800 dark:text-red-100 font-medium">
-                        {error}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </form>
-          </CardContent>
-        </Card>
+                  {error && (
+                    <Card className="border-red-300 bg-red-50 dark:border-red-900/60 dark:bg-red-950/40">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/70 flex items-center justify-center">
+                            <span className="text-red-600 dark:text-red-200 text-sm font-bold">
+                              !
+                            </span>
+                          </div>
+                          <p className="text-sm text-red-800 dark:text-red-100 font-medium">
+                            {error}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </form>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
