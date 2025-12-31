@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -22,6 +23,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
@@ -81,63 +90,88 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        {/* Hero Section */}
-        <div className="mb-12">
-          <div className="flex items-start justify-between gap-4 mb-3">
-            <h1 className="text-4xl font-bold tracking-tight">倍速会議</h1>
-            <ThemeToggle />
-          </div>
-          <p className="text-lg text-muted-foreground">
-            認識を可視化し、合意形成を促進するツール
-          </p>
-        </div>
-
-        {/* Header with CTA */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight">セッション</h2>
-          <Link href="/sessions/new">
-            <Button>
-              <Plus className="h-4 w-4" />
-              新しいセッションを作成
-            </Button>
-          </Link>
-        </div>
-
-        {error && (
-          <Card className="mb-6 border-destructive">
-            <CardContent className="pt-6">
-              <p className="text-sm text-destructive">{error}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Sessions List */}
         {sessions.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6 pb-6 text-center">
-              <div className="flex flex-col items-center gap-3 py-12">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                  <FileText className="h-8 w-8 text-primary" />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-base font-semibold">
-                    セッションがありません
-                  </p>
-                  <p className="text-sm text-muted-foreground max-w-sm">
-                    新しいセッションを作成して、チームとの対話を始めましょう
-                  </p>
-                </div>
-                <Link href="/sessions/new" className="mt-2">
-                  <Button>
-                    <Plus className="h-4 w-4" />
-                    最初のセッションを作成
-                  </Button>
-                </Link>
+          <>
+            {/* Hero Section - Minimal for Empty State */}
+            <div className="mb-12">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <h1 className="text-4xl font-bold tracking-tight">倍速会議</h1>
+                <ThemeToggle />
               </div>
-            </CardContent>
-          </Card>
+              <p className="text-lg text-muted-foreground">
+                認識を可視化し、合意形成を促進するツール
+              </p>
+            </div>
+
+            {/* Empty State */}
+            <div className="flex items-center justify-center min-h-[500px]">
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <FileText />
+                  </EmptyMedia>
+                  <EmptyTitle>まだセッションはありません</EmptyTitle>
+                  <EmptyDescription>
+                    まだセッションを作成していません。まずは最初のセッションを作成しましょう。
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <div className="flex gap-2">
+                    <Link href="/sessions/new">
+                      <Button>
+                        <Plus className="h-4 w-4" />
+                        セッションを作成
+                      </Button>
+                    </Link>
+                  </div>
+                </EmptyContent>
+                <a
+                  href="https://scrapbox.io/baisoku-kaigi/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  もっと詳しく知る
+                  <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                </a>
+              </Empty>
+            </div>
+          </>
         ) : (
-          <SessionSections sessions={sessions} />
+          <>
+            {/* Hero Section */}
+            <div className="mb-12">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <h1 className="text-4xl font-bold tracking-tight">倍速会議</h1>
+                <ThemeToggle />
+              </div>
+              <p className="text-lg text-muted-foreground">
+                認識を可視化し、合意形成を促進するツール
+              </p>
+            </div>
+
+            {/* Header with CTA */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold tracking-tight">セッション</h2>
+              <Link href="/sessions/new">
+                <Button>
+                  <Plus className="h-4 w-4" />
+                  新しいセッションを作成
+                </Button>
+              </Link>
+            </div>
+
+            {error && (
+              <Card className="mb-6 border-destructive">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-destructive">{error}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Sessions List */}
+            <SessionSections sessions={sessions} />
+          </>
         )}
       </div>
     </div>
@@ -201,10 +235,10 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                       {session.title}
                     </CardTitle>
                     {!session.isPublic && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                      <Badge variant="secondary" className="gap-1.5">
                         <Lock className="h-3.5 w-3.5" />
                         非公開
-                      </span>
+                      </Badge>
                     )}
                   </div>
                   <CardDescription className="space-y-2 text-base leading-6">
@@ -252,7 +286,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                     <div className="flex gap-2">
                       {session.isHost && (
                         <Button
-                          variant="secondary"
+                          variant="outline"
                           size="sm"
                           onClick={(event) => {
                             event.stopPropagation();
