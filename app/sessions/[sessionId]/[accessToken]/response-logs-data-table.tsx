@@ -1,17 +1,20 @@
 "use client";
 
 import {
-  ColumnDef,
+  type ColumnDef,
+  type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  getFilteredRowModel,
-  SortingState,
-  ColumnFiltersState,
+  type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -20,9 +23,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -67,7 +67,9 @@ export function ResponseLogsDataTable<TData, TValue>({
             ""
           }
           onChange={(event) =>
-            table.getColumn("participantName")?.setFilterValue(event.target.value)
+            table
+              .getColumn("participantName")
+              ?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -104,7 +106,10 @@ export function ResponseLogsDataTable<TData, TValue>({
                   className="hover:bg-muted/30"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="px-4 py-3 text-card-foreground">
+                    <TableCell
+                      key={cell.id}
+                      className="px-4 py-3 text-card-foreground"
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
@@ -153,8 +158,7 @@ export function ResponseLogsDataTable<TData, TValue>({
             前へ
           </Button>
           <div className="text-sm text-muted-foreground">
-            {table.getState().pagination.pageIndex + 1} /{" "}
-            {table.getPageCount()}
+            {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
           </div>
           <Button
             variant="outline"

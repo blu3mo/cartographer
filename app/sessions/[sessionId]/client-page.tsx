@@ -2,19 +2,25 @@
 
 import axios from "axios";
 import {
-  ArrowDown,
   ChevronDown,
   Copy,
   FileText,
   Loader2,
   MessageCircleQuestion,
-  Navigation,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { ReportTasteSelect } from "@/components/report/ReportTasteSelect";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -25,17 +31,9 @@ import {
   Skeleton,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 import { cn } from "@/lib/utils";
@@ -150,7 +148,8 @@ const RESPONSE_CHOICES: Array<{
     value: 1,
     label: "同意",
     emoji: "✓",
-    idleClass: "bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950/50",
+    idleClass:
+      "bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950/50",
     activeClass:
       "bg-green-400 text-white border-green-400 shadow-sm hover:bg-green-400 dark:bg-green-500 dark:border-green-500",
   },
@@ -158,7 +157,8 @@ const RESPONSE_CHOICES: Array<{
     value: 0,
     label: "わからない・自信がない",
     emoji: "🤔",
-    idleClass: "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-950/50",
+    idleClass:
+      "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-950/50",
     activeClass:
       "bg-amber-400 text-slate-900 border-amber-400 shadow-sm hover:bg-amber-400 dark:bg-amber-500 dark:text-slate-100 dark:border-amber-500",
   },
@@ -166,7 +166,8 @@ const RESPONSE_CHOICES: Array<{
     value: -1,
     label: "反対",
     emoji: "✗",
-    idleClass: "bg-rose-100 text-rose-800 border-rose-200 hover:bg-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950/50",
+    idleClass:
+      "bg-rose-100 text-rose-800 border-rose-200 hover:bg-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950/50",
     activeClass:
       "bg-rose-400 text-white border-rose-400 shadow-sm hover:bg-rose-400 dark:bg-rose-500 dark:border-rose-500",
   },
@@ -174,7 +175,8 @@ const RESPONSE_CHOICES: Array<{
     value: -2,
     label: "強く反対",
     emoji: "👎",
-    idleClass: "bg-red-100 text-red-800 border-red-200 hover:bg-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/50",
+    idleClass:
+      "bg-red-100 text-red-800 border-red-200 hover:bg-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/50",
     activeClass:
       "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-600 dark:bg-red-700 dark:border-red-700",
   },
@@ -310,11 +312,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const [participantResponses, setParticipantResponses] = useState<
     ParticipantResponse[]
   >([]);
-  const [isLoadingResponses, setIsLoadingResponses] = useState(false);
+  const [_isLoadingResponses, setIsLoadingResponses] = useState(false);
   const [responsesError, setResponsesError] = useState<string | null>(null);
-  const [updatingResponseIds, setUpdatingResponseIds] = useState<Set<string>>(
-    new Set(),
-  );
   const [reflectionText, setReflectionText] = useState("");
   const [isSubmittingReflection, setIsSubmittingReflection] = useState(false);
   const [reflectionSubmissionError, setReflectionSubmissionError] = useState<
@@ -332,6 +331,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const freeTextSectionRef = useRef<HTMLDivElement | null>(null);
   const currentQuestionRef = useRef<HTMLDivElement | null>(null);
   const sessionInfoId = sessionInfo?.id;
+  const currentStatementId = currentStatement?.id ?? null;
   const totalQuestions = allStatements.length;
   const progressPercent =
     totalQuestions > 0 && remainingQuestions !== null
@@ -361,8 +361,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     }
 
     for (let i = currentStatementIndex + 1; i < allStatements.length; i++) {
-      if (!answeredIds.has(allStatements[i]!.id)) {
-        return allStatements[i]!;
+      const candidate = allStatements[i];
+      if (candidate && !answeredIds.has(candidate.id)) {
+        return candidate;
       }
     }
 
@@ -435,16 +436,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     totalQuestions > 0;
 
   useEffect(() => {
-    if (!currentStatement) {
+    if (!currentStatementId) {
       setCurrentStatementIndex(null);
       return;
     }
     if (allStatements.length === 0) return;
     const index = allStatements.findIndex(
-      (statement) => statement.id === currentStatement.id,
+      (statement) => statement.id === currentStatementId,
     );
     setCurrentStatementIndex(index !== -1 ? index : null);
-  }, [currentStatement?.id, allStatements]);
+  }, [currentStatementId, allStatements]);
   const fetchParticipantResponses = useCallback(async () => {
     if (!userId) return;
     setIsLoadingResponses(true);
@@ -516,7 +517,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
         if (existing) {
           // Update existing response - put it at the beginning (most recent)
-          const filtered = prev.filter((item) => item.statementId !== statement.id);
+          const filtered = prev.filter(
+            (item) => item.statementId !== statement.id,
+          );
           return [nextResponse, ...filtered];
         }
 
@@ -548,22 +551,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     [], // No dependencies - stable function
   );
 
-  const addUpdatingResponseId = useCallback((statementId: string) => {
-    setUpdatingResponseIds((prev) => {
-      const next = new Set(prev);
-      next.add(statementId);
-      return next;
-    });
-  }, []);
-
-  const removeUpdatingResponseId = useCallback((statementId: string) => {
-    setUpdatingResponseIds((prev) => {
-      const next = new Set(prev);
-      next.delete(statementId);
-      return next;
-    });
-  }, []);
-
   const syncParticipantResponseFromServer = useCallback(
     (payload: {
       id: string;
@@ -582,19 +569,22 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
         if (existingIndex === -1) return prev;
 
+        const existing = prev[existingIndex];
+        if (!existing) return prev;
+
         const updated = {
-          ...prev[existingIndex]!,
+          ...existing,
           id: payload.id,
           value: payload.value as ResponseValue | null,
           responseType: payload.responseType,
-          textResponse: payload.textResponse ?? prev[existingIndex]!.textResponse,
-          statementText: payload.statementText ?? prev[existingIndex]!.statementText ?? "",
-          orderIndex: payload.orderIndex ?? prev[existingIndex]!.orderIndex ?? 0,
+          textResponse: payload.textResponse ?? existing.textResponse,
+          statementText: payload.statementText ?? existing.statementText ?? "",
+          orderIndex: payload.orderIndex ?? existing.orderIndex ?? 0,
           createdAt: payload.createdAt,
         };
 
         // Move to front if timestamp changed (indicates new update)
-        if (payload.createdAt !== prev[existingIndex]!.createdAt) {
+        if (payload.createdAt !== existing.createdAt) {
           const filtered = prev.filter((_, i) => i !== existingIndex);
           return [updated, ...filtered];
         }
@@ -925,7 +915,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
   // Auto-scroll to current question when it changes
   useEffect(() => {
-    if (state !== "ANSWERING" || !currentStatement) return;
+    if (state !== "ANSWERING" || !currentStatementId) return;
     if (!currentQuestionRef.current) return;
 
     let finishTimeout: number | null = null;
@@ -948,10 +938,11 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         window.clearTimeout(finishTimeout);
       }
     };
-  }, [currentStatement?.id, state]);
+  }, [currentStatementId, state]);
 
   useEffect(() => {
     if (state !== "ANSWERING") return;
+    if (!currentStatementId) return;
     if (!currentQuestionRef.current) return;
 
     const target = currentQuestionRef.current;
@@ -973,19 +964,14 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     return () => {
       observer.disconnect();
     };
-  }, [currentStatement?.id, state, isAutoScrolling]);
+  }, [currentStatementId, state, isAutoScrolling]);
 
   useEffect(() => {
     if (!userId || userLoading) return;
     if (state === "NEEDS_NAME") return;
 
     fetchParticipantResponses();
-  }, [
-    userId,
-    userLoading,
-    state,
-    fetchParticipantResponses,
-  ]);
+  }, [userId, userLoading, state, fetchParticipantResponses]);
 
   // Auto-generate report when all questions are answered (even before reflection submission)
   useEffect(() => {
@@ -1178,7 +1164,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         setPrefetchedStatement(undefined);
         setRemainingQuestions(prefetchedRemainingQuestions ?? null);
         setPrefetchedRemainingQuestions(null);
-        setAiSuggestions(hasPrefetchedSuggestions ? prefetchedAiSuggestions : []);
+        setAiSuggestions(
+          hasPrefetchedSuggestions ? prefetchedAiSuggestions : [],
+        );
         setIsLoadingSuggestions(!hasPrefetchedSuggestions);
         setPrefetchedAiSuggestions(undefined);
 
@@ -1319,78 +1307,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     }, 1000);
   };
 
-  const handleInfoClick = () => {
-    setShowAlternatives(true);
-    requestAnimationFrame(() => {
-      freeTextSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
-  };
-
-  const handleUpdateResponse = async (
-    statementId: string,
-    value: ResponseValue,
-  ) => {
-    if (!userId) return;
-
-    const currentResponse = participantResponses.find(
-      (item) => item.statementId === statementId,
-    );
-
-    if (!currentResponse || currentResponse.value === value) {
-      return;
-    }
-
-    if (currentResponse.responseType === "free_text") {
-      setResponsesError("自由記述で回答した項目はここから変更できません。");
-      return;
-    }
-
-    const previousSnapshot: ParticipantResponse = { ...currentResponse };
-    const stubStatement: Statement = {
-      id: statementId,
-      text: currentResponse.statementText,
-      orderIndex: currentResponse.orderIndex,
-      sessionId,
-    };
-
-    setResponsesError(null);
-    upsertParticipantResponse(stubStatement, {
-      responseType: "scale",
-      value,
-      textResponse: null,
-    });
-    addUpdatingResponseId(statementId);
-
-    try {
-      const res = await axios.post(
-        `/api/sessions/${sessionId}/responses`,
-        { statementId, value },
-        { headers: createAuthorizationHeader(userId) },
-      );
-      const serverResponse = res.data?.response;
-      if (serverResponse) {
-        syncParticipantResponseFromServer(serverResponse);
-      }
-    } catch (err) {
-      console.error("Failed to update response:", err);
-      revertParticipantResponse(statementId, previousSnapshot);
-      if (axios.isAxiosError(err) && err.response?.data?.error) {
-        setResponsesError(
-          `回答の更新に失敗しました: ${err.response.data.error}`,
-        );
-      } else {
-        setResponsesError(
-          "回答の更新に失敗しました。時間をおいて再度お試しください。",
-        );
-      }
-    } finally {
-      removeUpdatingResponseId(statementId);
-    }
-  };
-
   const handleSubmitReflection = async (overrideText?: string) => {
     if (!userId || isSubmittingReflection) return;
 
@@ -1400,7 +1316,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     const submissionText = overrideText ?? reflectionText;
 
     try {
-      const response = await axios.post(
+      await axios.post(
         `/api/sessions/${sessionId}/reflections`,
         { text: submissionText },
         { headers: createAuthorizationHeader(userId) },
@@ -1515,7 +1431,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     const goal = sessionInfo?.goal?.trim();
     if (!goal) return [];
 
-    const lines = goal.split("\n").map((line) => line.trim()).filter(Boolean);
+    const lines = goal
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
     const buckets: Record<"purpose" | "focus", string[]> = {
       purpose: [],
       focus: [],
@@ -1637,10 +1556,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
               <ThemeToggle />
             </div>
           </div>
-          <Progress
-            value={progressPercent}
-            className="h-1 rounded-none"
-          />
+          <Progress value={progressPercent} className="h-1 rounded-none" />
         </header>
       )}
 
@@ -1750,9 +1666,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           <Card>
             <CardHeader>
               <CardTitle>ようこそ</CardTitle>
-              <CardDescription>
-                まず名前を入力してください
-              </CardDescription>
+              <CardDescription>まず名前を入力してください</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleJoinSession} className="space-y-4">
@@ -1847,11 +1761,6 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                   ? index - activeStatementIndex
                   : 0;
 
-              const isPending = pendingAnswerStatementIdsRef.current.has(
-                statement.id,
-              );
-              const isUpdating = updatingResponseIds.has(statement.id);
-
               return (
                 <div
                   key={statement.id}
@@ -1869,8 +1778,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                       : isPast
                         ? 0.6
                         : 1,
-                    willChange: isActive ? 'transform, opacity' : 'auto',
-                    transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                    willChange: isActive ? "transform, opacity" : "auto",
+                    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
                   }}
                 >
                   <Card
@@ -1878,14 +1787,12 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                       "relative overflow-hidden transition-all duration-500 ease-out",
                       isActive &&
                         "shadow-xl ring-4 ring-primary/10 border-primary/50 dark:ring-primary/20 dark:border-primary/60",
-                      isActive &&
-                        isLoading &&
-                        "opacity-50 pointer-events-none",
+                      isActive && isLoading && "opacity-50 pointer-events-none",
                       isFuture &&
                         "bg-muted/30 dark:bg-muted/20 border-dashed pointer-events-none",
                     )}
                     style={{
-                      transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                      transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
                     }}
                   >
                     <CardHeader className="pb-6">
@@ -1910,7 +1817,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                               <span className="text-xs text-muted-foreground">
                                 あなたの回答:
                               </span>
-                              <div className="flex-1 text-sm text-foreground line-clamp-2" data-testid="response-value">
+                              <div
+                                className="flex-1 text-sm text-foreground line-clamp-2"
+                                data-testid="response-value"
+                              >
                                 {response.textResponse?.trim().length
                                   ? response.textResponse
                                   : "（記入なし）"}
@@ -1936,15 +1846,19 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400",
                                 )}
                               >
-                                <span data-testid="response-value">{getResponseLabel(response.value)}</span>
+                                <span data-testid="response-value">
+                                  {getResponseLabel(response.value)}
+                                </span>
                               </div>
                             </>
                           )}
                           <button
+                            type="button"
                             onClick={() => {
                               setCurrentStatement(statement);
                               // If the response was free_text, open the alternatives section
-                              const isFreeText = response.responseType === "free_text";
+                              const isFreeText =
+                                response.responseType === "free_text";
                               setShowAlternatives(isFreeText);
 
                               // Scroll to free text section after a short delay
@@ -1971,215 +1885,236 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                       <CardContent className="pt-0 pb-6">
                         <div className="bg-muted/80 dark:bg-muted/30 backdrop-blur-sm border-t border-border dark:border-border/30 -mx-6 px-3 sm:px-4 py-3 sm:py-4">
                           <div className="grid grid-cols-5 gap-2 sm:gap-3">
-                          <button
-                            type="button"
-                            onClick={() => handleAnswer(2)}
-                            disabled={isLoading}
-                            className={cn(
-                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
-                              response?.value === 2
-                                ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
-                                : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
-                                  : "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700",
-                            )}
-                          >
-                            <div className="text-xl sm:text-3xl leading-none">👍</div>
-                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                              強く同意
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAnswer(1)}
-                            disabled={isLoading}
-                            className={cn(
-                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
-                              response?.value === 1
-                                ? "bg-green-500 hover:bg-green-600 text-white border-green-600 hover:border-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-                                : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
-                                  : "bg-green-500 hover:bg-green-600 text-white border-green-600 hover:border-green-700 dark:bg-green-500 dark:hover:bg-green-600",
-                            )}
-                          >
-                            <div className="text-xl sm:text-3xl leading-none">✓</div>
-                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                              同意
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAnswer(0)}
-                            disabled={isLoading}
-                            className={cn(
-                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
-                              response?.value === 0
-                                ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600 hover:border-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-900"
-                                : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
-                                  : "bg-amber-500 hover:bg-amber-600 text-white border-amber-600 hover:border-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-900",
-                            )}
-                          >
-                            <div className="text-xl sm:text-3xl leading-none">🤔</div>
-                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                              {showAlternatives
-                                ? "わからない・自信がない▲"
-                                : "わからない・自信がない▼"}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAnswer(-1)}
-                            disabled={isLoading}
-                            className={cn(
-                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
-                              response?.value === -1
-                                ? "bg-rose-500 hover:bg-rose-600 text-white border-rose-600 hover:border-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600"
-                                : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
-                                  : "bg-rose-500 hover:bg-rose-600 text-white border-rose-600 hover:border-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600",
-                            )}
-                          >
-                            <div className="text-xl sm:text-3xl leading-none">✗</div>
-                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                              反対
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAnswer(-2)}
-                            disabled={isLoading}
-                            className={cn(
-                              "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
-                              response?.value === -2
-                                ? "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800 dark:bg-red-700 dark:hover:bg-red-800"
-                                : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
-                                  : "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800 dark:bg-red-700 dark:hover:bg-red-800",
-                            )}
-                          >
-                            <div className="text-xl sm:text-3xl leading-none">👎</div>
-                            <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
-                              強く反対
-                            </span>
-                          </button>
-                        </div>
-
-                        {showAlternatives && (
-                          <div className="mt-6 space-y-3">
-                            <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
-                              <div className="space-y-2">
-                                <p className="text-sm font-bold text-foreground">
-                                  その他の選択肢
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleSubmitResponse({
-                                      responseType: "scale",
-                                      value: 0,
-                                    })
-                                  }
-                                  disabled={isLoading || isSubmittingFreeText}
-                                  className={cn(
-                                    "w-full px-4 py-3.5 text-left rounded-lg border text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
-                                    response?.value === 0
-                                      ? "border-amber-300 bg-card dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-400 text-amber-700 dark:text-amber-400"
-                                      : response && response.responseType === "scale"
-                                        ? "border-border bg-muted/50 hover:bg-muted hover:border-border/80 text-muted-foreground"
-                                        : "border-amber-300 bg-card dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-400 text-amber-700 dark:text-amber-400",
-                                  )}
-                                >
-                                  （自分はこの質問に対して）確信が持てない・情報を把握していない
-                                </button>
-                              </div>
-
-                              {isLoadingSuggestions && aiSuggestions.length === 0 ? (
-                                <div className="space-y-3">
-                                  <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                    <span>AIが選択肢を考えています...</span>
-                                  </div>
-                                  {[1, 2, 3].map((i) => (
-                                    <div
-                                      key={i}
-                                      className="relative h-14 bg-gradient-to-r from-muted via-muted/50 to-muted rounded-lg overflow-hidden"
-                                    >
-                                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-                                      <div className="px-4 py-3.5 opacity-20 text-sm">
-                                        選択肢を生成しています...
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="space-y-3">
-                                  {isLoadingSuggestions && (
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                      <span>残りの選択肢を生成中...</span>
-                                    </div>
-                                  )}
-                                  {aiSuggestions.map((suggestion, index) => (
-                                    <button
-                                      key={`${suggestion}-${index}`}
-                                      type="button"
-                                      onClick={() =>
-                                        handleSuggestionClick(suggestion)
-                                      }
-                                      disabled={isLoading || isSubmittingFreeText}
-                                      className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed animate-fade-in"
-                                      style={{ animationDelay: `${index * 100}ms` }}
-                                    >
-                                      {suggestion}
-                                    </button>
-                                  ))}
-                                </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAnswer(2)}
+                              disabled={isLoading}
+                              className={cn(
+                                "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                                response?.value === 2
+                                  ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                                  : response &&
+                                      response.responseType === "scale"
+                                    ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                    : "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700",
                               )}
+                            >
+                              <div className="text-xl sm:text-3xl leading-none">
+                                👍
+                              </div>
+                              <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                                強く同意
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAnswer(1)}
+                              disabled={isLoading}
+                              className={cn(
+                                "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                                response?.value === 1
+                                  ? "bg-green-500 hover:bg-green-600 text-white border-green-600 hover:border-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+                                  : response &&
+                                      response.responseType === "scale"
+                                    ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                    : "bg-green-500 hover:bg-green-600 text-white border-green-600 hover:border-green-700 dark:bg-green-500 dark:hover:bg-green-600",
+                              )}
+                            >
+                              <div className="text-xl sm:text-3xl leading-none">
+                                ✓
+                              </div>
+                              <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                                同意
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAnswer(0)}
+                              disabled={isLoading}
+                              className={cn(
+                                "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                                response?.value === 0
+                                  ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600 hover:border-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-900"
+                                  : response &&
+                                      response.responseType === "scale"
+                                    ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                    : "bg-amber-500 hover:bg-amber-600 text-white border-amber-600 hover:border-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-900",
+                              )}
+                            >
+                              <div className="text-xl sm:text-3xl leading-none">
+                                🤔
+                              </div>
+                              <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                                {showAlternatives
+                                  ? "わからない・自信がない▲"
+                                  : "わからない・自信がない▼"}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAnswer(-1)}
+                              disabled={isLoading}
+                              className={cn(
+                                "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                                response?.value === -1
+                                  ? "bg-rose-500 hover:bg-rose-600 text-white border-rose-600 hover:border-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600"
+                                  : response &&
+                                      response.responseType === "scale"
+                                    ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                    : "bg-rose-500 hover:bg-rose-600 text-white border-rose-600 hover:border-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600",
+                              )}
+                            >
+                              <div className="text-xl sm:text-3xl leading-none">
+                                ✗
+                              </div>
+                              <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                                反対
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAnswer(-2)}
+                              disabled={isLoading}
+                              className={cn(
+                                "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                                response?.value === -2
+                                  ? "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800 dark:bg-red-700 dark:hover:bg-red-800"
+                                  : response &&
+                                      response.responseType === "scale"
+                                    ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                    : "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800 dark:bg-red-700 dark:hover:bg-red-800",
+                              )}
+                            >
+                              <div className="text-xl sm:text-3xl leading-none">
+                                👎
+                              </div>
+                              <span className="text-[9px] sm:text-xs font-semibold text-center leading-tight">
+                                強く反対
+                              </span>
+                            </button>
+                          </div>
 
-                              <div className="pt-3 border-t border-border/60 space-y-3">
-                                <div ref={freeTextSectionRef} />
-                                <div>
-                                  <p className="text-sm font-bold text-foreground mb-1">
-                                    自由記述で回答する
+                          {showAlternatives && (
+                            <div className="mt-6 space-y-3">
+                              <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4 animate-in slide-in-from-top-2 duration-200">
+                                <div className="space-y-2">
+                                  <p className="text-sm font-bold text-foreground">
+                                    その他の選択肢
                                   </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
-                                  </p>
-                                </div>
-                                <Textarea
-                                  value={freeTextInput}
-                                  onChange={(event) =>
-                                    setFreeTextInput(event.target.value)
-                                  }
-                                  rows={4}
-                                  placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
-                                  disabled={isLoading || isSubmittingFreeText}
-                                />
-                                <div className="flex justify-end">
-                                  <Button
+                                  <button
                                     type="button"
-                                    variant="outline"
                                     onClick={() =>
                                       handleSubmitResponse({
-                                        responseType: "free_text",
-                                        textResponse: freeTextInput,
+                                        responseType: "scale",
+                                        value: 0,
                                       })
                                     }
-                                    disabled={
-                                      isLoading ||
-                                      isSubmittingFreeText ||
-                                      freeTextInput.trim().length === 0
-                                    }
-                                    isLoading={isSubmittingFreeText}
+                                    disabled={isLoading || isSubmittingFreeText}
+                                    className={cn(
+                                      "w-full px-4 py-3.5 text-left rounded-lg border text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                                      response?.value === 0
+                                        ? "border-amber-300 bg-card dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-400 text-amber-700 dark:text-amber-400"
+                                        : response &&
+                                            response.responseType === "scale"
+                                          ? "border-border bg-muted/50 hover:bg-muted hover:border-border/80 text-muted-foreground"
+                                          : "border-amber-300 bg-card dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-400 text-amber-700 dark:text-amber-400",
+                                    )}
                                   >
-                                    自由記述を送信
-                                  </Button>
+                                    （自分はこの質問に対して）確信が持てない・情報を把握していない
+                                  </button>
+                                </div>
+
+                                {isLoadingSuggestions &&
+                                aiSuggestions.length === 0 ? (
+                                  <div className="space-y-3">
+                                    <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      <span>AIが選択肢を考えています...</span>
+                                    </div>
+                                    {[1, 2, 3].map((i) => (
+                                      <div
+                                        key={i}
+                                        className="relative h-14 bg-gradient-to-r from-muted via-muted/50 to-muted rounded-lg overflow-hidden"
+                                      >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                                        <div className="px-4 py-3.5 opacity-20 text-sm">
+                                          選択肢を生成しています...
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {isLoadingSuggestions && (
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                        <span>残りの選択肢を生成中...</span>
+                                      </div>
+                                    )}
+                                    {aiSuggestions.map((suggestion, index) => (
+                                      <button
+                                        key={suggestion}
+                                        type="button"
+                                        onClick={() =>
+                                          handleSuggestionClick(suggestion)
+                                        }
+                                        disabled={
+                                          isLoading || isSubmittingFreeText
+                                        }
+                                        className="w-full px-4 py-3.5 text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 text-sm text-foreground transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed animate-fade-in"
+                                        style={{
+                                          animationDelay: `${index * 100}ms`,
+                                        }}
+                                      >
+                                        {suggestion}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="pt-3 border-t border-border/60 space-y-3">
+                                  <div ref={freeTextSectionRef} />
+                                  <div>
+                                    <p className="text-sm font-bold text-foreground mb-1">
+                                      自由記述で回答する
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
+                                    </p>
+                                  </div>
+                                  <Textarea
+                                    value={freeTextInput}
+                                    onChange={(event) =>
+                                      setFreeTextInput(event.target.value)
+                                    }
+                                    rows={4}
+                                    placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
+                                    disabled={isLoading || isSubmittingFreeText}
+                                  />
+                                  <div className="flex justify-end">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() =>
+                                        handleSubmitResponse({
+                                          responseType: "free_text",
+                                          textResponse: freeTextInput,
+                                        })
+                                      }
+                                      disabled={
+                                        isLoading ||
+                                        isSubmittingFreeText ||
+                                        freeTextInput.trim().length === 0
+                                      }
+                                      isLoading={isSubmittingFreeText}
+                                    >
+                                      自由記述を送信
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
 
                           {error && (
                             <p className="text-sm text-destructive mt-4">
@@ -2271,150 +2206,154 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                   </div>
                 </div>
               </CardHeader>
-            <CardContent>
-              {error && (
-                <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
-                  <p className="text-sm text-destructive">{error}</p>
-                </div>
-              )}
-              {isGeneratingReport && (
-                <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
-                  <Spinner className="h-10 w-10 text-primary" />
-                  <div className="space-y-2 text-center">
-                    <p className="text-base font-medium text-foreground">
-                      レポートを生成しています...
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      あなたの回答を分析しています。少々お待ちください。
-                    </p>
+              <CardContent>
+                {error && (
+                  <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                    <p className="text-sm text-destructive">{error}</p>
                   </div>
-                </div>
-              )}
-              {isLoadingReport ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-5/6" />
-                  <Skeleton className="h-4 w-4/5" />
-                  <div className="pt-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="mt-3 h-4 w-full" />
-                    <Skeleton className="mt-3 h-4 w-3/4" />
-                  </div>
-                </div>
-              ) : individualReport ? (
-                <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyIndividualReport}
-                      className="gap-1.5 text-xs"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      {individualReportCopyStatus === "copied"
-                        ? "コピー済み"
-                        : individualReportCopyStatus === "error"
-                          ? "コピー失敗"
-                          : "Markdownをコピー"}
-                    </Button>
-                  </div>
-                  <div
-                    className={cn(
-                      "markdown-body prose prose-slate dark:prose-invert max-w-none",
-                      "prose-headings:scroll-m-20 prose-headings:tracking-tight",
-                      "prose-h1:text-4xl prose-h1:font-extrabold prose-h1:text-balance",
-                      "prose-h2:border-b prose-h2:pb-2 prose-h2:text-3xl prose-h2:font-semibold prose-h2:first:mt-0",
-                      "prose-h3:text-2xl prose-h3:font-semibold",
-                      "prose-h4:text-xl prose-h4:font-semibold",
-                      "prose-p:leading-7 prose-p:[&:not(:first-child)]:mt-6",
-                      "prose-blockquote:mt-6 prose-blockquote:border-l-2 prose-blockquote:pl-6 prose-blockquote:italic",
-                      "prose-code:relative prose-code:rounded prose-code:bg-muted prose-code:px-[0.3rem] prose-code:py-[0.2rem] prose-code:font-mono prose-code:text-sm prose-code:font-semibold",
-                      "prose-lead:text-xl prose-lead:text-muted-foreground",
-                      isGeneratingReport && "opacity-60",
-                    )}
-                  >
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {individualReport.contentMarkdown}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              ) : !isGeneratingReport ? (
-                <div className="py-8 text-center">
-                  <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted dark:bg-muted/50">
-                    <FileText className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    回答を進めると、あなた専用の分析レポートがここに表示されます
-                  </p>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-
-          {/* Taste Selection Modal */}
-          <AlertDialog open={isTasteModalOpen} onOpenChange={setIsTasteModalOpen}>
-            <AlertDialogContent className="max-w-2xl">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="text-2xl">
-                  レポートのテイストを選択
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  レポートの文体やトーンを選択してください
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="grid gap-3 py-4">
-                {REPORT_TASTES.map((taste) => (
-                  <button
-                    key={taste.id}
-                    onClick={() => {
-                      setSelectedTaste(taste.id);
-                    }}
-                    disabled={isGeneratingReport}
-                    className={cn(
-                      "group relative flex items-start gap-4 rounded-lg border-2 p-4 text-left transition-colors shadow-sm hover:border-primary/40 hover:bg-muted/60 disabled:opacity-50 disabled:cursor-not-allowed",
-                      selectedTaste === taste.id
-                        ? "border-primary/70 bg-primary/10 shadow-md"
-                        : "border-border/60 bg-muted/40",
-                    )}
-                  >
-                    <div className="text-3xl">{taste.emoji}</div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-foreground">
-                          {taste.label}
-                        </p>
-                        {selectedTaste === taste.id && (
-                          <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
-                            選択中
-                          </span>
-                        )}
-                      </div>
+                )}
+                {isGeneratingReport && (
+                  <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
+                    <Spinner className="h-10 w-10 text-primary" />
+                    <div className="space-y-2 text-center">
+                      <p className="text-base font-medium text-foreground">
+                        レポートを生成しています...
+                      </p>
                       <p className="text-sm text-muted-foreground">
-                        {taste.description}
+                        あなたの回答を分析しています。少々お待ちください。
                       </p>
                     </div>
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-end gap-2 border-t pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsTasteModalOpen(false)}
-                  disabled={isGeneratingReport}
-                >
-                  キャンセル
-                </Button>
-                <Button
-                  onClick={() => handleGenerateReport()}
-                  disabled={isGeneratingReport}
-                  isLoading={isGeneratingReport}
-                >
-                  このテイストで生成
-                </Button>
-              </div>
-            </AlertDialogContent>
-          </AlertDialog>
+                  </div>
+                )}
+                {isLoadingReport ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-4/5" />
+                    <div className="pt-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="mt-3 h-4 w-full" />
+                      <Skeleton className="mt-3 h-4 w-3/4" />
+                    </div>
+                  </div>
+                ) : individualReport ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCopyIndividualReport}
+                        className="gap-1.5 text-xs"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        {individualReportCopyStatus === "copied"
+                          ? "コピー済み"
+                          : individualReportCopyStatus === "error"
+                            ? "コピー失敗"
+                            : "Markdownをコピー"}
+                      </Button>
+                    </div>
+                    <div
+                      className={cn(
+                        "markdown-body prose prose-slate dark:prose-invert max-w-none",
+                        "prose-headings:scroll-m-20 prose-headings:tracking-tight",
+                        "prose-h1:text-4xl prose-h1:font-extrabold prose-h1:text-balance",
+                        "prose-h2:border-b prose-h2:pb-2 prose-h2:text-3xl prose-h2:font-semibold prose-h2:first:mt-0",
+                        "prose-h3:text-2xl prose-h3:font-semibold",
+                        "prose-h4:text-xl prose-h4:font-semibold",
+                        "prose-p:leading-7 prose-p:[&:not(:first-child)]:mt-6",
+                        "prose-blockquote:mt-6 prose-blockquote:border-l-2 prose-blockquote:pl-6 prose-blockquote:italic",
+                        "prose-code:relative prose-code:rounded prose-code:bg-muted prose-code:px-[0.3rem] prose-code:py-[0.2rem] prose-code:font-mono prose-code:text-sm prose-code:font-semibold",
+                        "prose-lead:text-xl prose-lead:text-muted-foreground",
+                        isGeneratingReport && "opacity-60",
+                      )}
+                    >
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {individualReport.contentMarkdown}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                ) : !isGeneratingReport ? (
+                  <div className="py-8 text-center">
+                    <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted dark:bg-muted/50">
+                      <FileText className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      回答を進めると、あなた専用の分析レポートがここに表示されます
+                    </p>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            {/* Taste Selection Modal */}
+            <AlertDialog
+              open={isTasteModalOpen}
+              onOpenChange={setIsTasteModalOpen}
+            >
+              <AlertDialogContent className="max-w-2xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-2xl">
+                    レポートのテイストを選択
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    レポートの文体やトーンを選択してください
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="grid gap-3 py-4">
+                  {REPORT_TASTES.map((taste) => (
+                    <button
+                      key={taste.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTaste(taste.id);
+                      }}
+                      disabled={isGeneratingReport}
+                      className={cn(
+                        "group relative flex items-start gap-4 rounded-lg border-2 p-4 text-left transition-colors shadow-sm hover:border-primary/40 hover:bg-muted/60 disabled:opacity-50 disabled:cursor-not-allowed",
+                        selectedTaste === taste.id
+                          ? "border-primary/70 bg-primary/10 shadow-md"
+                          : "border-border/60 bg-muted/40",
+                      )}
+                    >
+                      <div className="text-3xl">{taste.emoji}</div>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-foreground">
+                            {taste.label}
+                          </p>
+                          {selectedTaste === taste.id && (
+                            <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                              選択中
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {taste.description}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-2 border-t pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsTasteModalOpen(false)}
+                    disabled={isGeneratingReport}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    onClick={() => handleGenerateReport()}
+                    disabled={isGeneratingReport}
+                    isLoading={isGeneratingReport}
+                  >
+                    このテイストで生成
+                  </Button>
+                </div>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </div>

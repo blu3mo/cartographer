@@ -35,19 +35,7 @@ import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 
 import { ReportTasteSelect } from "@/components/report/ReportTasteSelect";
-import { Button } from "@/components/ui/Button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +47,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -67,7 +64,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import { useUserId } from "@/lib/useUserId";
 import {
   createResponseLogColumns,
@@ -276,7 +276,8 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       "参加者の感情や心理的な側面に配慮し、共感的で温かみのある表現を用いてレポートをまとめてください。対立よりも相互理解を促す視点で記述し、前向きな雰囲気を作ることを意識してください。",
     samplePreview:
       "こんにちは、皆さん。\n\n今回のセッションでは、それぞれの視点や思いを共有していただき、本当にありがとうございました。お一人お一人の意見には、大切な想いや背景があることがよく伝わってきました。\n\n特に印象的だったのは、異なる立場にいる方々が、互いの状況を理解しようと努めていた点です。完全な合意には至らなかったテーマもありますが、それぞれの価値観を尊重し合う姿勢が見られたことは、とても前向きな一歩だと感じます。",
-    color: "bg-pink-100 border-pink-200 hover:bg-pink-200 text-pink-900 dark:bg-pink-950/30 dark:border-pink-800 dark:hover:bg-pink-950/50 dark:text-pink-300",
+    color:
+      "bg-pink-100 border-pink-200 hover:bg-pink-200 text-pink-900 dark:bg-pink-950/30 dark:border-pink-800 dark:hover:bg-pink-950/50 dark:text-pink-300",
   },
   {
     id: "logical",
@@ -287,7 +288,8 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       "論理的で明確な構成を重視し、意思決定に必要な情報を簡潔にまとめてください。データや数値、合意・対立のポイントを明確に示し、次のアクションにつながる提言を含めてください。",
     samplePreview:
       "## エグゼクティブサマリー\n\n本セッションでは、参加者間で以下の3つの重要な対立軸が確認されました：\n\n1. **施策Aの優先順位**：賛成67%、反対33%\n2. **予算配分の方針**：意見が二分（賛成48%、反対52%）\n3. **実施時期**：即時実施派と段階的実施派が対立\n\n## 推奨アクション\n\n1. 施策Aについては支持が過半数を超えているため、早急に実行計画を策定すべき\n2. 予算配分については追加の議論が必要。次回セッションで数値根拠を提示し、再検討を推奨",
-    color: "bg-blue-100 border-blue-200 hover:bg-blue-200 text-blue-900 dark:bg-blue-950/30 dark:border-blue-800 dark:hover:bg-blue-950/50 dark:text-blue-300",
+    color:
+      "bg-blue-100 border-blue-200 hover:bg-blue-200 text-blue-900 dark:bg-blue-950/30 dark:border-blue-800 dark:hover:bg-blue-950/50 dark:text-blue-300",
   },
   {
     id: "psychopath",
@@ -298,7 +300,8 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       "感情的な共感や寄り添いは一切廃してください。論理、事実、真実のみでレポートを構成してください。参加者が矛盾した意見を持っている場合は、個人名を明示しながら鋭くその点を指摘してください。曖昧な表現は避け、明確で容赦のない分析を行ってください。",
     samplePreview:
       "## 分析結果\n\n本セッションにおける参加者の回答には、複数の論理的矛盾が検出された。\n\n### 矛盾の指摘\n\n**田中太郎氏**は設問3で「予算削減が必要」と回答しているにもかかわらず、設問7では「全部署への予算増額」に賛成している。この2つの立場は論理的に両立しない。\n\n**佐藤花子氏**は「迅速な意思決定が重要」と主張する一方で、「全員の合意形成を最優先すべき」とも述べている。迅速性と全員合意は多くの場合トレードオフの関係にあり、両方を同時に達成することは現実的ではない。\n\n### 結論\n\n参加者の多くは自身の意見の一貫性を保てていない。感情的な反応に基づく場当たり的な回答が目立つ。",
-    color: "bg-purple-100 border-purple-200 hover:bg-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:hover:bg-purple-950/50 dark:text-purple-300",
+    color:
+      "bg-purple-100 border-purple-200 hover:bg-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:hover:bg-purple-950/50 dark:text-purple-300",
   },
   {
     id: "freeform",
@@ -346,22 +349,26 @@ const EVENT_TYPE_META: Record<
   plan: {
     label: "Plan",
     accent: "text-sky-700 dark:text-primary",
-    badge: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-muted dark:text-foreground dark:border-border",
+    badge:
+      "bg-sky-50 text-sky-700 border-sky-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
   survey: {
     label: "Survey",
     accent: "text-emerald-700 dark:text-primary",
-    badge: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-muted dark:text-foreground dark:border-border",
+    badge:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
   survey_analysis: {
     label: "Analysis",
     accent: "text-purple-700 dark:text-primary",
-    badge: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-muted dark:text-foreground dark:border-border",
+    badge:
+      "bg-purple-50 text-purple-700 border-purple-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
   user_message: {
     label: "You",
     accent: "text-slate-700 dark:text-primary",
-    badge: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-muted dark:text-foreground dark:border-border",
+    badge:
+      "bg-slate-50 text-slate-700 border-slate-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
 };
 
@@ -550,52 +557,55 @@ export default function AdminPage({
     null,
   );
 
-  const fetchAdminData = useCallback(async (withSpinner = true) => {
-    if (!userId) return;
+  const fetchAdminData = useCallback(
+    async (withSpinner = true) => {
+      if (!userId) return;
 
-    try {
-      if (withSpinner) {
-        setLoading(true);
+      try {
+        if (withSpinner) {
+          setLoading(true);
+        }
+        const response = await axios.get(
+          `/api/sessions/${sessionId}/${accessToken}`,
+          {
+            headers: { Authorization: `Bearer ${userId}` },
+          },
+        );
+        const responseData = response.data.data as SessionAdminData & {
+          canEdit?: boolean;
+        };
+        setData({
+          ...responseData,
+          goal: responseData.goal ?? "",
+          context: responseData.context ?? "",
+          statements: responseData.statements ?? [],
+          participants: responseData.participants ?? [],
+          totalStatements:
+            typeof responseData.totalStatements === "number"
+              ? responseData.totalStatements
+              : (responseData.statements?.length ?? 0),
+          totalParticipants:
+            typeof responseData.totalParticipants === "number"
+              ? responseData.totalParticipants
+              : (responseData.participants?.length ?? 0),
+        });
+        setCanEdit(responseData.canEdit ?? false);
+        setError(null);
+      } catch (err: unknown) {
+        console.error("Failed to fetch admin data:", err);
+        if (axios.isAxiosError(err) && err.response?.status === 403) {
+          setError("このセッションへのアクセス権限がありません。");
+        } else {
+          setError("データの取得に失敗しました。");
+        }
+      } finally {
+        if (withSpinner) {
+          setLoading(false);
+        }
       }
-      const response = await axios.get(
-        `/api/sessions/${sessionId}/${accessToken}`,
-        {
-          headers: { Authorization: `Bearer ${userId}` },
-        },
-      );
-      const responseData = response.data.data as SessionAdminData & {
-        canEdit?: boolean;
-      };
-      setData({
-        ...responseData,
-        goal: responseData.goal ?? "",
-        context: responseData.context ?? "",
-        statements: responseData.statements ?? [],
-        participants: responseData.participants ?? [],
-        totalStatements:
-          typeof responseData.totalStatements === "number"
-            ? responseData.totalStatements
-            : (responseData.statements?.length ?? 0),
-        totalParticipants:
-          typeof responseData.totalParticipants === "number"
-            ? responseData.totalParticipants
-            : (responseData.participants?.length ?? 0),
-      });
-      setCanEdit(responseData.canEdit ?? false);
-      setError(null);
-    } catch (err: unknown) {
-      console.error("Failed to fetch admin data:", err);
-      if (axios.isAxiosError(err) && err.response?.status === 403) {
-        setError("このセッションへのアクセス権限がありません。");
-      } else {
-        setError("データの取得に失敗しました。");
-      }
-    } finally {
-      if (withSpinner) {
-        setLoading(false);
-      }
-    }
-  }, [sessionId, accessToken, userId]);
+    },
+    [sessionId, accessToken, userId],
+  );
 
   const fetchEventThread = useCallback(
     async (withSpinner = false) => {
@@ -730,7 +740,8 @@ export default function AdminPage({
       const prevReport = prevReports.find((r) => r.id === report.id);
       if (
         prevReport &&
-        (prevReport.status === "pending" || prevReport.status === "generating") &&
+        (prevReport.status === "pending" ||
+          prevReport.status === "generating") &&
         report.status === "completed"
       ) {
         toast.success("レポート生成が完了しました", {
@@ -739,7 +750,8 @@ export default function AdminPage({
         });
       } else if (
         prevReport &&
-        (prevReport.status === "pending" || prevReport.status === "generating") &&
+        (prevReport.status === "pending" ||
+          prevReport.status === "generating") &&
         report.status === "failed"
       ) {
         toast.error("レポート生成に失敗しました", {
@@ -754,12 +766,6 @@ export default function AdminPage({
     () => reports.find((report) => report.id === selectedReportId) ?? null,
     [reports, selectedReportId],
   );
-
-  const latestReport = reports[0] ?? null;
-  const isViewingLatestReport =
-    selectedReport !== null &&
-    latestReport !== null &&
-    selectedReport.id === latestReport.id;
 
   useEffect(() => {
     if (data) {
@@ -815,7 +821,6 @@ export default function AdminPage({
     if (typeof window === "undefined") return;
     setShareUrl(`${window.location.origin}/sessions/${sessionId}`);
   }, [sessionId]);
-
 
   const shareQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
@@ -1369,12 +1374,13 @@ export default function AdminPage({
                         {generatedQuestions.length > 0 ? (
                           <>
                             <p className="text-xs font-medium text-muted-foreground">
-                              追加された質問のプレビュー（{generatedQuestions.length}問）
+                              追加された質問のプレビュー（
+                              {generatedQuestions.length}問）
                             </p>
                             <div className="max-h-60 space-y-2 overflow-y-auto">
-                              {generatedQuestions.map((question, index) => (
+                              {generatedQuestions.map((question) => (
                                 <div
-                                  key={`${question}-${index}`}
+                                  key={question}
                                   className="rounded-lg border border-border/80 bg-background/80 p-3 text-sm text-foreground shadow-sm"
                                 >
                                   <p className="text-sm leading-relaxed">
@@ -1490,186 +1496,197 @@ export default function AdminPage({
                   </div>
                 )}
 
-                <Dialog open={showReportModal} onOpenChange={setShowReportModal}>
+                <Dialog
+                  open={showReportModal}
+                  onOpenChange={setShowReportModal}
+                >
                   <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle className="text-2xl">レポートスタイルを選択</DialogTitle>
+                      <DialogTitle className="text-2xl">
+                        レポートスタイルを選択
+                      </DialogTitle>
                       <DialogDescription>
                         目的に合わせてレポートのスタイルを選択できます
                       </DialogDescription>
                     </DialogHeader>
 
-                      <div className="space-y-6">
+                    <div className="space-y-6">
+                      <div className="flex flex-col gap-6 lg:flex-row">
+                        {/* 左側: テンプレートリスト */}
+                        <div className="flex-1 space-y-2">
+                          {/* スタンダード */}
+                          <Card
+                            className={`cursor-pointer transition-all hover:shadow-md ${
+                              selectedTemplate === null
+                                ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
+                                : "hover:border-primary/50"
+                            } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
+                            onClick={() =>
+                              !creatingReport && setSelectedTemplate(null)
+                            }
+                          >
+                            <CardContent className="flex items-start gap-3 p-4">
+                              <div className="rounded-lg bg-muted p-2">
+                                <FileText className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-foreground">
+                                  スタンダード
+                                </h3>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  標準的な分析レポート
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
 
-                        <div className="flex flex-col gap-6 lg:flex-row">
-                          {/* 左側: テンプレートリスト */}
-                          <div className="flex-1 space-y-2">
-                            {/* スタンダード */}
-                            <Card
-                              className={`cursor-pointer transition-all hover:shadow-md ${
-                                selectedTemplate === null
-                                  ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
-                                  : "hover:border-primary/50"
-                              } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
-                              onClick={() => !creatingReport && setSelectedTemplate(null)}
-                            >
-                              <CardContent className="flex items-start gap-3 p-4">
-                                <div className="rounded-lg bg-muted p-2">
-                                  <FileText className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-foreground">
-                                    スタンダード
-                                  </h3>
-                                  <p className="mt-0.5 text-xs text-muted-foreground">
-                                    標準的な分析レポート
-                                  </p>
-                                </div>
-                              </CardContent>
-                            </Card>
-
-                            {REPORT_TEMPLATES.filter(
-                              (t) => t.id !== "freeform",
-                            ).map((template) => {
-                              const Icon = template.icon;
-                              const isSelected =
-                                selectedTemplate === template.id;
-                              return (
-                                <Card
-                                  key={template.id}
-                                  className={`cursor-pointer transition-all hover:shadow-md ${
-                                    isSelected
-                                      ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
-                                      : "hover:border-primary/50"
-                                  } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
-                                  onClick={() => !creatingReport && handleSelectTemplate(template.id)}
-                                >
-                                  <CardContent className="flex items-start gap-3 p-4">
-                                    <div className="rounded-lg bg-muted p-2">
-                                      <Icon className="h-5 w-5 text-muted-foreground" />
-                                    </div>
-                                    <div className="flex-1">
-                                      <h3 className="font-semibold text-foreground">
-                                        {template.name}
-                                      </h3>
-                                      <p className="mt-0.5 text-xs text-muted-foreground">
-                                        {template.description}
-                                      </p>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              );
-                            })}
-
-                            {/* 自由記述は区切り線の下に表示 */}
-                            <div className="border-t border-border pt-2 mt-3">
+                          {REPORT_TEMPLATES.filter(
+                            (t) => t.id !== "freeform",
+                          ).map((template) => {
+                            const Icon = template.icon;
+                            const isSelected = selectedTemplate === template.id;
+                            return (
                               <Card
-                                className={`cursor-pointer border-dashed transition-all hover:shadow-md ${
-                                  selectedTemplate === "freeform"
+                                key={template.id}
+                                className={`cursor-pointer transition-all hover:shadow-md ${
+                                  isSelected
                                     ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
                                     : "hover:border-primary/50"
                                 } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
-                                onClick={() => !creatingReport && handleSelectTemplate("freeform")}
+                                onClick={() =>
+                                  !creatingReport &&
+                                  handleSelectTemplate(template.id)
+                                }
                               >
                                 <CardContent className="flex items-start gap-3 p-4">
                                   <div className="rounded-lg bg-muted p-2">
-                                    <Settings className="h-5 w-5 text-muted-foreground" />
+                                    <Icon className="h-5 w-5 text-muted-foreground" />
                                   </div>
                                   <div className="flex-1">
                                     <h3 className="font-semibold text-foreground">
-                                      自由記述
+                                      {template.name}
                                     </h3>
                                     <p className="mt-0.5 text-xs text-muted-foreground">
-                                      自由に指示を記載
+                                      {template.description}
                                     </p>
                                   </div>
                                 </CardContent>
                               </Card>
-                            </div>
-                          </div>
+                            );
+                          })}
 
-                          {/* 右側: レポートプレビュー */}
-                          <div className="flex-1">
-                            <Card className="sticky top-0">
-                              <CardHeader className="pb-3">
-                                <div className="flex items-center justify-between">
-                                  <CardTitle className="text-base">
-                                    {selectedTemplate === "freeform"
-                                      ? "プロンプト"
-                                      : "レポートプレビュー"}
-                                  </CardTitle>
-                                  {selectedTemplate !== "freeform" &&
-                                    selectedTemplate !== null && (
-                                      <div className="group relative">
-                                        <Info className="h-4 w-4 cursor-help text-muted-foreground transition hover:text-foreground" />
-                                        <div className="invisible absolute right-0 top-6 z-10 w-80 rounded-lg border border-border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-lg opacity-0 transition-all group-hover:visible group-hover:opacity-100">
-                                          <div className="mb-1 font-semibold">
-                                            AIへの指示プロンプト:
-                                          </div>
-                                          {
-                                            REPORT_TEMPLATES.find(
-                                              (t) => t.id === selectedTemplate,
-                                            )?.prompt
-                                          }
-                                        </div>
-                                      </div>
-                                    )}
+                          {/* 自由記述は区切り線の下に表示 */}
+                          <div className="border-t border-border pt-2 mt-3">
+                            <Card
+                              className={`cursor-pointer border-dashed transition-all hover:shadow-md ${
+                                selectedTemplate === "freeform"
+                                  ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
+                                  : "hover:border-primary/50"
+                              } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
+                              onClick={() =>
+                                !creatingReport &&
+                                handleSelectTemplate("freeform")
+                              }
+                            >
+                              <CardContent className="flex items-start gap-3 p-4">
+                                <div className="rounded-lg bg-muted p-2">
+                                  <Settings className="h-5 w-5 text-muted-foreground" />
                                 </div>
-                              </CardHeader>
-                              <CardContent className="space-y-3">
-                                {selectedTemplate === "freeform" ? (
-                                  <>
-                                    <Textarea
-                                      id="templatePrompt"
-                                      value={customPrompt}
-                                      onChange={(e) =>
-                                        setCustomPrompt(e.target.value)
-                                      }
-                                      rows={10}
-                                      maxLength={5000}
-                                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                                      className="resize-none"
-                                    />
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-xs text-muted-foreground">
-                                        {customPrompt.length} / 5000
-                                      </span>
-                                      <Button
-                                        type="button"
-                                        onClick={handleConfirmTemplate}
-                                        disabled={
-                                          creatingReport || !customPrompt.trim()
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-foreground">
+                                    自由記述
+                                  </h3>
+                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                    自由に指示を記載
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </div>
+
+                        {/* 右側: レポートプレビュー */}
+                        <div className="flex-1">
+                          <Card className="sticky top-0">
+                            <CardHeader className="pb-3">
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="text-base">
+                                  {selectedTemplate === "freeform"
+                                    ? "プロンプト"
+                                    : "レポートプレビュー"}
+                                </CardTitle>
+                                {selectedTemplate !== "freeform" &&
+                                  selectedTemplate !== null && (
+                                    <div className="group relative">
+                                      <Info className="h-4 w-4 cursor-help text-muted-foreground transition hover:text-foreground" />
+                                      <div className="invisible absolute right-0 top-6 z-10 w-80 rounded-lg border border-border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-lg opacity-0 transition-all group-hover:visible group-hover:opacity-100">
+                                        <div className="mb-1 font-semibold">
+                                          AIへの指示プロンプト:
+                                        </div>
+                                        {
+                                          REPORT_TEMPLATES.find(
+                                            (t) => t.id === selectedTemplate,
+                                          )?.prompt
                                         }
-                                        size="sm"
-                                      >
-                                        決定
-                                      </Button>
+                                      </div>
                                     </div>
-                                  </>
-                                ) : selectedTemplate ? (
-                                  <>
-                                    <div className="min-h-[240px] max-h-[400px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-                                      {
-                                        REPORT_TEMPLATES.find(
-                                          (t) => t.id === selectedTemplate,
-                                        )?.samplePreview
+                                  )}
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                              {selectedTemplate === "freeform" ? (
+                                <>
+                                  <Textarea
+                                    id="templatePrompt"
+                                    value={customPrompt}
+                                    onChange={(e) =>
+                                      setCustomPrompt(e.target.value)
+                                    }
+                                    rows={10}
+                                    maxLength={5000}
+                                    placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                                    className="resize-none"
+                                  />
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">
+                                      {customPrompt.length} / 5000
+                                    </span>
+                                    <Button
+                                      type="button"
+                                      onClick={handleConfirmTemplate}
+                                      disabled={
+                                        creatingReport || !customPrompt.trim()
                                       }
-                                    </div>
-                                    <div className="flex justify-end">
-                                      <Button
-                                        type="button"
-                                        onClick={handleConfirmTemplate}
-                                        disabled={creatingReport}
-                                        size="sm"
-                                      >
-                                        決定
-                                      </Button>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="min-h-[240px] max-h-[400px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-                                      {`## セッション分析レポート
+                                      size="sm"
+                                    >
+                                      決定
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : selectedTemplate ? (
+                                <>
+                                  <div className="min-h-[240px] max-h-[400px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                                    {
+                                      REPORT_TEMPLATES.find(
+                                        (t) => t.id === selectedTemplate,
+                                      )?.samplePreview
+                                    }
+                                  </div>
+                                  <div className="flex justify-end">
+                                    <Button
+                                      type="button"
+                                      onClick={handleConfirmTemplate}
+                                      disabled={creatingReport}
+                                      size="sm"
+                                    >
+                                      決定
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="min-h-[240px] max-h-[400px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                                    {`## セッション分析レポート
 
 本セッションでは、参加者の回答データに基づいて以下の分析を行いました。
 
@@ -1680,24 +1697,24 @@ export default function AdminPage({
 ### 次のステップ
 
 今後の議論では、対立点についてさらなる対話を深めることで、相互理解を促進することが推奨されます。`}
-                                    </div>
-                                    <div className="flex justify-end">
-                                      <Button
-                                        type="button"
-                                        onClick={handleConfirmTemplate}
-                                        disabled={creatingReport}
-                                        size="sm"
-                                      >
-                                        決定
-                                      </Button>
-                                    </div>
-                                  </>
-                                )}
-                              </CardContent>
-                            </Card>
-                          </div>
+                                  </div>
+                                  <div className="flex justify-end">
+                                    <Button
+                                      type="button"
+                                      onClick={handleConfirmTemplate}
+                                      disabled={creatingReport}
+                                      size="sm"
+                                    >
+                                      決定
+                                    </Button>
+                                  </div>
+                                </>
+                              )}
+                            </CardContent>
+                          </Card>
                         </div>
                       </div>
+                    </div>
                   </DialogContent>
                 </Dialog>
 
@@ -1952,7 +1969,10 @@ export default function AdminPage({
                 {canEdit && (
                   <div className="space-y-3 rounded-lg border bg-card p-4 shadow-sm">
                     <div className="space-y-1.5">
-                      <Label htmlFor="adminMessage" className="text-sm font-medium">
+                      <Label
+                        htmlFor="adminMessage"
+                        className="text-sm font-medium"
+                      >
                         ファシリテーターAIへのメッセージ
                       </Label>
                       <p className="text-xs text-muted-foreground">
@@ -1963,7 +1983,9 @@ export default function AdminPage({
                       <Textarea
                         id="adminMessage"
                         value={messageDraft}
-                        onChange={(event) => setMessageDraft(event.target.value)}
+                        onChange={(event) =>
+                          setMessageDraft(event.target.value)
+                        }
                         rows={3}
                         className="resize-none"
                         placeholder="例: 次の質問では環境問題に焦点を当ててください"
@@ -2154,7 +2176,10 @@ export default function AdminPage({
               </CardContent>
             </Card>
 
-            <Dialog open={isEditingSettings} onOpenChange={setIsEditingSettings}>
+            <Dialog
+              open={isEditingSettings}
+              onOpenChange={setIsEditingSettings}
+            >
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>セッション情報を編集</DialogTitle>
@@ -2174,9 +2199,7 @@ export default function AdminPage({
                       id="sessionTitle"
                       type="text"
                       value={editingTitle}
-                      onChange={(event) =>
-                        setEditingTitle(event.target.value)
-                      }
+                      onChange={(event) => setEditingTitle(event.target.value)}
                       required
                       className="text-sm"
                     />
@@ -2282,7 +2305,9 @@ export default function AdminPage({
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>セッションを削除しますか？</AlertDialogTitle>
+                        <AlertDialogTitle>
+                          セッションを削除しますか？
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                           この操作は取り消せません。全てのデータが完全に削除されます。
                         </AlertDialogDescription>
@@ -2382,7 +2407,9 @@ export default function AdminPage({
                 {responseLogsLoading ? (
                   <div className="flex flex-col items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <p className="mt-3 text-sm text-muted-foreground">読み込み中...</p>
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      読み込み中...
+                    </p>
                   </div>
                 ) : responseLogsError ? (
                   <div className="flex flex-col items-center justify-center py-12">
@@ -2469,14 +2496,19 @@ function MonitoringMetric({
   subLabel,
   tone = "default",
 }: MonitoringMetricProps) {
-  const toneClass = "bg-card border-border text-foreground";
+  const toneClass =
+    tone === "emerald"
+      ? "border-emerald-200/70 bg-emerald-50/70 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-100"
+      : "bg-card border-border text-foreground";
   return (
     <div className={`rounded-2xl border px-4 py-4 shadow-sm ${toneClass}`}>
       <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </p>
       <p className="mt-2 text-xl font-semibold">{value}</p>
-      {subLabel && <p className="mt-2 text-xs text-muted-foreground">{subLabel}</p>}
+      {subLabel && (
+        <p className="mt-2 text-xs text-muted-foreground">{subLabel}</p>
+      )}
     </div>
   );
 }
@@ -2505,7 +2537,9 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
           <p className="truncate text-sm font-medium text-foreground">
             {participant.name || "名称未設定"}
           </p>
-          <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">{updatedLabel}に参加</p>
+          <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
+            {updatedLabel}に参加
+          </p>
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold text-foreground">
@@ -2592,7 +2626,9 @@ function StatementHighlightColumn({
               <span className="font-medium text-purple-700 dark:text-purple-400">
                 No {formatPercentage(item.negative)}
               </span>
-              <span className="font-medium text-amber-700 dark:text-amber-400">わからない・自信がない {formatPercentage(item.neutral)}</span>
+              <span className="font-medium text-amber-700 dark:text-amber-400">
+                わからない・自信がない {formatPercentage(item.neutral)}
+              </span>
             </div>
             {item.statement.responses.freeTextCount > 0 && (
               <div className="mt-3 rounded-xl border border-border bg-muted/70 px-3 py-2 text-[11px] text-muted-foreground shadow-inner">

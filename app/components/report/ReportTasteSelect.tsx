@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -34,16 +34,21 @@ export function ReportTasteSelect({
   iconWrapperClassName,
   placeholderLabel = "未選択",
 }: ReportTasteSelectProps) {
+  const buttonId = useId();
   const selectedOption = options.find((option) => option.value === value);
   const selectedLabel = selectedOption?.label ?? placeholderLabel;
   const selectedIcon = selectedOption?.icon ?? null;
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      <label className="text-xs font-medium text-muted-foreground">
+      <label
+        htmlFor={buttonId}
+        className="text-xs font-medium text-muted-foreground"
+      >
         {label}
       </label>
       <button
+        id={buttonId}
         type="button"
         onClick={onClick}
         disabled={disabled}

@@ -1,13 +1,7 @@
 "use client";
 
 import axios from "axios";
-import {
-  ArrowUpRight,
-  Loader2,
-  MessageSquare,
-  Pencil,
-  Sparkles,
-} from "lucide-react";
+import { ArrowUpRight, Loader2, Pencil, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
@@ -377,7 +371,7 @@ function NewSessionContent() {
     }
   };
 
-  const handleFeedbackSubmit = (question: string, index: number) => {
+  const handleFeedbackSubmit = (question: string) => {
     if (!questionFeedback.trim()) return;
 
     const feedbackText = `[質問「${question}」へのフィードバック]\n${questionFeedback.trim()}\n\n`;
@@ -559,7 +553,7 @@ function NewSessionContent() {
 
                       return (
                         <div
-                          key={`${q}-${index}`}
+                          key={q}
                           className="rounded-lg border border-border/60 bg-white dark:bg-slate-950/40 shadow-sm"
                         >
                           <button
@@ -617,7 +611,7 @@ function NewSessionContent() {
                                   size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleFeedbackSubmit(q, index);
+                                    handleFeedbackSubmit(q);
                                   }}
                                   disabled={!questionFeedback.trim()}
                                 >
