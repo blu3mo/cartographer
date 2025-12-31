@@ -253,34 +253,34 @@ body {
 .dark .markdown-body em,
 .dark .markdown-body code,
 .dark .markdown-body pre {
-  color: #e6edf3 !important;
+  color: #e6edf3;
 }
 
 .dark .markdown-body a {
-  color: #58a6ff !important;
+  color: #58a6ff;
 }
 
 .dark .markdown-body code {
-  background-color: rgba(110, 118, 129, 0.2) !important;
+  background-color: rgba(110, 118, 129, 0.2);
 }
 
 .dark .markdown-body pre {
-  background-color: #161b22 !important;
+  background-color: #161b22;
 }
 
 .dark .markdown-body blockquote {
-  color: #8b949e !important;
-  border-left-color: #30363d !important;
+  color: #8b949e;
+  border-left-color: #30363d;
 }
 
 .dark .markdown-body table tr {
-  background-color: transparent !important;
-  border-top-color: #30363d !important;
+  background-color: transparent;
+  border-top-color: #30363d;
 }
 
 .dark .markdown-body table th,
 .dark .markdown-body table td {
-  border-color: #30363d !important;
+  border-color: #30363d;
 }
 
 @theme inline {

@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,7 +31,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 
@@ -152,7 +151,9 @@ export default function Home() {
 
             {/* Header with CTA */}
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold tracking-tight">セッション</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                セッション
+              </h2>
               <Link href="/sessions/new">
                 <Button>
                   <Plus className="h-4 w-4" />

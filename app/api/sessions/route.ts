@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getUserIdFromRequest } from "@/lib/auth";
 import { createSession } from "@/lib/api/client";
-import { CreateSessionRequest } from "@/lib/api/types";
+import type { CreateSessionRequest } from "@/lib/api/types";
+import { getUserIdFromRequest } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { generateSurveyStatements } from "../../../agents/llm";
 
@@ -31,7 +31,6 @@ function mapSession(row: SessionRow) {
     updatedAt: row.updated_at,
   };
 }
-
 
 export async function GET(request: NextRequest) {
   try {

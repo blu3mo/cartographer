@@ -1,4 +1,4 @@
-import { CreateSessionRequest, CreateSessionResponse } from "./types";
+import type { CreateSessionRequest, CreateSessionResponse } from "./types";
 
 const BACKEND_URL = process.env.HASKELL_BACKEND_URL || "http://localhost:8080";
 

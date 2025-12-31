@@ -58,7 +58,8 @@ const config: Config = {
           positive: "var(--sentiment-positive)",
           "positive-foreground": "var(--sentiment-positive-foreground)",
           "strong-positive": "var(--sentiment-strong-positive)",
-          "strong-positive-foreground": "var(--sentiment-strong-positive-foreground)",
+          "strong-positive-foreground":
+            "var(--sentiment-strong-positive-foreground)",
           negative: "var(--sentiment-negative)",
           "negative-foreground": "var(--sentiment-negative-foreground)",
         },

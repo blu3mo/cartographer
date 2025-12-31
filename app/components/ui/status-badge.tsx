@@ -1,4 +1,4 @@
-import * as React from "react";
+import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "./badge";
@@ -31,16 +31,11 @@ const STATUS_CONFIG: Record<
   },
 };
 
-export interface StatusBadgeProps
-  extends React.HTMLAttributes<HTMLDivElement> {
+export interface StatusBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   status: SessionReportStatus;
 }
 
-export function StatusBadge({
-  status,
-  className,
-  ...props
-}: StatusBadgeProps) {
+export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
   const config = STATUS_CONFIG[status];
 
   return (
