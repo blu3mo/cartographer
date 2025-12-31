@@ -288,7 +288,7 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
     description: "自由に指示を記載",
     prompt: "",
     samplePreview: "",
-    color: "bg-muted border-border hover:bg-secondary text-foreground dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700 dark:text-slate-300",
+    color: "bg-muted border-border hover:bg-secondary text-foreground",
   },
 ];
 
@@ -1886,22 +1886,24 @@ export default function AdminPage({
                 </div>
 
                 {canEdit && (
-                  <div className="space-y-2 rounded-3xl border border-border bg-card/80 p-4 shadow-sm">
-                    <label
-                      htmlFor="adminMessage"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      ファシリテーターAIへのメッセージ
-                    </label>
+                  <div className="space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="adminMessage" className="text-sm font-medium">
+                        ファシリテーターAIへのメッセージ
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        AIに伝えたい情報や指示を入力できます
+                      </p>
+                    </div>
                     <Textarea
                       id="adminMessage"
                       value={messageDraft}
                       onChange={(event) => setMessageDraft(event.target.value)}
                       rows={3}
-                      className="rounded-2xl bg-white resize-none dark:bg-background"
-                      placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
+                      className="resize-none"
+                      placeholder="例: 次の質問では環境問題に焦点を当ててください"
                     />
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-end gap-2">
                       <Button
                         type="button"
                         onClick={handleSendMessage}
@@ -1910,9 +1912,8 @@ export default function AdminPage({
                         }
                         isLoading={sendingMessage}
                         size="sm"
-                        className="gap-1.5 text-xs"
                       >
-                        <Send className="h-3.5 w-3.5" />
+                        <Send className="h-4 w-4" />
                         送信
                       </Button>
                     </div>
