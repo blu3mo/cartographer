@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { ArrowLeft, Loader2, Printer } from "lucide-react";
+import { ArrowLeft, Copy, Loader2, Printer } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -44,6 +44,7 @@ export default function SessionReportPrintPage({
   const [report, setReport] = useState<SessionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
 
   // Process a single string to replace #n with interactive popovers
   const processString = useCallback(
@@ -155,6 +156,20 @@ export default function SessionReportPrintPage({
     window.print();
   };
 
+  const handleCopy = async () => {
+    if (!report?.contentMarkdown) return;
+
+    try {
+      await navigator.clipboard.writeText(report.contentMarkdown);
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    } catch (err) {
+      console.error("Failed to copy report:", err);
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background dark:bg-background flex items-center justify-center">
@@ -195,16 +210,33 @@ export default function SessionReportPrintPage({
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0 print:space-y-6">
         <div className="flex items-center justify-between print:hidden">
           <ThemeToggle />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            className="gap-1.5 text-xs"
-          >
-            <Printer className="h-4 w-4" />
-            印刷する
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleCopy}
+              disabled={!report?.contentMarkdown}
+              className="gap-1.5 text-xs"
+            >
+              <Copy className="h-4 w-4" />
+              {copyStatus === "copied"
+                ? "コピー済み"
+                : copyStatus === "error"
+                  ? "コピー失敗"
+                  : "Markdownをコピー"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              className="gap-1.5 text-xs"
+            >
+              <Printer className="h-4 w-4" />
+              印刷する
+            </Button>
+          </div>
         </div>
 
         <header className="space-y-4 border-b border-border pb-6 print:hidden">

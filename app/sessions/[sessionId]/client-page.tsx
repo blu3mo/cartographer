@@ -4,6 +4,7 @@ import axios from "axios";
 import {
   ArrowDown,
   ChevronDown,
+  Copy,
   FileText,
   Loader2,
   MessageCircleQuestion,
@@ -314,6 +315,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   >(null);
   const [isTasteModalOpen, setIsTasteModalOpen] = useState(false);
   const [selectedTaste, setSelectedTaste] = useState<string>("neutral");
+  const [individualReportCopyStatus, setIndividualReportCopyStatus] = useState<
+    "idle" | "copied" | "error"
+  >("idle");
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
@@ -1472,6 +1476,20 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     }
   };
 
+  const handleCopyIndividualReport = async () => {
+    if (!individualReport?.contentMarkdown) return;
+
+    try {
+      await navigator.clipboard.writeText(individualReport.contentMarkdown);
+      setIndividualReportCopyStatus("copied");
+      setTimeout(() => setIndividualReportCopyStatus("idle"), 2000);
+    } catch (err) {
+      console.error("Failed to copy report:", err);
+      setIndividualReportCopyStatus("error");
+      setTimeout(() => setIndividualReportCopyStatus("idle"), 2000);
+    }
+  };
+
   // Update document title when session info is available
   useEffect(() => {
     if (sessionInfo?.title) {
@@ -2247,24 +2265,42 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                   </div>
                 </div>
               ) : individualReport ? (
-                <div
-                  className={cn(
-                    "markdown-body prose prose-slate dark:prose-invert max-w-none",
-                    "prose-headings:scroll-m-20 prose-headings:tracking-tight",
-                    "prose-h1:text-4xl prose-h1:font-extrabold prose-h1:text-balance",
-                    "prose-h2:border-b prose-h2:pb-2 prose-h2:text-3xl prose-h2:font-semibold prose-h2:first:mt-0",
-                    "prose-h3:text-2xl prose-h3:font-semibold",
-                    "prose-h4:text-xl prose-h4:font-semibold",
-                    "prose-p:leading-7 prose-p:[&:not(:first-child)]:mt-6",
-                    "prose-blockquote:mt-6 prose-blockquote:border-l-2 prose-blockquote:pl-6 prose-blockquote:italic",
-                    "prose-code:relative prose-code:rounded prose-code:bg-muted prose-code:px-[0.3rem] prose-code:py-[0.2rem] prose-code:font-mono prose-code:text-sm prose-code:font-semibold",
-                    "prose-lead:text-xl prose-lead:text-muted-foreground",
-                    isGeneratingReport && "opacity-60",
-                  )}
-                >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {individualReport.contentMarkdown}
-                  </ReactMarkdown>
+                <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyIndividualReport}
+                      className="gap-1.5 text-xs"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      {individualReportCopyStatus === "copied"
+                        ? "コピー済み"
+                        : individualReportCopyStatus === "error"
+                          ? "コピー失敗"
+                          : "Markdownをコピー"}
+                    </Button>
+                  </div>
+                  <div
+                    className={cn(
+                      "markdown-body prose prose-slate dark:prose-invert max-w-none",
+                      "prose-headings:scroll-m-20 prose-headings:tracking-tight",
+                      "prose-h1:text-4xl prose-h1:font-extrabold prose-h1:text-balance",
+                      "prose-h2:border-b prose-h2:pb-2 prose-h2:text-3xl prose-h2:font-semibold prose-h2:first:mt-0",
+                      "prose-h3:text-2xl prose-h3:font-semibold",
+                      "prose-h4:text-xl prose-h4:font-semibold",
+                      "prose-p:leading-7 prose-p:[&:not(:first-child)]:mt-6",
+                      "prose-blockquote:mt-6 prose-blockquote:border-l-2 prose-blockquote:pl-6 prose-blockquote:italic",
+                      "prose-code:relative prose-code:rounded prose-code:bg-muted prose-code:px-[0.3rem] prose-code:py-[0.2rem] prose-code:font-mono prose-code:text-sm prose-code:font-semibold",
+                      "prose-lead:text-xl prose-lead:text-muted-foreground",
+                      isGeneratingReport && "opacity-60",
+                    )}
+                  >
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {individualReport.contentMarkdown}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               ) : !isGeneratingReport ? (
                 <div className="py-8 text-center">
