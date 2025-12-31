@@ -338,7 +338,7 @@
             { pkgs, ... }:
             {
               deployment = {
-                targetHost = "52.68.102.0";
+                targetHost = "13.192.44.10";
                 targetUser = "root";
                 buildOnTarget = true;
               };
@@ -363,7 +363,7 @@
             in
             {
               deployment = {
-                targetHost = "52.68.102.0";
+                targetHost = "13.192.44.10";
                 targetUser = "root";
                 buildOnTarget = false; # Build on CI, not on target
               };
