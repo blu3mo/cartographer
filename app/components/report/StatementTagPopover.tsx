@@ -4,6 +4,8 @@ import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
+
 interface StatementResponse {
   participantName: string;
   responseType: "scale" | "free_text";
@@ -122,9 +124,12 @@ export function StatementTagPopover({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <span className="cursor-help rounded bg-muted px-1 py-0.5 font-mono text-sm text-slate-700 transition-colors hover:bg-slate-200">
+      <Badge
+        variant="secondary"
+        className="cursor-help font-mono text-[11px] text-foreground/90 shadow-sm transition-shadow hover:shadow"
+      >
         #{statementNumber}
-      </span>
+      </Badge>
 
       {isOpen && (
         <span

@@ -4,40 +4,42 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Background colors */
+  /* Background colors - Soft off-white reduces eye strain */
+  --background: hsl(0 0% 98%);
+  --foreground: hsl(224 71.4% 4.1%);
 
-  /* Card colors */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  /* Card colors - Pure white cards stand out from background */
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(224 71.4% 4.1%);
 
   /* Popover colors */
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(224 71.4% 4.1%);
 
-  /* Primary button - Dark slate */
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  /* Primary button - Vibrant slate blue for better visibility */
+  --primary: hsl(221.2 83.2% 53.3%);
+  --primary-foreground: hsl(210 40% 98%);
 
-  /* Secondary button - Light gray */
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  /* Secondary button - Subtle gray with better contrast */
+  --secondary: hsl(220 14.3% 95.9%);
+  --secondary-foreground: hsl(220.9 39.3% 11%);
 
-  /* Muted colors */
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* Muted colors - Better distinction from background */
+  --muted: hsl(220 14.3% 95.9%);
+  --muted-foreground: hsl(220 8.9% 46.1%);
 
-  /* Accent colors */
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* Accent colors - Slightly darker for hover states */
+  --accent: hsl(220 14.3% 95.9%);
+  --accent-foreground: hsl(220.9 39.3% 11%);
 
   /* Destructive colors */
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(210 40% 98%);
 
-  /* Border and input - Clear and visible */
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Border and input - More visible borders */
+  --border: hsl(220 13% 91%);
+  --input: hsl(220 13% 91%);
+  --ring: hsl(221.2 83.2% 53.3%);
 
   /* Border radius */
   --radius: 0.625rem;
@@ -50,38 +52,38 @@
   --chart-5: oklch(0.769 0.188 70.08);
 
   /* Status colors for reports and sessions */
-  --status-pending: 43 74% 66%; /* amber-500 */
-  --status-pending-foreground: 43 74% 30%;
-  --status-generating: 199 89% 48%; /* sky-500 */
-  --status-generating-foreground: 199 89% 20%;
-  --status-completed: 142 71% 45%; /* emerald-500 */
-  --status-completed-foreground: 142 71% 20%;
-  --status-failed: 0 72% 51%; /* rose-500 */
-  --status-failed-foreground: 0 72% 25%;
+  --status-pending: hsl(43 74% 66%); /* amber-500 */
+  --status-pending-foreground: hsl(43 74% 30%);
+  --status-generating: hsl(199 89% 48%); /* sky-500 */
+  --status-generating-foreground: hsl(199 89% 20%);
+  --status-completed: hsl(142 71% 45%); /* emerald-500 */
+  --status-completed-foreground: hsl(142 71% 20%);
+  --status-failed: hsl(0 72% 51%); /* rose-500 */
+  --status-failed-foreground: hsl(0 72% 25%);
 
   /* Sentiment colors for user responses */
-  --sentiment-neutral: 43 74% 66%; /* amber */
-  --sentiment-neutral-foreground: 43 74% 30%;
-  --sentiment-positive: 199 89% 48%; /* sky */
-  --sentiment-positive-foreground: 199 89% 20%;
-  --sentiment-strong-positive: 142 71% 45%; /* emerald */
-  --sentiment-strong-positive-foreground: 142 71% 20%;
-  --sentiment-negative: 0 72% 51%; /* rose */
-  --sentiment-negative-foreground: 0 72% 25%;
+  --sentiment-neutral: hsl(43 74% 66%); /* amber */
+  --sentiment-neutral-foreground: hsl(43 74% 30%);
+  --sentiment-positive: hsl(199 89% 48%); /* sky */
+  --sentiment-positive-foreground: hsl(199 89% 20%);
+  --sentiment-strong-positive: hsl(142 71% 45%); /* emerald */
+  --sentiment-strong-positive-foreground: hsl(142 71% 20%);
+  --sentiment-negative: hsl(0 72% 51%); /* rose */
+  --sentiment-negative-foreground: hsl(0 72% 25%);
 
   /* Neutral colors for general UI */
-  --neutral: 215.4 16.3% 46.9%; /* slate-600 */
-  --neutral-foreground: 210 40% 98%;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --neutral: hsl(215.4 16.3% 46.9%); /* slate-600 */
+  --neutral-foreground: hsl(210 40% 98%);
+
+  /* Sidebar colors - Matching the new light scheme */
+  --sidebar: hsl(0 0% 100%);
+  --sidebar-foreground: hsl(224 71.4% 4.1%);
+  --sidebar-primary: hsl(221.2 83.2% 53.3%);
+  --sidebar-primary-foreground: hsl(210 40% 98%);
+  --sidebar-accent: hsl(220 14.3% 95.9%);
+  --sidebar-accent-foreground: hsl(220.9 39.3% 11%);
+  --sidebar-border: hsl(220 13% 91%);
+  --sidebar-ring: hsl(221.2 83.2% 53.3%);
 }
 
 .dark {
@@ -130,28 +132,28 @@
   --chart-5: oklch(0.645 0.246 16.439);
 
   /* Status colors for reports and sessions */
-  --status-pending: 43 74% 60%; /* amber, lighter for dark */
-  --status-pending-foreground: 43 74% 90%;
-  --status-generating: 199 89% 55%; /* sky, lighter for dark */
-  --status-generating-foreground: 199 89% 90%;
-  --status-completed: 142 71% 50%; /* emerald, lighter for dark */
-  --status-completed-foreground: 142 71% 90%;
-  --status-failed: 0 72% 58%; /* rose, lighter for dark */
-  --status-failed-foreground: 0 72% 95%;
+  --status-pending: hsl(43 74% 60%); /* amber, lighter for dark */
+  --status-pending-foreground: hsl(43 74% 90%);
+  --status-generating: hsl(199 89% 55%); /* sky, lighter for dark */
+  --status-generating-foreground: hsl(199 89% 90%);
+  --status-completed: hsl(142 71% 50%); /* emerald, lighter for dark */
+  --status-completed-foreground: hsl(142 71% 90%);
+  --status-failed: hsl(0 72% 58%); /* rose, lighter for dark */
+  --status-failed-foreground: hsl(0 72% 95%);
 
   /* Sentiment colors for user responses */
-  --sentiment-neutral: 43 74% 60%; /* amber */
-  --sentiment-neutral-foreground: 43 74% 90%;
-  --sentiment-positive: 199 89% 55%; /* sky */
-  --sentiment-positive-foreground: 199 89% 90%;
-  --sentiment-strong-positive: 142 71% 50%; /* emerald */
-  --sentiment-strong-positive-foreground: 142 71% 90%;
-  --sentiment-negative: 0 72% 58%; /* rose */
-  --sentiment-negative-foreground: 0 72% 95%;
+  --sentiment-neutral: hsl(43 74% 60%); /* amber */
+  --sentiment-neutral-foreground: hsl(43 74% 90%);
+  --sentiment-positive: hsl(199 89% 55%); /* sky */
+  --sentiment-positive-foreground: hsl(199 89% 90%);
+  --sentiment-strong-positive: hsl(142 71% 50%); /* emerald */
+  --sentiment-strong-positive-foreground: hsl(142 71% 90%);
+  --sentiment-negative: hsl(0 72% 58%); /* rose */
+  --sentiment-negative-foreground: hsl(0 72% 95%);
 
   /* Neutral colors for general UI */
-  --neutral: 215 20.2% 65.1%; /* slate-400 for dark mode */
-  --neutral-foreground: 222.2 47.4% 11.2%;
+  --neutral: hsl(215 20.2% 65.1%); /* slate-400 for dark mode */
+  --neutral-foreground: hsl(222.2 47.4% 11.2%);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -163,8 +165,8 @@
 }
 
 body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background-color: var(--background);
+  color: var(--foreground);
   font-feature-settings:
     "rlig" 1,
     "calt" 1;
