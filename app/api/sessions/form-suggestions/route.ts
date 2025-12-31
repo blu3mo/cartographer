@@ -12,10 +12,32 @@ interface FormSuggestionRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: FormSuggestionRequest = await request.json();
-    const { backgroundInfo, purpose } = body;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON payload" },
+        { status: 400 },
+      );
+    }
 
-    if (!backgroundInfo.trim() && !purpose.trim()) {
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
+    }
+
+    const { backgroundInfo, purpose } = body as FormSuggestionRequest;
+    const normalizedBackgroundInfo =
+      typeof backgroundInfo === "string" ? backgroundInfo : "";
+    const normalizedPurpose = typeof purpose === "string" ? purpose : "";
+
+    if (
+      normalizedBackgroundInfo.trim().length === 0 &&
+      normalizedPurpose.trim().length === 0
+    ) {
       return NextResponse.json({ suggestions: [] });
     }
 
@@ -29,10 +51,10 @@ export async function POST(request: NextRequest) {
 **現在の入力内容:**
 
 【何をするために倍速会議を使うのですか？】
-${purpose.trim() || "（未入力）"}
+    ${normalizedPurpose.trim() || "（未入力）"}
 
 【背景情報】
-${backgroundInfo.trim() || "（未入力）"}
+    ${normalizedBackgroundInfo.trim() || "（未入力）"}
 
 **指摘の観点:**
 - 目的: 倍速会議を使う目的は何か、洗い出したいのは現状認識なのか・課題なのか・理想像なのか・価値観なのか、具体的にどんなトピックなのか、それを整理して見出したいのは合意点なのか・相違点なのか・何を誰もわかっていないのかなのか、認識を洗い出して整理したいと思ったきっかけとなった出来事や感情や困りごとはなんなのか、認識を洗い出すことを通じて何をしたいのか、集団がどうなったらいいのか
