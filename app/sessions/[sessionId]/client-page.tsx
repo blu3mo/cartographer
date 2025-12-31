@@ -26,6 +26,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 import { cn } from "@/lib/utils";
@@ -78,6 +85,13 @@ type ParticipantResponse = {
   value: ResponseValue | null;
   textResponse?: string | null;
   createdAt: string;
+};
+
+type ReportTaste = {
+  id: string;
+  label: string;
+  description: string;
+  emoji: string;
 };
 
 
