@@ -103,6 +103,10 @@ export async function POST(
       );
     }
 
+    // Parse request body for optional taste parameter
+    const body = await request.json().catch(() => ({}));
+    const taste = typeof body.taste === "string" ? body.taste : "neutral";
+
     // Verify that the user is a participant in this session
     const { data: participant, error: participantError } = await supabase
       .from("participants")
@@ -216,6 +220,7 @@ export async function POST(
       context: sessionBrief,
       responses: responsesWithStatement,
       userName: participant.name,
+      taste,
     });
 
     // Save report to database

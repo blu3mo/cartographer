@@ -1609,45 +1609,6 @@ export default function AdminPage({
                           </select>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={
-                            selectedReport.status !== "completed" ||
-                            !selectedReport.contentMarkdown
-                          }
-                          onClick={handleCopyReportMarkdown}
-                          className="gap-1.5 text-xs"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          {reportCopyStatus === "copied"
-                            ? "コピー済み"
-                            : reportCopyStatus === "error"
-                              ? "コピー失敗"
-                              : "Markdownをコピー"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 text-xs"
-                          disabled={
-                            selectedReport.status !== "completed" ||
-                            !selectedReport.contentMarkdown
-                          }
-                          onClick={() =>
-                            window.open(
-                              `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
-                              "_blank",
-                            )
-                          }
-                        >
-                          <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                          レポート詳細ページを開く
-                        </Button>
-                      </div>
                     </div>
 
                     {selectedReport.requestMarkdown ? (
@@ -1689,16 +1650,57 @@ export default function AdminPage({
                           )}
                         </div>
 
-                        <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                          <span>
-                            作成: {formatDateTime(selectedReport.createdAt)}
-                          </span>
-                          {selectedReport.completedAt ? (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                             <span>
-                              最終更新:{" "}
-                              {formatDateTime(selectedReport.completedAt)}
+                              作成: {formatDateTime(selectedReport.createdAt)}
                             </span>
-                          ) : null}
+                            {selectedReport.completedAt ? (
+                              <span>
+                                最終更新:{" "}
+                                {formatDateTime(selectedReport.completedAt)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                selectedReport.status !== "completed" ||
+                                !selectedReport.contentMarkdown
+                              }
+                              onClick={handleCopyReportMarkdown}
+                              className="gap-1.5 text-xs"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              {reportCopyStatus === "copied"
+                                ? "コピー済み"
+                                : reportCopyStatus === "error"
+                                  ? "コピー失敗"
+                                  : "Markdownをコピー"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-xs"
+                              disabled={
+                                selectedReport.status !== "completed" ||
+                                !selectedReport.contentMarkdown
+                              }
+                              onClick={() =>
+                                window.open(
+                                  `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
+                                  "_blank",
+                                )
+                              }
+                            >
+                              <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                              レポート詳細ページを開く
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>

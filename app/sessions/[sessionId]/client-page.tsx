@@ -3,6 +3,7 @@
 import axios from "axios";
 import {
   ArrowDown,
+  ChevronDown,
   FileText,
   Loader2,
   MessageCircleQuestion,
@@ -94,6 +95,33 @@ type ReportTaste = {
   emoji: string;
 };
 
+
+const REPORT_TASTES: ReportTaste[] = [
+  {
+    id: "neutral",
+    label: "標準",
+    description: "バランスの取れた客観的な分析",
+    emoji: "📊",
+  },
+  {
+    id: "encouraging",
+    label: "励まし",
+    description: "ポジティブで建設的なフィードバック",
+    emoji: "💪",
+  },
+  {
+    id: "analytical",
+    label: "分析的",
+    description: "詳細な論理的分析と洞察",
+    emoji: "🔍",
+  },
+  {
+    id: "casual",
+    label: "カジュアル",
+    description: "親しみやすくフレンドリーな表現",
+    emoji: "😊",
+  },
+];
 
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
@@ -284,6 +312,8 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const [reflectionSubmissionError, setReflectionSubmissionError] = useState<
     string | null
   >(null);
+  const [isTasteModalOpen, setIsTasteModalOpen] = useState(false);
+  const [selectedTaste, setSelectedTaste] = useState<string>("neutral");
   const hasJustCompletedRef = useRef(false);
   const pendingAnswerStatementIdsRef = useRef<Set<string>>(new Set());
   const prefetchedStatementIdRef = useRef<string | null>(null);
@@ -1413,20 +1443,23 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const handleGenerateReport = async () => {
+  const handleGenerateReport = async (taste?: string) => {
     if (!userId) return;
 
     setIsGeneratingReport(true);
     setError(null);
 
+    const tasteToUse = taste || selectedTaste;
+
     try {
       const response = await axios.post(
         `/api/sessions/${sessionId}/individual-report`,
-        {},
+        { taste: tasteToUse },
         { headers: createAuthorizationHeader(userId) },
       );
 
       setIndividualReport(response.data.report);
+      setIsTasteModalOpen(false);
     } catch (err) {
       console.error("Failed to generate report:", err);
       if (axios.isAxiosError(err) && err.response?.data?.error) {
@@ -2134,26 +2167,55 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
         {/* Individual Report - Show after finishing all questions */}
         {(state === "REFLECTION" || state === "COMPLETED") && (
-          <Card className="mt-8">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-                  じぶんレポート
-                </CardTitle>
-                <Button
-                  onClick={handleGenerateReport}
-                  disabled={isGeneratingReport}
-                  isLoading={isGeneratingReport}
-                  variant="secondary"
-                  size="sm"
-                >
-                  {individualReport ? "レポートを更新" : "レポートを生成"}
-                </Button>
-              </div>
-              <CardDescription className="text-muted-foreground">
-                あなたの回答から生成された個別分析レポート
-              </CardDescription>
-            </CardHeader>
+          <>
+            <Card className="mt-8">
+              <CardHeader>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+                      じぶんレポート
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="text-muted-foreground">
+                    あなたの回答から生成された個別分析レポート
+                  </CardDescription>
+                  <div className="flex items-center gap-3 pt-2">
+                    <div className="flex-1">
+                      <button
+                        onClick={() => setIsTasteModalOpen(true)}
+                        disabled={isGeneratingReport}
+                        className={cn(
+                          "group w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border-2 transition-all",
+                          "hover:border-primary/50 hover:bg-accent/50",
+                          "disabled:opacity-50 disabled:cursor-not-allowed",
+                          "border-border bg-card"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">
+                            {REPORT_TASTES.find((t) => t.id === selectedTaste)?.emoji}
+                          </span>
+                          <div className="text-left">
+                            <div className="text-xs text-muted-foreground">レポートのテイスト</div>
+                            <div className="font-semibold text-foreground">
+                              {REPORT_TASTES.find((t) => t.id === selectedTaste)?.label}
+                            </div>
+                          </div>
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-hover:text-foreground" />
+                      </button>
+                    </div>
+                    <Button
+                      onClick={() => setIsTasteModalOpen(true)}
+                      disabled={isGeneratingReport}
+                      size="default"
+                      className="shrink-0"
+                    >
+                      {individualReport ? "レポートを更新" : "レポートを生成"}
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
             <CardContent>
               {error && (
                 <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
@@ -2216,6 +2278,71 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
               ) : null}
             </CardContent>
           </Card>
+
+          {/* Taste Selection Modal */}
+          <AlertDialog open={isTasteModalOpen} onOpenChange={setIsTasteModalOpen}>
+            <AlertDialogContent className="max-w-2xl">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-2xl">
+                  レポートのテイストを選択
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  レポートの文体やトーンを選択してください
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="grid gap-3 py-4">
+                {REPORT_TASTES.map((taste) => (
+                  <button
+                    key={taste.id}
+                    onClick={() => {
+                      setSelectedTaste(taste.id);
+                    }}
+                    disabled={isGeneratingReport}
+                    className={cn(
+                      "group relative flex items-start gap-4 rounded-lg border-2 p-4 text-left transition-all hover:border-primary/50 hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed",
+                      selectedTaste === taste.id
+                        ? "border-primary bg-accent"
+                        : "border-border bg-card",
+                    )}
+                  >
+                    <div className="text-3xl">{taste.emoji}</div>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-foreground">
+                          {taste.label}
+                        </p>
+                        {selectedTaste === taste.id && (
+                          <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                            選択中
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {taste.description}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsTasteModalOpen(false)}
+                  disabled={isGeneratingReport}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  onClick={() => handleGenerateReport()}
+                  disabled={isGeneratingReport}
+                  isLoading={isGeneratingReport}
+                >
+                  このテイストで生成
+                </Button>
+              </div>
+            </AlertDialogContent>
+          </AlertDialog>
+          </>
         )}
       </div>
     </div>
