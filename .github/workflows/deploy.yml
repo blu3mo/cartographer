@@ -88,20 +88,14 @@ jobs:
           cp -r .next/static frontend-artifact/.next/static
           cp -r public frontend-artifact/public
           
-          git add -f frontend-artifact
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend-artifact/
+          retention-days: 1
 
-
-      - name: Package frontend with Nix
-        id: frontend-build
-        run: nix build .#cartographer-frontend --print-build-logs
-
-      # Skipping Cachix push for frontend as requested (Direct copy via Colmena later)
-
-      - name: Fail if frontend build failed
-        if: steps.frontend-build.outcome == 'failure'
-        run: |
-          echo "Frontend build failed"
-          exit 1
+      # Frontend artifact uploaded - will be downloaded and built in deploy job
 
 
   deploy:
@@ -113,6 +107,15 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.deploy == true)
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend-artifact/
+
+      - name: Add frontend artifact to git index
+        run: git add -f frontend-artifact
 
       - uses: cachix/install-nix-action@v27
         with:

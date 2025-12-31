@@ -67,7 +67,9 @@
   users.groups.cartographer = { };
 
   # M36 data directory
+  # Ensure /mnt/efs is owned by cartographer so the app can create subdirectories
   systemd.tmpfiles.rules = [
+    "d /mnt/efs 0755 cartographer cartographer -"
     "d /mnt/efs/m36-data 0755 cartographer cartographer -"
   ];
 
