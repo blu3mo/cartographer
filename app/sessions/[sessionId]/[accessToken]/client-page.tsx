@@ -34,6 +34,7 @@ import {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -45,8 +46,36 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useUserId } from "@/lib/useUserId";
+import {
+  createResponseLogColumns,
+  type ResponseLogRow,
+} from "./response-logs-columns";
+import { ResponseLogsDataTable } from "./response-logs-data-table";
 
 type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
 
@@ -185,23 +214,23 @@ const REPORT_STATUS_META: Record<
 > = {
   pending: {
     label: "待機中",
-    dot: "bg-amber-500",
-    text: "text-amber-600",
+    dot: "bg-status-pending",
+    text: "text-status-pending-foreground",
   },
   generating: {
     label: "生成中",
-    dot: "bg-sky-500",
-    text: "text-sky-600",
+    dot: "bg-status-generating",
+    text: "text-status-generating-foreground",
   },
   completed: {
     label: "完了",
-    dot: "bg-emerald-500",
-    text: "text-emerald-600",
+    dot: "bg-status-completed",
+    text: "text-status-completed-foreground",
   },
   failed: {
     label: "失敗",
-    dot: "bg-rose-500",
-    text: "text-rose-600",
+    dot: "bg-status-failed",
+    text: "text-status-failed-foreground",
   },
 };
 
@@ -228,7 +257,7 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       "参加者の感情や心理的な側面に配慮し、共感的で温かみのある表現を用いてレポートをまとめてください。対立よりも相互理解を促す視点で記述し、前向きな雰囲気を作ることを意識してください。",
     samplePreview:
       "こんにちは、皆さん。\n\n今回のセッションでは、それぞれの視点や思いを共有していただき、本当にありがとうございました。お一人お一人の意見には、大切な想いや背景があることがよく伝わってきました。\n\n特に印象的だったのは、異なる立場にいる方々が、互いの状況を理解しようと努めていた点です。完全な合意には至らなかったテーマもありますが、それぞれの価値観を尊重し合う姿勢が見られたことは、とても前向きな一歩だと感じます。",
-    color: "bg-pink-50 border-pink-200 hover:bg-pink-100 text-pink-900",
+    color: "bg-pink-100 border-pink-200 hover:bg-pink-200 text-pink-900 dark:bg-pink-950/30 dark:border-pink-800 dark:hover:bg-pink-950/50 dark:text-pink-300",
   },
   {
     id: "logical",
@@ -239,7 +268,7 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       "論理的で明確な構成を重視し、意思決定に必要な情報を簡潔にまとめてください。データや数値、合意・対立のポイントを明確に示し、次のアクションにつながる提言を含めてください。",
     samplePreview:
       "## エグゼクティブサマリー\n\n本セッションでは、参加者間で以下の3つの重要な対立軸が確認されました：\n\n1. **施策Aの優先順位**：賛成67%、反対33%\n2. **予算配分の方針**：意見が二分（賛成48%、反対52%）\n3. **実施時期**：即時実施派と段階的実施派が対立\n\n## 推奨アクション\n\n1. 施策Aについては支持が過半数を超えているため、早急に実行計画を策定すべき\n2. 予算配分については追加の議論が必要。次回セッションで数値根拠を提示し、再検討を推奨",
-    color: "bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-900",
+    color: "bg-blue-100 border-blue-200 hover:bg-blue-200 text-blue-900 dark:bg-blue-950/30 dark:border-blue-800 dark:hover:bg-blue-950/50 dark:text-blue-300",
   },
   {
     id: "psychopath",
@@ -250,7 +279,7 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       "感情的な共感や寄り添いは一切廃してください。論理、事実、真実のみでレポートを構成してください。参加者が矛盾した意見を持っている場合は、個人名を明示しながら鋭くその点を指摘してください。曖昧な表現は避け、明確で容赦のない分析を行ってください。",
     samplePreview:
       "## 分析結果\n\n本セッションにおける参加者の回答には、複数の論理的矛盾が検出された。\n\n### 矛盾の指摘\n\n**田中太郎氏**は設問3で「予算削減が必要」と回答しているにもかかわらず、設問7では「全部署への予算増額」に賛成している。この2つの立場は論理的に両立しない。\n\n**佐藤花子氏**は「迅速な意思決定が重要」と主張する一方で、「全員の合意形成を最優先すべき」とも述べている。迅速性と全員合意は多くの場合トレードオフの関係にあり、両方を同時に達成することは現実的ではない。\n\n### 結論\n\n参加者の多くは自身の意見の一貫性を保てていない。感情的な反応に基づく場当たり的な回答が目立つ。",
-    color: "bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-900",
+    color: "bg-purple-100 border-purple-200 hover:bg-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:hover:bg-purple-950/50 dark:text-purple-300",
   },
   {
     id: "freeform",
@@ -259,7 +288,7 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
     description: "自由に指示を記載",
     prompt: "",
     samplePreview: "",
-    color: "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900",
+    color: "bg-muted border-border hover:bg-secondary text-foreground dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700 dark:text-slate-300",
   },
 ];
 
@@ -269,23 +298,23 @@ const EVENT_TYPE_META: Record<
 > = {
   plan: {
     label: "Plan",
-    accent: "text-sky-600",
-    badge: "bg-sky-50 text-sky-700 border-sky-200",
+    accent: "text-sky-700 dark:text-primary",
+    badge: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
   survey: {
     label: "Survey",
-    accent: "text-emerald-600",
-    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    accent: "text-emerald-700 dark:text-primary",
+    badge: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
   survey_analysis: {
     label: "Analysis",
-    accent: "text-purple-600",
-    badge: "bg-purple-50 text-purple-700 border-purple-200",
+    accent: "text-purple-700 dark:text-primary",
+    badge: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
   user_message: {
     label: "You",
-    accent: "text-indigo-600",
-    badge: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    accent: "text-slate-700 dark:text-primary",
+    badge: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
 };
 
@@ -633,6 +662,37 @@ export default function AdminPage({
     return () => window.clearInterval(intervalId);
   }, [fetchReports, hasActiveReport, userId]);
 
+  // Track report completion and show toast
+  const prevReportsRef = useRef<SessionReport[]>([]);
+  useEffect(() => {
+    const prevReports = prevReportsRef.current;
+    prevReportsRef.current = reports;
+
+    // Check if any report just transitioned to "completed"
+    reports.forEach((report) => {
+      const prevReport = prevReports.find((r) => r.id === report.id);
+      if (
+        prevReport &&
+        (prevReport.status === "pending" || prevReport.status === "generating") &&
+        report.status === "completed"
+      ) {
+        toast.success("レポート生成が完了しました", {
+          description: `バージョン ${report.version} のレポートが生成されました`,
+          duration: 5000,
+        });
+      } else if (
+        prevReport &&
+        (prevReport.status === "pending" || prevReport.status === "generating") &&
+        report.status === "failed"
+      ) {
+        toast.error("レポート生成に失敗しました", {
+          description: "もう一度お試しください",
+          duration: 5000,
+        });
+      }
+    });
+  }, [reports]);
+
   const selectedReport = useMemo(
     () => reports.find((report) => report.id === selectedReportId) ?? null,
     [reports, selectedReportId],
@@ -835,18 +895,11 @@ export default function AdminPage({
   const handleDeleteSession = async () => {
     if (!canEdit) return;
 
-    if (
-      !confirm("このセッションを完全に削除しますか？この操作は取り消せません。")
-    ) {
-      return;
-    }
-
     try {
       setDeleting(true);
       await axios.delete(`/api/sessions/${sessionId}/${accessToken}`, {
         headers: { Authorization: `Bearer ${userId}` },
       });
-      alert("セッションを削除しました。");
       window.location.href = "/";
     } catch (err) {
       console.error("Failed to delete session:", err);
@@ -971,11 +1024,17 @@ export default function AdminPage({
       if (newStatements && newStatements.length > 0) {
         // Refresh data to show the new statements
         await fetchAdminData();
-        alert(`${newStatements.length}問の質問を生成しました。`);
+        toast.success("質問生成が完了しました", {
+          description: `${newStatements.length}問の質問を生成しました`,
+          duration: 5000,
+        });
       }
     } catch (err) {
       console.error("Failed to generate questions:", err);
-      alert("質問の生成に失敗しました。");
+      toast.error("質問の生成に失敗しました", {
+        description: "もう一度お試しください",
+        duration: 5000,
+      });
     } finally {
       setIsGeneratingQuestion(false);
     }
@@ -1122,15 +1181,15 @@ export default function AdminPage({
 
   if (isUserIdLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400 dark:text-slate-500" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground dark:text-muted-foreground" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-black">
+      <div className="min-h-screen bg-background">
         <div className="max-w-6xl mx-auto px-6 py-16">
           <Card className="border-red-200/70 bg-red-50/80 dark:border-red-800/70 dark:bg-red-950/50">
             <CardContent className="pt-6">
@@ -1144,19 +1203,19 @@ export default function AdminPage({
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">セッションが見つかりません。</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-black">
+    <div className="min-h-screen bg-background">
       <div className="max-w-[90rem] mx-auto px-6 py-10 space-y-10">
         <header className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
-              <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
+              <h1 className="text-3xl font-semibold text-foreground">
                 {data.title}
               </h1>
             </div>
@@ -1166,9 +1225,9 @@ export default function AdminPage({
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
           <div className="space-y-8">
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">参加者状況の把握</CardTitle>
+            <Card>
+              <CardHeader>
+                <CardTitle>参加者状況の把握</CardTitle>
                 <CardDescription>
                   このセッションに参加している人の回答状況をリアルタイムに確認できます。更新する場合は、ページを再読み込みしてください。
                 </CardDescription>
@@ -1200,7 +1259,7 @@ export default function AdminPage({
                 </div>
 
                 {participants.length === 0 ? (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-muted-foreground">
                     まだ参加者はいません。リンクを共有して参加を促しましょう。
                   </p>
                 ) : (
@@ -1214,7 +1273,7 @@ export default function AdminPage({
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="flex justify-end border-t border-slate-100 pt-4">
+              <CardFooter className="flex justify-end border-t pt-6">
                 <Button
                   variant="outline"
                   size="sm"
@@ -1231,11 +1290,11 @@ export default function AdminPage({
               </CardFooter>
             </Card>
 
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
+            <Card>
+              <CardHeader>
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="space-y-1.5">
-                    <CardTitle className="text-lg">
+                  <div className="space-y-2">
+                    <CardTitle>
                       セッションレポート
                     </CardTitle>
                     <CardDescription>
@@ -1244,10 +1303,10 @@ export default function AdminPage({
                   </div>
                   {selectedReport ? (
                     <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground dark:text-muted-foreground">
                         最新の状態
                       </p>
-                      <p className="text-sm font-semibold text-slate-900">
+                      <p className="text-sm font-semibold text-foreground">
                         v{String(selectedReport.version).padStart(2, "0")}
                       </p>
                     </div>
@@ -1256,7 +1315,46 @@ export default function AdminPage({
               </CardHeader>
               <CardContent className="space-y-6">
                 {canEdit ? (
-                  <div className="relative">
+                  <div className="space-y-3 rounded-xl border border-border/50 bg-muted/30 p-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        レポートのテイスト
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowReportModal(true);
+                          setReportMode("custom");
+                        }}
+                        disabled={creatingReport}
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-card-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50 dark:border-border dark:bg-card dark:hover:bg-accent"
+                      >
+                        {selectedReportStyle === "auto" ? (
+                          <FileText className="h-4 w-4" />
+                        ) : selectedReportStyle === "empathy" ? (
+                          <Heart className="h-4 w-4 text-pink-600 dark:text-pink-500" />
+                        ) : selectedReportStyle === "logical" ? (
+                          <Brain className="h-4 w-4 text-blue-600 dark:text-blue-500" />
+                        ) : selectedReportStyle === "psychopath" ? (
+                          <Zap className="h-4 w-4 text-purple-600 dark:text-purple-500" />
+                        ) : (
+                          <Settings className="h-4 w-4" />
+                        )}
+                        <span className="flex-1 text-left">
+                          {selectedReportStyle === "auto"
+                            ? "スタンダード"
+                            : selectedReportStyle === "empathy"
+                              ? "共感重視"
+                              : selectedReportStyle === "logical"
+                                ? "論理重視"
+                                : selectedReportStyle === "psychopath"
+                                  ? "サイコパスモード"
+                                  : "自由記述"}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    </div>
+
                     <Button
                       type="button"
                       size="lg"
@@ -1274,128 +1372,55 @@ export default function AdminPage({
                       }}
                       disabled={creatingReport}
                       isLoading={creatingReport}
-                      className="min-h-[52px] w-full justify-center gap-3 rounded-2xl px-5 pl-32 pr-32 text-center text-base shadow-lg shadow-slate-900/10 sm:text-lg"
+                      className="h-12 w-full justify-center gap-3 rounded-lg text-base font-semibold shadow-sm transition-all hover:shadow-md"
                     >
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5" />
-                        <span className="font-semibold">
-                          新しいレポートを生成
-                        </span>
-                      </div>
+                      <FileText className="h-5 w-5" />
+                      <span>レポートを生成</span>
                     </Button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowReportModal(true);
-                        setReportMode("custom");
-                      }}
-                      disabled={creatingReport}
-                      className="absolute right-3 top-1/2 inline-flex h-10 -translate-y-1/2 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold text-white/90 shadow-sm shadow-black/10 backdrop-blur transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {selectedReportStyle === "auto" ? (
-                        <FileText className="h-4 w-4 text-blue-600" />
-                      ) : selectedReportStyle === "empathy" ? (
-                        <Heart className="h-4 w-4 text-pink-600" />
-                      ) : selectedReportStyle === "logical" ? (
-                        <Brain className="h-4 w-4 text-blue-600" />
-                      ) : selectedReportStyle === "psychopath" ? (
-                        <Zap className="h-4 w-4 text-purple-600" />
-                      ) : (
-                        <Settings className="h-4 w-4 text-slate-600" />
-                      )}
-                      <span>
-                        {selectedReportStyle === "auto"
-                          ? "スタンダード"
-                          : selectedReportStyle === "empathy"
-                            ? "共感重視"
-                            : selectedReportStyle === "logical"
-                              ? "論理重視"
-                              : selectedReportStyle === "psychopath"
-                                ? "サイコパスモード"
-                                : "自由記述"}
-                      </span>
-                      <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                    </button>
                   </div>
                 ) : (
-                  <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
+                  <div className="rounded-3xl border border-border/70 bg-muted/80 px-4 py-3 text-xs text-muted-foreground">
                     レポート生成はセッションのホストのみ利用できます。
                   </div>
                 )}
 
-                {showReportModal && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <button
-                      type="button"
-                      aria-label="レポートモーダルを閉じる"
-                      className="absolute inset-0 h-full w-full bg-slate-950/70 backdrop-blur-sm"
-                      onClick={handleCloseReportModal}
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          handleCloseReportModal();
-                        }
-                      }}
-                    />
-                    <div
-                      role="dialog"
-                      aria-modal="true"
-                      tabIndex={-1}
-                      className="relative z-10 w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl"
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          handleCloseReportModal();
-                        }
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={handleCloseReportModal}
-                        className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
+                <Dialog open={showReportModal} onOpenChange={setShowReportModal}>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl">レポートスタイルを選択</DialogTitle>
+                      <DialogDescription>
+                        目的に合わせてレポートのスタイルを選択できます
+                      </DialogDescription>
+                    </DialogHeader>
 
                       <div className="space-y-6">
-                        <div>
-                          <h2 className="text-2xl font-semibold text-slate-900">
-                            レポートスタイルを選択
-                          </h2>
-                          <p className="mt-1 text-sm text-slate-600">
-                            目的に合わせてレポートのスタイルを選択できます
-                          </p>
-                        </div>
 
-                        <div className="flex gap-4">
+                        <div className="flex flex-col gap-6 lg:flex-row">
                           {/* 左側: テンプレートリスト */}
-                          <div className="flex-1 space-y-3">
+                          <div className="flex-1 space-y-2">
                             {/* スタンダード */}
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTemplate(null)}
-                              disabled={creatingReport}
-                              className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition ${
+                            <Card
+                              className={`cursor-pointer transition-all hover:shadow-md ${
                                 selectedTemplate === null
-                                  ? "border-blue-300 bg-blue-50"
-                                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                              } ${
-                                creatingReport
-                                  ? "cursor-not-allowed opacity-50"
-                                  : "cursor-pointer"
-                              }`}
+                                  ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
+                                  : "hover:border-primary/50"
+                              } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
+                              onClick={() => !creatingReport && setSelectedTemplate(null)}
                             >
-                              <div className="rounded-lg bg-white p-2 shadow-sm">
-                                <FileText className="h-5 w-5 text-slate-700" />
-                              </div>
-                              <div className="flex-1">
-                                <h3 className="text-base font-semibold text-slate-900">
-                                  スタンダード
-                                </h3>
-                                <p className="mt-1 text-sm text-slate-600">
-                                  標準的な分析レポート
-                                </p>
-                              </div>
-                            </button>
+                              <CardContent className="flex items-start gap-3 p-4">
+                                <div className="rounded-lg bg-muted p-2">
+                                  <FileText className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-foreground">
+                                    スタンダード
+                                  </h3>
+                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                    標準的な分析レポート
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
 
                             {REPORT_TEMPLATES.filter(
                               (t) => t.id !== "freeform",
@@ -1404,151 +1429,141 @@ export default function AdminPage({
                               const isSelected =
                                 selectedTemplate === template.id;
                               return (
-                                <button
+                                <Card
                                   key={template.id}
-                                  type="button"
-                                  onClick={() =>
-                                    handleSelectTemplate(template.id)
-                                  }
-                                  disabled={creatingReport}
-                                  className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition ${
+                                  className={`cursor-pointer transition-all hover:shadow-md ${
                                     isSelected
-                                      ? "border-blue-300 bg-blue-50"
-                                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                                  } ${
-                                    creatingReport
-                                      ? "cursor-not-allowed opacity-50"
-                                      : "cursor-pointer"
-                                  }`}
+                                      ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
+                                      : "hover:border-primary/50"
+                                  } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
+                                  onClick={() => !creatingReport && handleSelectTemplate(template.id)}
                                 >
-                                  <div className="rounded-lg bg-white p-2 shadow-sm">
-                                    <Icon className="h-5 w-5 text-slate-700" />
-                                  </div>
-                                  <div className="flex-1">
-                                    <h3 className="text-base font-semibold text-slate-900">
-                                      {template.name}
-                                    </h3>
-                                    <p className="mt-1 text-sm text-slate-600">
-                                      {template.description}
-                                    </p>
-                                  </div>
-                                </button>
+                                  <CardContent className="flex items-start gap-3 p-4">
+                                    <div className="rounded-lg bg-muted p-2">
+                                      <Icon className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                    <div className="flex-1">
+                                      <h3 className="font-semibold text-foreground">
+                                        {template.name}
+                                      </h3>
+                                      <p className="mt-0.5 text-xs text-muted-foreground">
+                                        {template.description}
+                                      </p>
+                                    </div>
+                                  </CardContent>
+                                </Card>
                               );
                             })}
 
                             {/* 自由記述は区切り線の下に表示 */}
-                            <div className="border-t border-slate-300 pt-3">
-                              <button
-                                type="button"
-                                onClick={() => handleSelectTemplate("freeform")}
-                                disabled={creatingReport}
-                                className={`flex w-full items-start gap-4 rounded-2xl border-2 border-dashed p-4 text-left transition ${
+                            <div className="border-t border-border pt-2 mt-3">
+                              <Card
+                                className={`cursor-pointer border-dashed transition-all hover:shadow-md ${
                                   selectedTemplate === "freeform"
-                                    ? "border-purple-400 bg-purple-50"
-                                    : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
-                                } ${
-                                  creatingReport
-                                    ? "cursor-not-allowed opacity-50"
-                                    : "cursor-pointer"
-                                }`}
+                                    ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
+                                    : "hover:border-primary/50"
+                                } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
+                                onClick={() => !creatingReport && handleSelectTemplate("freeform")}
                               >
-                                <div className="rounded-lg bg-white p-2 shadow-sm">
-                                  <Settings className="h-5 w-5 text-slate-700" />
-                                </div>
-                                <div className="flex-1">
-                                  <h3 className="text-base font-semibold text-slate-900">
-                                    自由記述
-                                  </h3>
-                                  <p className="mt-1 text-sm text-slate-600">
-                                    自由に指示を記載
-                                  </p>
-                                </div>
-                              </button>
+                                <CardContent className="flex items-start gap-3 p-4">
+                                  <div className="rounded-lg bg-muted p-2">
+                                    <Settings className="h-5 w-5 text-muted-foreground" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <h3 className="font-semibold text-foreground">
+                                      自由記述
+                                    </h3>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                      自由に指示を記載
+                                    </p>
+                                  </div>
+                                </CardContent>
+                              </Card>
                             </div>
                           </div>
 
                           {/* 右側: レポートプレビュー */}
                           <div className="flex-1">
-                            <div className="sticky top-0 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <div className="flex items-center justify-between">
-                                <label
-                                  htmlFor="templatePrompt"
-                                  className="text-sm font-medium text-slate-700"
-                                >
-                                  {selectedTemplate === "freeform"
-                                    ? "プロンプト"
-                                    : "レポートプレビュー"}
-                                </label>
-                                {selectedTemplate !== "freeform" &&
-                                  selectedTemplate !== null && (
-                                    <div className="group relative">
-                                      <Info className="h-4 w-4 cursor-help text-slate-400 transition hover:text-slate-600" />
-                                      <div className="invisible absolute right-0 top-6 z-10 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700 shadow-lg opacity-0 transition-all group-hover:visible group-hover:opacity-100">
-                                        <div className="mb-1 font-semibold text-slate-900">
-                                          AIへの指示プロンプト:
+                            <Card className="sticky top-0">
+                              <CardHeader className="pb-3">
+                                <div className="flex items-center justify-between">
+                                  <CardTitle className="text-base">
+                                    {selectedTemplate === "freeform"
+                                      ? "プロンプト"
+                                      : "レポートプレビュー"}
+                                  </CardTitle>
+                                  {selectedTemplate !== "freeform" &&
+                                    selectedTemplate !== null && (
+                                      <div className="group relative">
+                                        <Info className="h-4 w-4 cursor-help text-muted-foreground transition hover:text-foreground" />
+                                        <div className="invisible absolute right-0 top-6 z-10 w-80 rounded-lg border border-border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-lg opacity-0 transition-all group-hover:visible group-hover:opacity-100">
+                                          <div className="mb-1 font-semibold">
+                                            AIへの指示プロンプト:
+                                          </div>
+                                          {
+                                            REPORT_TEMPLATES.find(
+                                              (t) => t.id === selectedTemplate,
+                                            )?.prompt
+                                          }
                                         </div>
-                                        {
-                                          REPORT_TEMPLATES.find(
-                                            (t) => t.id === selectedTemplate,
-                                          )?.prompt
-                                        }
                                       </div>
-                                    </div>
-                                  )}
-                              </div>
-                              {selectedTemplate === "freeform" ? (
-                                <>
-                                  <textarea
-                                    id="templatePrompt"
-                                    value={customPrompt}
-                                    onChange={(e) =>
-                                      setCustomPrompt(e.target.value)
-                                    }
-                                    rows={8}
-                                    maxLength={5000}
-                                    placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                                    className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                                  />
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-slate-500">
-                                      {customPrompt.length} / 5000
-                                    </span>
-                                    <Button
-                                      type="button"
-                                      onClick={handleConfirmTemplate}
-                                      disabled={
-                                        creatingReport || !customPrompt.trim()
+                                    )}
+                                </div>
+                              </CardHeader>
+                              <CardContent className="space-y-3">
+                                {selectedTemplate === "freeform" ? (
+                                  <>
+                                    <Textarea
+                                      id="templatePrompt"
+                                      value={customPrompt}
+                                      onChange={(e) =>
+                                        setCustomPrompt(e.target.value)
                                       }
-                                      size="sm"
-                                    >
-                                      決定
-                                    </Button>
-                                  </div>
-                                </>
-                              ) : selectedTemplate ? (
-                                <>
-                                  <div className="min-h-[200px] whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700">
-                                    {
-                                      REPORT_TEMPLATES.find(
-                                        (t) => t.id === selectedTemplate,
-                                      )?.samplePreview
-                                    }
-                                  </div>
-                                  <div className="flex justify-end">
-                                    <Button
-                                      type="button"
-                                      onClick={handleConfirmTemplate}
-                                      disabled={creatingReport}
-                                      size="sm"
-                                    >
-                                      決定
-                                    </Button>
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="min-h-[200px] whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700">
-                                    {`## セッション分析レポート
+                                      rows={10}
+                                      maxLength={5000}
+                                      placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
+                                      className="resize-none"
+                                    />
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-muted-foreground">
+                                        {customPrompt.length} / 5000
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        onClick={handleConfirmTemplate}
+                                        disabled={
+                                          creatingReport || !customPrompt.trim()
+                                        }
+                                        size="sm"
+                                      >
+                                        決定
+                                      </Button>
+                                    </div>
+                                  </>
+                                ) : selectedTemplate ? (
+                                  <>
+                                    <div className="min-h-[240px] max-h-[400px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                                      {
+                                        REPORT_TEMPLATES.find(
+                                          (t) => t.id === selectedTemplate,
+                                        )?.samplePreview
+                                      }
+                                    </div>
+                                    <div className="flex justify-end">
+                                      <Button
+                                        type="button"
+                                        onClick={handleConfirmTemplate}
+                                        disabled={creatingReport}
+                                        size="sm"
+                                      >
+                                        決定
+                                      </Button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="min-h-[240px] max-h-[400px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                                      {`## セッション分析レポート
 
 本セッションでは、参加者の回答データに基づいて以下の分析を行いました。
 
@@ -1559,26 +1574,26 @@ export default function AdminPage({
 ### 次のステップ
 
 今後の議論では、対立点についてさらなる対話を深めることで、相互理解を促進することが推奨されます。`}
-                                  </div>
-                                  <div className="flex justify-end">
-                                    <Button
-                                      type="button"
-                                      onClick={handleConfirmTemplate}
-                                      disabled={creatingReport}
-                                      size="sm"
-                                    >
-                                      決定
-                                    </Button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
+                                    </div>
+                                    <div className="flex justify-end">
+                                      <Button
+                                        type="button"
+                                        onClick={handleConfirmTemplate}
+                                        disabled={creatingReport}
+                                        size="sm"
+                                      >
+                                        決定
+                                      </Button>
+                                    </div>
+                                  </>
+                                )}
+                              </CardContent>
+                            </Card>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                )}
+                  </DialogContent>
+                </Dialog>
 
                 {reportsError && (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -1588,11 +1603,11 @@ export default function AdminPage({
 
                 {reportsLoading ? (
                   <div className="space-y-4">
-                    <div className="h-12 animate-pulse rounded-2xl bg-slate-100/80" />
-                    <div className="h-[420px] animate-pulse rounded-3xl bg-slate-100/80" />
+                    <div className="h-12 animate-pulse rounded-2xl bg-muted/80" />
+                    <div className="h-[420px] animate-pulse rounded-3xl bg-muted/80" />
                   </div>
                 ) : reports.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
+                  <div className="rounded-2xl border border-dashed border-border bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
                     まだレポートはありません。ボタンをクリックして作成。
                   </div>
                 ) : selectedReport ? (
@@ -1601,7 +1616,7 @@ export default function AdminPage({
                       <div className="space-y-2">
                         <label
                           htmlFor="reportVersionSelect"
-                          className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                          className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
                         >
                           表示するバージョン
                         </label>
@@ -1612,7 +1627,7 @@ export default function AdminPage({
                             onChange={(event) =>
                               setSelectedReportId(event.target.value)
                             }
-                            className="max-w-xs rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                            className="max-w-xs rounded-2xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card"
                           >
                             {reports.map((report) => {
                               const meta = REPORT_STATUS_META[report.status];
@@ -1624,13 +1639,13 @@ export default function AdminPage({
                               );
                             })}
                           </select>
-                          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-[11px] font-medium text-muted-foreground">
                             <span
                               className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
                             />
                             {REPORT_STATUS_META[selectedReport.status].label}
                           </span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-500">
+                          <span className="rounded-full bg-muted px-3 py-1 text-[11px] text-muted-foreground">
                             {isViewingLatestReport
                               ? "最新バージョンを表示中"
                               : latestReport
@@ -1681,8 +1696,8 @@ export default function AdminPage({
                     </div>
 
                     {selectedReport.requestMarkdown ? (
-                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm text-indigo-900">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
+                      <div className="rounded-2xl border border-border bg-muted/70 p-4 text-sm text-foreground">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                           レポート生成のリクエスト
                         </p>
                         <p className="mt-1 whitespace-pre-wrap leading-relaxed">
@@ -1691,22 +1706,22 @@ export default function AdminPage({
                       </div>
                     ) : null}
 
-                    <div className="min-h-[360px] rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-inner">
+                    <div className="min-h-[360px] rounded-3xl border border-border bg-card/80 p-6 shadow-inner dark:bg-card/50">
                       <div className="flex h-full flex-col gap-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                               Version
                             </p>
-                            <p className="text-xl font-semibold text-slate-900">
+                            <p className="text-xl font-semibold text-foreground">
                               v{String(selectedReport.version).padStart(2, "0")}
                             </p>
                           </div>
-                          <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                            <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                            <div className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                               {selectedReport.model}
                             </div>
-                            <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
+                            <div className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
                               <span
                                 className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
                               />
@@ -1715,33 +1730,33 @@ export default function AdminPage({
                           </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
+                        <div className="flex-1 overflow-y-auto rounded-2xl border border-border bg-background/90 p-4 dark:bg-card/90">
                           {selectedReport.status === "completed" &&
                           selectedReport.contentMarkdown ? (
-                            <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
+                            <div className="markdown-body prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                 {selectedReport.contentMarkdown}
                               </ReactMarkdown>
                             </div>
                           ) : selectedReport.status === "failed" ? (
-                            <div className="text-sm text-rose-600">
+                            <div className="text-sm text-rose-600 dark:text-rose-400">
                               レポート生成に失敗しました。
                               <br />
                               {selectedReport.errorMessage ??
                                 "詳細はログを確認してください。"}
                             </div>
                           ) : (
-                            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-slate-500">
-                              <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                               <p>レポートを生成しています…</p>
-                              <p className="text-[11px] text-slate-400">
+                              <p className="text-[11px] text-muted-foreground">
                                 完了まで1~2分ほどかかる場合があります。
                               </p>
                             </div>
                           )}
                         </div>
 
-                        <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                        <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                           <span>
                             作成: {formatDateTime(selectedReport.createdAt)}
                           </span>
@@ -1756,18 +1771,18 @@ export default function AdminPage({
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
+                  <div className="rounded-2xl border border-dashed border-border/80 bg-white/70 px-4 py-6 text-center text-sm text-muted-foreground">
                     レポートを選択するとここに表示されます。
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
+            <Card>
+              <CardHeader>
                 <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">意見の可視化</CardTitle>
+                  <div className="space-y-2">
+                    <CardTitle>意見の可視化</CardTitle>
                     <CardDescription>
                       参加者の回答をもとに、合意できている点、対立している点、みんなが分からない点を把握できます
                     </CardDescription>
@@ -1812,11 +1827,11 @@ export default function AdminPage({
               </CardContent>
             </Card>
 
-            <Card className="border-none bg-white/80 shadow-lg">
-              <CardHeader className="pb-4">
+            <Card>
+              <CardHeader>
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">進行ログ</CardTitle>
+                  <div className="space-y-2">
+                    <CardTitle>進行ログ</CardTitle>
                     <CardDescription>
                       ファシリテーターAIの進行状況をここから確認できます
                     </CardDescription>
@@ -1829,9 +1844,9 @@ export default function AdminPage({
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-inner">
+                <div className="relative overflow-hidden rounded-3xl border border-border bg-card/70 shadow-inner">
                   {threadLoading && (
-                    <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-white/90 to-white/30 py-2 text-center text-xs text-slate-500">
+                    <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-background/90 to-background/30 py-2 text-center text-xs text-muted-foreground">
                       更新中…
                     </div>
                   )}
@@ -1863,7 +1878,7 @@ export default function AdminPage({
                         );
                       })
                     ) : (
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-muted-foreground">
                         まだイベントはありません。Agentとの会話はここに表示されます。
                       </p>
                     )}
@@ -1871,19 +1886,19 @@ export default function AdminPage({
                 </div>
 
                 {canEdit && (
-                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+                  <div className="space-y-2 rounded-3xl border border-border bg-card/80 p-4 shadow-sm">
                     <label
                       htmlFor="adminMessage"
-                      className="text-xs font-medium text-slate-600"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       ファシリテーターAIへのメッセージ
                     </label>
-                    <textarea
+                    <Textarea
                       id="adminMessage"
                       value={messageDraft}
                       onChange={(event) => setMessageDraft(event.target.value)}
                       rows={3}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
+                      className="rounded-2xl bg-white resize-none dark:bg-background"
                       placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
                     />
                     <div className="flex items-center justify-between">
@@ -1908,9 +1923,9 @@ export default function AdminPage({
           </div>
 
           <div className="space-y-8">
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">参加用リンク</CardTitle>
+            <Card>
+              <CardHeader>
+                <CardTitle>参加用リンク</CardTitle>
                 <CardDescription>
                   共有リンクやQRコードから参加者を招待できます
                 </CardDescription>
@@ -1919,7 +1934,7 @@ export default function AdminPage({
                 <div className="space-y-2">
                   <label
                     htmlFor="shareLink"
-                    className="text-xs font-medium text-slate-600"
+                    className="text-xs font-medium text-foreground"
                   >
                     コピー用URL
                   </label>
@@ -1951,14 +1966,14 @@ export default function AdminPage({
                     </Button>
                   </div>
                 </div>
-                <div className="relative rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
+                <div className="relative rounded-2xl border border-border bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner dark:border-border dark:from-slate-900/40 dark:to-slate-950/40">
                   {shareQrUrl && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => setIsShareQrFullscreen(true)}
-                      className="absolute right-4 top-4 gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 text-xs text-slate-700 shadow-sm hover:bg-white"
+                      className="absolute right-4 top-4 gap-1.5 rounded-full border border-border bg-card px-3 text-xs text-muted-foreground shadow-sm hover:bg-accent"
                     >
                       <Maximize2 className="h-3.5 w-3.5" />
                     </Button>
@@ -1969,10 +1984,10 @@ export default function AdminPage({
                       alt="参加用QRコード"
                       width={SHARE_QR_SIZE}
                       height={SHARE_QR_SIZE}
-                      className="mx-auto h-[176px] w-[176px] rounded-xl border border-slate-200 bg-white object-contain p-2 shadow-sm"
+                      className="mx-auto h-[176px] w-[176px] rounded-xl border border-border bg-white object-contain p-2 shadow-sm dark:border-border dark:bg-white"
                     />
                   ) : (
-                    <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-xs text-slate-400">
+                    <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-border bg-card text-xs text-muted-foreground">
                       QRコードを生成できませんでした
                     </div>
                   )}
@@ -1980,7 +1995,7 @@ export default function AdminPage({
               </CardContent>
             </Card>
             {isShareQrFullscreen && fullscreenQrUrl && (
-              <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm relative">
+              <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-black/85 p-4 sm:p-10 backdrop-blur-sm relative">
                 <button
                   type="button"
                   aria-label="全画面表示を閉じる"
@@ -2026,18 +2041,18 @@ export default function AdminPage({
               </div>
             )}
 
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
+            <Card>
+              <CardHeader>
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">セッション情報</CardTitle>
+                  <div className="space-y-2">
+                    <CardTitle>セッション情報</CardTitle>
                     <CardDescription>
                       {canEdit
                         ? "基本情報を編集してアップデートできます"
                         : "セッションの基本情報"}
                     </CardDescription>
                   </div>
-                  {!isEditingSettings && canEdit && (
+                  {canEdit && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -2050,210 +2065,214 @@ export default function AdminPage({
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
-                {!isEditingSettings ? (
-                  <div className="space-y-4 text-sm text-slate-600">
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        ゴール
-                      </p>
-                      <p
-                        className="mt-1 leading-relaxed"
-                        title={data.goal ?? undefined}
-                      >
-                        {data.goal ? truncateText(data.goal, 160) : "未設定"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        背景情報
-                      </p>
-                      <p
-                        className="mt-1 leading-relaxed whitespace-pre-wrap"
-                        title={data.context ?? undefined}
-                      >
-                        {data.context
-                          ? truncateText(data.context, 160)
-                          : "未設定"}
-                      </p>
-                    </div>
+                <div className="space-y-4 text-sm text-muted-foreground">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-[0.12em] dark:text-muted-foreground">
+                      ゴール
+                    </p>
+                    <p
+                      className="mt-1 leading-relaxed"
+                      title={data.goal ?? undefined}
+                    >
+                      {data.goal ? truncateText(data.goal, 160) : "未設定"}
+                    </p>
                   </div>
-                ) : (
-                  <form onSubmit={handleSaveSettings} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="sessionTitle"
-                        className="text-xs font-medium text-slate-600"
-                      >
-                        タイトル
-                      </label>
-                      <Input
-                        id="sessionTitle"
-                        type="text"
-                        value={editingTitle}
-                        onChange={(event) =>
-                          setEditingTitle(event.target.value)
-                        }
-                        required
-                        className="text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="sessionGoal"
-                        className="text-xs font-medium text-slate-600"
-                      >
-                        ゴール
-                      </label>
-                      <textarea
-                        id="sessionGoal"
-                        value={editingGoal}
-                        onChange={(event) => setEditingGoal(event.target.value)}
-                        required
-                        rows={5}
-                        className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="sessionContext"
-                        className="text-xs font-medium text-slate-600"
-                      >
-                        背景情報
-                      </label>
-                      <textarea
-                        id="sessionContext"
-                        value={editingContext}
-                        onChange={(event) =>
-                          setEditingContext(event.target.value)
-                        }
-                        rows={5}
-                        className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      />
-                    </div>
-
-                    {(settingsMessage || settingsError) && (
-                      <div
-                        className={`rounded-xl px-3 py-2 text-xs ${
-                          settingsError
-                            ? "bg-red-50 text-red-600"
-                            : "bg-emerald-50 text-emerald-700"
-                        }`}
-                      >
-                        {settingsError ?? settingsMessage}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="submit"
-                        disabled={isSavingSettings}
-                        isLoading={isSavingSettings}
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                      >
-                        保存
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setIsEditingSettings(false);
-                          setSettingsMessage(null);
-                          setSettingsError(null);
-                          if (data) {
-                            setEditingTitle(data.title);
-                            setEditingContext(data.context);
-                            setEditingGoal(data.goal);
-                          }
-                        }}
-                        className="gap-1.5 text-xs"
-                      >
-                        キャンセル
-                      </Button>
-                    </div>
-                  </form>
-                )}
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-[0.12em] dark:text-muted-foreground">
+                      背景情報
+                    </p>
+                    <p
+                      className="mt-1 leading-relaxed whitespace-pre-wrap"
+                      title={data.context ?? undefined}
+                    >
+                      {data.context
+                        ? truncateText(data.context, 160)
+                        : "未設定"}
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">進行設定</CardTitle>
+            <Dialog open={isEditingSettings} onOpenChange={setIsEditingSettings}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>セッション情報を編集</DialogTitle>
+                  <DialogDescription>
+                    セッションの基本情報を更新できます
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSaveSettings} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="sessionTitle"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      タイトル
+                    </label>
+                    <Input
+                      id="sessionTitle"
+                      type="text"
+                      value={editingTitle}
+                      onChange={(event) =>
+                        setEditingTitle(event.target.value)
+                      }
+                      required
+                      className="text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="sessionGoal"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      ゴール
+                    </label>
+                    <Textarea
+                      id="sessionGoal"
+                      value={editingGoal}
+                      onChange={(event) => setEditingGoal(event.target.value)}
+                      required
+                      rows={5}
+                      className="rounded-xl resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="sessionContext"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      背景情報
+                    </label>
+                    <Textarea
+                      id="sessionContext"
+                      value={editingContext}
+                      onChange={(event) =>
+                        setEditingContext(event.target.value)
+                      }
+                      rows={5}
+                      className="rounded-xl resize-none"
+                    />
+                  </div>
+
+                  {(settingsMessage || settingsError) && (
+                    <div
+                      className={`rounded-xl px-3 py-2 text-xs ${
+                        settingsError
+                          ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                          : "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                      }`}
+                    >
+                      {settingsError ?? settingsMessage}
+                    </div>
+                  )}
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditingSettings(false);
+                        setSettingsMessage(null);
+                        setSettingsError(null);
+                        if (data) {
+                          setEditingTitle(data.title);
+                          setEditingContext(data.context);
+                          setEditingGoal(data.goal);
+                        }
+                      }}
+                      className="gap-1.5 text-xs"
+                    >
+                      キャンセル
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSavingSettings}
+                      isLoading={isSavingSettings}
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                    >
+                      保存
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>進行設定</CardTitle>
                 <CardDescription>
                   自動質問生成の制御やセッションの管理を行えます
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-5">
-                <button
-                  type="button"
-                  onClick={canEdit ? handleToggleShouldProceed : undefined}
-                  disabled={togglingProceed || !canEdit}
-                  aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                    threadData?.thread?.shouldProceed
-                      ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
-                      : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                  } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">
-                        新規Statementの自動生成
-                      </p>
-                      <p className="text-xs text-slate-600">
-                        {threadData?.thread?.shouldProceed
-                          ? "全員が回答を終えると、新しい質問が生成されます"
-                          : "全員が回答を終えても、新しい質問は生成されません"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div
-                        aria-hidden="true"
-                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${
-                          threadData?.thread?.shouldProceed
-                            ? "border-emerald-300 bg-emerald-500/90 justify-end"
-                            : "border-amber-300 bg-amber-200/90 justify-start"
-                        }`}
-                      >
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
-                          {threadData?.thread?.shouldProceed ? (
-                            <Play className="h-3 w-3 text-emerald-500" />
-                          ) : (
-                            <Pause className="h-3 w-3 text-amber-500" />
-                          )}
-                        </div>
-                      </div>
-
-                      {togglingProceed && (
-                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                      )}
-                    </div>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      新規Statementの自動生成
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {threadData?.thread?.shouldProceed
+                        ? "全員が回答を終えると、新しい質問が生成されます"
+                        : "全員が回答を終えても、新しい質問は生成されません"}
+                    </p>
                   </div>
-                </button>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={Boolean(threadData?.thread?.shouldProceed)}
+                      onCheckedChange={handleToggleShouldProceed}
+                      disabled={togglingProceed || !canEdit}
+                      aria-label="新規Statementの自動生成を切り替え"
+                    />
+                    {togglingProceed && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
 
                 {canEdit && (
-                  <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
-                    <p className="text-sm font-medium text-red-700">
-                      セッションを削除
-                    </p>
-                    <p className="mt-1 text-xs text-red-600">
-                      この操作は取り消せません。全てのデータが削除されます。
-                    </p>
-                    <Button
-                      onClick={handleDeleteSession}
-                      disabled={deleting}
-                      isLoading={deleting}
-                      variant="destructive"
-                      size="sm"
-                      className="mt-3 gap-1.5 text-xs"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      セッションを削除
-                    </Button>
-                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        disabled={deleting}
+                        variant="destructive"
+                        size="sm"
+                        className="gap-1.5"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        セッションを削除
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>セッションを削除しますか？</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          この操作は取り消せません。全てのデータが完全に削除されます。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteSession}
+                          disabled={deleting}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {deleting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              削除中...
+                            </>
+                          ) : (
+                            "削除する"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </CardContent>
             </Card>
@@ -2262,7 +2281,7 @@ export default function AdminPage({
 
         {/* Response Log Modal */}
         {showResponseLog && (
-          <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
             <button
               type="button"
               aria-label="モーダルを閉じる"
@@ -2276,17 +2295,17 @@ export default function AdminPage({
               }}
             />
             <div
-              className="relative z-10 w-full max-w-7xl max-h-[90vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              className="relative z-10 w-full max-w-7xl max-h-[90vh] overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
               role="dialog"
               aria-modal="true"
               aria-label="回答ログ"
             >
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div className="flex items-center justify-between border-b border-border px-6 py-4">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">
+                  <h2 className="text-xl font-semibold text-foreground">
                     解答ログ
                   </h2>
-                  <p className="mt-1 text-sm text-slate-600">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     全参加者の詳細な回答データを確認・エクスポートできます
                   </p>
                 </div>
@@ -2317,7 +2336,7 @@ export default function AdminPage({
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowResponseLog(false)}
-                    className="text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                    className="text-muted-foreground hover:bg-muted hover:text-muted-foreground"
                   >
                     <X className="h-5 w-5" />
                   </Button>
@@ -2329,8 +2348,8 @@ export default function AdminPage({
               >
                 {responseLogsLoading ? (
                   <div className="flex flex-col items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                    <p className="mt-3 text-sm text-slate-600">読み込み中...</p>
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="mt-3 text-sm text-muted-foreground">読み込み中...</p>
                   </div>
                 ) : responseLogsError ? (
                   <div className="flex flex-col items-center justify-center py-12">
@@ -2342,27 +2361,27 @@ export default function AdminPage({
                 ) : responseLogsData ? (
                   <div className="space-y-6">
                     <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
-                        <p className="text-xs font-medium text-slate-600 uppercase tracking-wider">
+                      <div className="rounded-xl border border-border bg-card px-4 py-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           参加者数
                         </p>
-                        <p className="mt-1 text-2xl font-semibold text-slate-900">
+                        <p className="mt-1 text-2xl font-semibold text-card-foreground">
                           {responseLogsData.totalParticipants}人
                         </p>
                       </div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
-                        <p className="text-xs font-medium text-slate-600 uppercase tracking-wider">
+                      <div className="rounded-xl border border-border bg-card px-4 py-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           設問数
                         </p>
-                        <p className="mt-1 text-2xl font-semibold text-slate-900">
+                        <p className="mt-1 text-2xl font-semibold text-card-foreground">
                           {responseLogsData.totalStatements}問
                         </p>
                       </div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
-                        <p className="text-xs font-medium text-slate-600 uppercase tracking-wider">
+                      <div className="rounded-xl border border-border bg-card px-4 py-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           総回答数
                         </p>
-                        <p className="mt-1 text-2xl font-semibold text-slate-900">
+                        <p className="mt-1 text-2xl font-semibold text-card-foreground">
                           {responseLogsData.participants.reduce(
                             (sum, p) =>
                               sum +
@@ -2375,104 +2394,24 @@ export default function AdminPage({
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto rounded-xl border border-slate-200">
-                      <table className="w-full text-left text-sm">
-                        <thead className="border-b border-slate-200 bg-slate-50">
-                          <tr>
-                            <th className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">
-                              参加者
-                            </th>
-                            {responseLogsData.statements.map((statement) => (
-                              <th
-                                key={statement.id}
-                                className="px-4 py-3 font-medium text-slate-700 min-w-[200px]"
-                              >
-                                <div className="flex flex-col gap-1">
-                                  <span className="text-xs text-slate-500">
-                                    設問 {statement.orderIndex + 1}
-                                  </span>
-                                  <span className="line-clamp-2 text-xs font-normal">
-                                    {statement.text}
-                                  </span>
-                                </div>
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {responseLogsData.participants.map((participant) => (
-                            <tr
-                              key={participant.userId}
-                              className="hover:bg-slate-50/50"
-                            >
-                              <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-                                <div className="flex flex-col gap-0.5">
-                                  <span>{participant.name}</span>
-                                  <span className="text-xs text-slate-500">
-                                    {formatDateTime(participant.joinedAt)}
-                                  </span>
-                                </div>
-                              </td>
-                              {participant.responses.map((response) => (
-                                <td
-                                  key={response.statementId}
-                                  className="px-4 py-3"
-                                >
-                                  {response.responseType === "scale" ? (
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-                                          response.value === 2
-                                            ? "bg-emerald-100 text-emerald-700"
-                                            : response.value === 1
-                                              ? "bg-emerald-50 text-emerald-600"
-                                              : response.value === 0
-                                                ? "bg-slate-100 text-slate-600"
-                                                : response.value === -1
-                                                  ? "bg-amber-50 text-amber-600"
-                                                  : response.value === -2
-                                                    ? "bg-amber-100 text-amber-700"
-                                                    : "bg-slate-100 text-slate-500"
-                                        }`}
-                                      >
-                                        {response.value !== null
-                                          ? response.value > 0
-                                            ? `+${response.value}`
-                                            : response.value
-                                          : "?"}
-                                      </span>
-                                      <span className="text-xs text-slate-600">
-                                        {response.value === 2
-                                          ? "強く同意"
-                                          : response.value === 1
-                                            ? "同意"
-                                            : response.value === 0
-                                              ? "わからない・自信がない"
-                                              : response.value === -1
-                                                ? "反対"
-                                                : response.value === -2
-                                                  ? "強く反対"
-                                                  : "未回答"}
-                                      </span>
-                                    </div>
-                                  ) : response.responseType === "free_text" ? (
-                                    <div className="max-w-xs">
-                                      <p className="line-clamp-3 text-xs text-slate-700">
-                                        {response.textResponse}
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-slate-400">
-                                      未回答
-                                    </span>
-                                  )}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <ResponseLogsDataTable
+                      columns={createResponseLogColumns(
+                        responseLogsData.statements,
+                      )}
+                      data={responseLogsData.participants.map(
+                        (participant): ResponseLogRow => {
+                          const row: ResponseLogRow = {
+                            participantUserId: participant.userId,
+                            participantName: participant.name,
+                            joinedAt: participant.joinedAt,
+                          };
+                          participant.responses.forEach((response) => {
+                            row[`statement_${response.statementId}`] = response;
+                          });
+                          return row;
+                        },
+                      )}
+                    />
                   </div>
                 ) : null}
               </div>
@@ -2497,17 +2436,14 @@ function MonitoringMetric({
   subLabel,
   tone = "default",
 }: MonitoringMetricProps) {
-  const toneClass =
-    tone === "emerald"
-      ? "bg-emerald-50/80 border-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400"
-      : "bg-slate-100/60 border-slate-100 text-slate-700 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-300";
+  const toneClass = "bg-card border-border text-foreground";
   return (
     <div className={`rounded-2xl border px-4 py-4 shadow-sm ${toneClass}`}>
-      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+      <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </p>
       <p className="mt-2 text-xl font-semibold">{value}</p>
-      {subLabel && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{subLabel}</p>}
+      {subLabel && <p className="mt-2 text-xs text-muted-foreground">{subLabel}</p>}
     </div>
   );
 }
@@ -2530,29 +2466,24 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
       : 0;
 
   return (
-    <div className="flex h-full flex-col gap-2 rounded-xl border border-slate-200/70 bg-white/70 p-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/70">
+    <div className="flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+          <p className="truncate text-sm font-medium text-foreground">
             {participant.name || "名称未設定"}
           </p>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500">{updatedLabel}に参加</p>
+          <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">{updatedLabel}に参加</p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <p className="text-sm font-semibold text-foreground">
             {completionLabel}
           </p>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+          <p className="text-[10px] text-muted-foreground">
             {participant.answeredCount}/{participant.totalStatements}
           </p>
         </div>
       </div>
-      <div className="mt-2 h-1 w-full rounded-full bg-slate-200 dark:bg-slate-700">
-        <div
-          className="h-full rounded-full bg-indigo-500 dark:bg-indigo-400 transition-all"
-          style={{ width: `${progressRatio}%` }}
-        />
-      </div>
+      <Progress value={progressRatio} className="mt-2 h-1" />
     </div>
   );
 }
@@ -2583,23 +2514,23 @@ function StatementHighlightColumn({
 }: StatementHighlightColumnProps) {
   const toneClass =
     tone === "emerald"
-      ? "bg-emerald-50 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-800"
+      ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800/50"
       : tone === "amber"
-        ? "bg-amber-50 border-amber-100 dark:bg-amber-950/30 dark:border-amber-800"
-        : "bg-slate-50 border-slate-100 dark:bg-slate-800 dark:border-slate-700";
+        ? "bg-purple-50 border-purple-200 dark:bg-purple-950/20 dark:border-purple-800/50"
+        : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/50";
 
   const badgeClass =
     tone === "emerald"
-      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300"
+      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
       : tone === "amber"
-        ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300"
-        : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
+        ? "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
+        : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300";
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       {items.length === 0 ? (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-muted-foreground">
           まだ十分な回答データがありません。
         </p>
       ) : (
@@ -2614,26 +2545,26 @@ function StatementHighlightColumn({
               >
                 #{index + 1}
               </span>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              <div className="text-[11px] text-muted-foreground">
                 回答率 {formatPercentage(item.responseRate)}
               </div>
             </div>
-            <p className="mt-3 text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+            <p className="mt-3 text-sm text-foreground leading-relaxed">
               {item.statement.text}
             </p>
-            <div className="mt-4 flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-400">
-              <span className="font-medium text-emerald-700 dark:text-emerald-400">
+            <div className="mt-4 flex items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="font-medium text-blue-700 dark:text-blue-400">
                 Yes {formatPercentage(item.positive)}
               </span>
-              <span className="font-medium text-amber-700 dark:text-amber-400">
+              <span className="font-medium text-purple-700 dark:text-purple-400">
                 No {formatPercentage(item.negative)}
               </span>
-              <span>わからない・自信がない {formatPercentage(item.neutral)}</span>
+              <span className="font-medium text-amber-700 dark:text-amber-400">わからない・自信がない {formatPercentage(item.neutral)}</span>
             </div>
             {item.statement.responses.freeTextCount > 0 && (
-              <div className="mt-3 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-[11px] text-slate-700 shadow-inner dark:border-slate-700/70 dark:bg-slate-900/70 dark:text-slate-300">
+              <div className="mt-3 rounded-xl border border-border bg-muted/70 px-3 py-2 text-[11px] text-muted-foreground shadow-inner">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  <span className="font-semibold text-foreground">
                     自由記述 {item.statement.responses.freeTextCount}件
                   </span>
                 </div>
@@ -2642,10 +2573,10 @@ function StatementHighlightColumn({
                     (sample, sampleIndex) => (
                       <li
                         key={`${item.statement.id}-sample-${sampleIndex}`}
-                        className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap break-words"
+                        className="text-muted-foreground whitespace-pre-wrap break-words"
                       >
                         ・{sample.text}
-                        <span className="ml-2 text-[10px] text-slate-400 dark:text-slate-500">
+                        <span className="ml-2 text-[10px] text-muted-foreground dark:text-muted-foreground">
                           —{" "}
                           {sample.participantUserId
                             ? (participantNameMap[sample.participantUserId] ??
@@ -2701,10 +2632,10 @@ function ThreadEventBubble({
   onToggle,
 }: ThreadEventBubbleProps) {
   const markdownProseClass =
-    "markdown-body prose prose-sm max-w-none text-slate-800 [&_ol]:list-decimal [&_ul]:list-disc";
+    "markdown-body prose prose-sm dark:prose-invert max-w-none text-foreground [&_ol]:list-decimal [&_ul]:list-disc";
   const fadeGradientClass = isHostMessage
-    ? "from-indigo-50/95 via-indigo-50/50 to-transparent"
-    : "from-white/95 via-white/60 to-transparent";
+    ? "from-primary/5 via-primary/3 to-transparent dark:from-primary/5 dark:via-primary/3"
+    : "from-card/95 via-card/60 to-transparent dark:from-card/95 dark:via-card/60";
 
   const wrapWithFade = (node: ReactElement) => ({
     content: (
@@ -2725,8 +2656,8 @@ function ThreadEventBubble({
 
   const meta = EVENT_TYPE_META[event.type] ?? {
     label: event.type,
-    accent: "text-slate-500",
-    badge: "bg-slate-100 text-slate-600 border-slate-200",
+    accent: "text-muted-foreground",
+    badge: "bg-muted text-muted-foreground border-border",
   };
 
   const markdown =
@@ -2759,7 +2690,7 @@ function ThreadEventBubble({
   const statementsList = (
     <div className="space-y-2">
       {event.type === "survey" && totalSurveyStatements > 0 ? (
-        <p className="text-base text-slate-900">
+        <p className="text-base text-foreground">
           新しく{totalSurveyStatements}
           個の質問を作成しました。皆さんの回答をお待ちしています。
         </p>
@@ -2767,16 +2698,16 @@ function ThreadEventBubble({
       {visibleStatements.map((statement) => (
         <div
           key={statement.id}
-          className="rounded-2xl border border-slate-200/70 bg-white/90 px-3 py-2 text-sm text-slate-700 shadow-sm"
+          className="rounded-2xl border border-border bg-card/90 px-3 py-2 text-sm text-foreground shadow-sm"
         >
-          <span className="mr-2 text-[11px] font-medium text-slate-400">
+          <span className="mr-2 text-[11px] font-medium text-muted-foreground">
             #{statement.orderIndex + 1}
           </span>
           {statement.text}
         </div>
       ))}
       {/* {!expanded && event.statements.length > visibleStatements.length && (
-        <p className="text-[11px] text-slate-500">
+        <p className="text-[11px] text-muted-foreground">
           他{event.statements.length - visibleStatements.length}
           件のステートメントがあります。
         </p>
@@ -2790,7 +2721,7 @@ function ThreadEventBubble({
     <button
       type="button"
       onClick={onToggle}
-      className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700"
+      className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
     >
       {expanded ? (
         <>
@@ -2832,7 +2763,7 @@ function ThreadEventBubble({
     }
 
     return plainContent(
-      <p className="text-sm text-slate-600">内容を準備中です。</p>,
+      <p className="text-sm text-muted-foreground">内容を準備中です。</p>,
     );
   })();
 
@@ -2843,7 +2774,7 @@ function ThreadEventBubble({
       }`}
     >
       {!isHostMessage && (
-        <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
+        <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
           <Bot className="h-4 w-4" />
         </div>
       )}
@@ -2856,7 +2787,7 @@ function ThreadEventBubble({
           className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
         >
           <span>{meta.label}</span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] text-muted-foreground">
             #{String(event.orderIndex).padStart(3, "0")}・
             {formatDateTime(event.updatedAt)}
           </span>
@@ -2864,8 +2795,8 @@ function ThreadEventBubble({
         <div
           className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${
             isHostMessage
-              ? "border-indigo-100 bg-indigo-50/80"
-              : "border-slate-200 bg-white/90"
+              ? "border-border bg-muted/80"
+              : "border-border bg-card/90"
           }`}
         >
           <div className="flex flex-col gap-0">
@@ -2882,11 +2813,11 @@ function ThreadEventBubble({
           </div>
         </div>
         {/* {progressPercent > 0 && progressPercent < 100 && (
-          <div className="flex w-full items-center gap-3 text-[11px] text-slate-500">
-            <div className="h-1.5 w-full rounded-full bg-slate-200">
+          <div className="flex w-full items-center gap-3 text-[11px] text-muted-foreground">
+            <div className="h-1.5 w-full rounded-full bg-secondary">
               <div
                 className={`h-full rounded-full ${
-                  isHostMessage ? "bg-indigo-400" : "bg-slate-500"
+                  isHostMessage ? "bg-indigo-400" : "bg-muted0"
                 }`}
                 style={{ width: `${progressPercent}%` }}
               />
