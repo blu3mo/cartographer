@@ -3,5 +3,5 @@
 
 aws_region     = "ap-northeast-1"
 environment    = "prod"
-instance_type  = "t3.medium"
+instance_type  = "t4g.medium"
 ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnYOFNcOn+q9TXSZg/PmON97ryakpnkBOvBHBOceELP cartographer-deploy"

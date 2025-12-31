@@ -11,9 +11,9 @@ variable "environment" {
 }
 
 variable "instance_type" {
-  description = "EC2 instance type"
+  description = "EC2 instance type (ARM)"
   type        = string
-  default     = "t3.medium"
+  default     = "t4g.medium"
 }
 
 variable "ssh_public_key" {

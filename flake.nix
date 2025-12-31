@@ -318,7 +318,7 @@
         colmenaHive = inputs.colmena.lib.makeHive {
           meta = {
             nixpkgs = import nixpkgs {
-              system = "x86_64-linux";
+              system = "aarch64-linux";
             };
           };
 
@@ -348,8 +348,8 @@
               ];
             };
 
-          # Full deployment with applications - requires x86_64-linux build
-          # Usage: colmena apply --on cartographer-prod (from CI or EC2)
+          # Full deployment with applications - now works from Mac (aarch64)
+          # Usage: colmena apply --on cartographer-prod
           cartographer-prod =
             {
               name,
@@ -358,8 +358,8 @@
               ...
             }:
             let
-              backendPackage = self.packages.x86_64-linux.cartographer-backend;
-              frontendPackage = self.packages.x86_64-linux.cartographer-frontend;
+              backendPackage = self.packages.aarch64-linux.cartographer-backend;
+              frontendPackage = self.packages.aarch64-linux.cartographer-frontend;
             in
             {
               deployment = {

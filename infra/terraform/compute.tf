@@ -5,12 +5,12 @@ data "aws_ami" "nixos" {
 
   filter {
     name   = "name"
-    values = ["nixos/25.11*-x86_64-linux"]
+    values = ["nixos/25.11*-aarch64-linux"]
   }
 
   filter {
     name   = "architecture"
-    values = ["x86_64"]
+    values = ["arm64"]
   }
 }
 
