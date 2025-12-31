@@ -1624,32 +1624,6 @@ export default function AdminPage({
 
                     <div className="min-h-[360px] rounded-3xl border border-border bg-card/80 p-6 shadow-inner dark:bg-card/50">
                       <div className="flex h-full flex-col gap-4">
-                        <div className="flex-1 overflow-y-auto rounded-2xl border border-border bg-background/90 p-4 dark:bg-card/90">
-                          {selectedReport.status === "completed" &&
-                          selectedReport.contentMarkdown ? (
-                            <div className="markdown-body prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {selectedReport.contentMarkdown}
-                              </ReactMarkdown>
-                            </div>
-                          ) : selectedReport.status === "failed" ? (
-                            <div className="text-sm text-rose-600 dark:text-rose-400">
-                              レポート生成に失敗しました。
-                              <br />
-                              {selectedReport.errorMessage ??
-                                "詳細はログを確認してください。"}
-                            </div>
-                          ) : (
-                            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                              <p>レポートを生成しています…</p>
-                              <p className="text-[11px] text-muted-foreground">
-                                完了まで1~2分ほどかかる場合があります。
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
                         <div className="space-y-3">
                           <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                             <span>
@@ -1701,6 +1675,32 @@ export default function AdminPage({
                               レポート詳細ページを開く
                             </Button>
                           </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto rounded-2xl border border-border bg-background/90 p-4 dark:bg-card/90">
+                          {selectedReport.status === "completed" &&
+                          selectedReport.contentMarkdown ? (
+                            <div className="markdown-body prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {selectedReport.contentMarkdown}
+                              </ReactMarkdown>
+                            </div>
+                          ) : selectedReport.status === "failed" ? (
+                            <div className="text-sm text-rose-600 dark:text-rose-400">
+                              レポート生成に失敗しました。
+                              <br />
+                              {selectedReport.errorMessage ??
+                                "詳細はログを確認してください。"}
+                            </div>
+                          ) : (
+                            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                              <p>レポートを生成しています…</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                完了まで1~2分ほどかかる場合があります。
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
