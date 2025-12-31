@@ -156,7 +156,7 @@ export default function UserMap({ sessionId, userId }: UserMapProps) {
     if (active && payload && payload.length) {
       const point = payload[0].payload;
       return (
-        <div className="bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm">
+        <div className="bg-slate-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm">
           <p className="font-semibold mb-1">{point.name}</p>
           <p className="text-xs opacity-90">
             回答数: {point.responseCount} / {data.totalStatements}

@@ -22,6 +22,9 @@ import {
   Skeleton,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Spinner } from "@/components/ui/spinner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
@@ -90,41 +93,41 @@ const RESPONSE_CHOICES: Array<{
     label: "強く同意",
     emoji: "💯",
     idleClass:
-      "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
+      "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/50",
     activeClass:
-      "bg-emerald-500 text-white border-emerald-500 shadow-sm hover:bg-emerald-500",
+      "bg-emerald-500 text-white border-emerald-500 shadow-sm hover:bg-emerald-500 dark:bg-emerald-600 dark:border-emerald-600",
   },
   {
     value: 1,
     label: "同意",
     emoji: "✓",
-    idleClass: "bg-green-50 text-green-700 border-green-200 hover:bg-green-100",
+    idleClass: "bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950/50",
     activeClass:
-      "bg-green-400 text-white border-green-400 shadow-sm hover:bg-green-400",
+      "bg-green-400 text-white border-green-400 shadow-sm hover:bg-green-400 dark:bg-green-500 dark:border-green-500",
   },
   {
     value: 0,
     label: "わからない・自信がない",
     emoji: "🤔",
-    idleClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
+    idleClass: "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-950/50",
     activeClass:
-      "bg-amber-400 text-gray-900 border-amber-400 shadow-sm hover:bg-amber-400",
+      "bg-amber-400 text-slate-900 border-amber-400 shadow-sm hover:bg-amber-400 dark:bg-amber-500 dark:text-slate-100 dark:border-amber-500",
   },
   {
     value: -1,
     label: "反対",
     emoji: "✗",
-    idleClass: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
+    idleClass: "bg-rose-100 text-rose-800 border-rose-200 hover:bg-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950/50",
     activeClass:
-      "bg-rose-400 text-white border-rose-400 shadow-sm hover:bg-rose-400",
+      "bg-rose-400 text-white border-rose-400 shadow-sm hover:bg-rose-400 dark:bg-rose-500 dark:border-rose-500",
   },
   {
     value: -2,
     label: "強く反対",
     emoji: "👎",
-    idleClass: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100",
+    idleClass: "bg-red-100 text-red-800 border-red-200 hover:bg-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/50",
     activeClass:
-      "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-600",
+      "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-600 dark:bg-red-700 dark:border-red-700",
   },
 ];
 
@@ -1546,28 +1549,22 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-black">
+    <div className="min-h-screen bg-muted dark:bg-black">
       {/* Sticky Header */}
       {shouldShowHeader && (
-        <header className="sticky top-0 left-0 right-0 h-16 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md z-50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-center px-6 relative">
-          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            {currentQuestionNumber} / {totalQuestions} 問目
+        <header className="sticky top-0 left-0 right-0 bg-card/80 dark:bg-card/80 backdrop-blur-md z-50 border-b border-border flex flex-col">
+          <div className="h-16 flex items-center justify-center px-6 relative">
+            <div className="text-xs font-medium text-muted-foreground">
+              {currentQuestionNumber} / {totalQuestions} 問目
+            </div>
+            <div className="absolute right-6 top-1/2 -translate-y-1/2">
+              <ThemeToggle />
+            </div>
           </div>
-          <div className="absolute right-6 top-1/2 -translate-y-1/2">
-            <ThemeToggle />
-          </div>
-          <div
-            className="absolute left-0 right-0 bottom-0 h-1 bg-slate-200/80 dark:bg-slate-700/80"
-            role="progressbar"
-            aria-valuenow={Math.round(progressPercent)}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <div
-              className="h-full bg-indigo-500 dark:bg-indigo-400 transition-[width] duration-500 ease-out"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
+          <Progress
+            value={progressPercent}
+            className="h-1 rounded-none"
+          />
         </header>
       )}
 
@@ -1671,11 +1668,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <textarea
+              <Textarea
                 value={reflectionText}
                 onChange={(event) => setReflectionText(event.target.value)}
                 rows={6}
-                className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 placeholder="例）「○○についてもっと掘り下げたい」「まだ○○に関する視点が足りていないと思う」"
                 disabled={isSubmittingReflection}
               />
@@ -1761,47 +1757,42 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                 >
                   <Card
                     className={cn(
-                      "relative bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500 ease-out",
+                      "relative overflow-hidden transition-all duration-500 ease-out",
                       isActive &&
-                        "shadow-xl ring-4 ring-indigo-50/50 border-indigo-100",
+                        "shadow-xl ring-4 ring-primary/10 border-primary/50 dark:ring-primary/20 dark:border-primary/60",
                       isActive &&
                         isLoading &&
                         "opacity-50 pointer-events-none",
                       isFuture &&
-                        "bg-slate-50/50 border-dashed pointer-events-none",
+                        "bg-muted/30 dark:bg-muted/20 border-dashed pointer-events-none",
                     )}
                     style={{
                       transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
                   >
-                    <div className="p-6 md:p-8">
-                      <div
+                    <CardHeader className="pb-6">
+                      <CardTitle
                         key={isActive ? currentStatement.id : undefined}
                         className={cn(
-                          "space-y-2",
-                          isActive && "mb-8 question-change",
+                          "transition-all duration-300",
+                          isActive && "question-change",
+                          isPast && "text-muted-foreground",
+                          isFuture && "text-muted-foreground/60",
                         )}
                       >
-                        <h3
-                          className={cn(
-                            "font-bold text-xl md:text-2xl leading-snug mb-2",
-                            isActive && "text-slate-800",
-                            isPast && "text-slate-600",
-                            isFuture && "text-slate-400",
-                          )}
-                        >
-                          {statement.text}
-                        </h3>
-                      </div>
+                        {statement.text}
+                      </CardTitle>
+                    </CardHeader>
 
-                      {isPast && response && (
-                        <div className="mt-4 flex items-center gap-3 pt-4 border-t border-slate-100">
+                    {isPast && response && (
+                      <CardContent className="pt-0 pb-6">
+                        <div className="flex items-center gap-3 pt-4 border-t border-border/50 dark:border-border/30">
                           {response.responseType === "free_text" ? (
                             <>
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-muted-foreground">
                                 あなたの回答:
                               </span>
-                              <div className="flex-1 text-sm text-slate-700 line-clamp-2" data-testid="response-value">
+                              <div className="flex-1 text-sm text-foreground line-clamp-2" data-testid="response-value">
                                 {response.textResponse?.trim().length
                                   ? response.textResponse
                                   : "（記入なし）"}
@@ -1809,22 +1800,22 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             </>
                           ) : (
                             <>
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-muted-foreground">
                                 あなたの回答:
                               </span>
                               <div
                                 className={cn(
                                   "px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2",
                                   response.value === 2 &&
-                                    "bg-emerald-100 text-emerald-700",
+                                    "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
                                   response.value === 1 &&
-                                    "bg-green-100 text-green-700",
+                                    "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400",
                                   response.value === 0 &&
-                                    "bg-amber-100 text-amber-700",
+                                    "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
                                   response.value === -1 &&
-                                    "bg-rose-100 text-rose-700",
+                                    "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",
                                   response.value === -2 &&
-                                    "bg-red-100 text-red-700",
+                                    "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400",
                                 )}
                               >
                                 <span data-testid="response-value">{getResponseLabel(response.value)}</span>
@@ -1850,17 +1841,18 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                 });
                               }
                             }}
-                            className="ml-auto text-xs text-indigo-500 hover:text-indigo-700 font-medium underline"
+                            className="ml-auto text-xs text-primary hover:text-primary/80 font-medium underline"
                           >
                             修正する
                           </button>
                         </div>
-                      )}
-                    </div>
+                      </CardContent>
+                    )}
 
                     {isActive && (
-                      <div className="bg-slate-50/80 backdrop-blur-sm border-t border-slate-100 p-3 sm:p-4">
-                        <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                      <CardContent className="pt-0 pb-6">
+                        <div className="bg-muted/50 dark:bg-muted/30 backdrop-blur-sm border-t border-border/50 dark:border-border/30 -mx-6 px-3 sm:px-4 py-3 sm:py-4">
+                          <div className="grid grid-cols-5 gap-2 sm:gap-3">
                           <button
                             type="button"
                             onClick={() => handleAnswer(2)}
@@ -1870,7 +1862,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                               response?.value === 2
                                 ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700"
                                 : response && response.responseType === "scale"
-                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
                                   : "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700",
                             )}
                           >
@@ -1888,7 +1880,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                               response?.value === 1
                                 ? "bg-green-400 hover:bg-green-500 text-white border-green-500 hover:border-green-600"
                                 : response && response.responseType === "scale"
-                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
                                   : "bg-green-400 hover:bg-green-500 text-white border-green-500 hover:border-green-600",
                             )}
                           >
@@ -1904,10 +1896,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             className={cn(
                               "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
                               response?.value === 0
-                                ? "bg-amber-400 hover:bg-amber-500 text-gray-900 border-amber-500 hover:border-amber-600"
+                                ? "bg-amber-400 hover:bg-amber-500 text-slate-900 border-amber-500 hover:border-amber-600"
                                 : response && response.responseType === "scale"
-                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
-                                  : "bg-amber-400 hover:bg-amber-500 text-gray-900 border-amber-500 hover:border-amber-600",
+                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
+                                  : "bg-amber-400 hover:bg-amber-500 text-slate-900 border-amber-500 hover:border-amber-600",
                             )}
                           >
                             <div className="text-xl sm:text-3xl leading-none">🤔</div>
@@ -1926,7 +1918,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                               response?.value === -1
                                 ? "bg-rose-400 hover:bg-rose-500 text-white border-rose-500 hover:border-rose-600"
                                 : response && response.responseType === "scale"
-                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
                                   : "bg-rose-400 hover:bg-rose-500 text-white border-rose-500 hover:border-rose-600",
                             )}
                           >
@@ -1944,7 +1936,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                               response?.value === -2
                                 ? "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800"
                                 : response && response.responseType === "scale"
-                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-400 border-slate-200 hover:border-slate-300"
+                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
                                   : "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800",
                             )}
                           >
@@ -1974,10 +1966,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                   className={cn(
                                     "w-full px-4 py-3.5 text-left rounded-lg border text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
                                     response?.value === 0
-                                      ? "border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-amber-700"
+                                      ? "border-amber-300 bg-card dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-400 text-amber-700 dark:text-amber-400"
                                       : response && response.responseType === "scale"
-                                        ? "border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-slate-400"
-                                        : "border-amber-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-amber-700",
+                                        ? "border-border bg-muted/50 hover:bg-muted hover:border-border/80 text-muted-foreground"
+                                        : "border-amber-300 bg-card dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-400 text-amber-700 dark:text-amber-400",
                                   )}
                                 >
                                   （自分はこの質問に対して）確信が持てない・情報を把握していない
@@ -2037,13 +2029,12 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                                     選択肢に当てはまらない場合・質問の前提が間違っている場合はここに意見や補足を書いてください。
                                   </p>
                                 </div>
-                                <textarea
+                                <Textarea
                                   value={freeTextInput}
                                   onChange={(event) =>
                                     setFreeTextInput(event.target.value)
                                   }
                                   rows={4}
-                                  className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                   placeholder="この問いに対するあなたの考えや、別の視点からのコメントを自由に書いてください。"
                                   disabled={isLoading || isSubmittingFreeText}
                                 />
@@ -2072,12 +2063,13 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                           </div>
                         )}
 
-                        {error && (
-                          <p className="text-sm text-destructive mt-4">
-                            {error}
-                          </p>
-                        )}
-                      </div>
+                          {error && (
+                            <p className="text-sm text-destructive mt-4">
+                              {error}
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
                     )}
                   </Card>
                 </div>
@@ -2086,7 +2078,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
             <div className="h-40 flex items-start justify-center pt-4">
               <div className="text-center">
-                <p className="text-sm text-slate-600">質問は以上です</p>
+                <p className="text-sm text-muted-foreground">質問は以上です</p>
               </div>
             </div>
           </main>
@@ -2131,7 +2123,9 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
           <Card className="mt-8">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>じぶんレポート</CardTitle>
+                <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+                  じぶんレポート
+                </CardTitle>
                 <Button
                   onClick={handleGenerateReport}
                   disabled={isGeneratingReport}
@@ -2142,7 +2136,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                   {individualReport ? "レポートを更新" : "レポートを生成"}
                 </Button>
               </div>
-              <CardDescription>
+              <CardDescription className="text-muted-foreground">
                 あなたの回答から生成された個別分析レポート
               </CardDescription>
             </CardHeader>
@@ -2154,7 +2148,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
               )}
               {isGeneratingReport && (
                 <div className="mb-6 flex flex-col items-center justify-center space-y-4 border-b pb-6 pt-8">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <Spinner className="h-10 w-10 text-primary" />
                   <div className="space-y-2 text-center">
                     <p className="text-base font-medium text-foreground">
                       レポートを生成しています...
@@ -2179,7 +2173,16 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
               ) : individualReport ? (
                 <div
                   className={cn(
-                    "markdown-body prose prose-sm max-w-none",
+                    "markdown-body prose prose-slate dark:prose-invert max-w-none",
+                    "prose-headings:scroll-m-20 prose-headings:tracking-tight",
+                    "prose-h1:text-4xl prose-h1:font-extrabold prose-h1:text-balance",
+                    "prose-h2:border-b prose-h2:pb-2 prose-h2:text-3xl prose-h2:font-semibold prose-h2:first:mt-0",
+                    "prose-h3:text-2xl prose-h3:font-semibold",
+                    "prose-h4:text-xl prose-h4:font-semibold",
+                    "prose-p:leading-7 prose-p:[&:not(:first-child)]:mt-6",
+                    "prose-blockquote:mt-6 prose-blockquote:border-l-2 prose-blockquote:pl-6 prose-blockquote:italic",
+                    "prose-code:relative prose-code:rounded prose-code:bg-muted prose-code:px-[0.3rem] prose-code:py-[0.2rem] prose-code:font-mono prose-code:text-sm prose-code:font-semibold",
+                    "prose-lead:text-xl prose-lead:text-muted-foreground",
                     isGeneratingReport && "opacity-60",
                   )}
                 >
@@ -2189,7 +2192,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                 </div>
               ) : !isGeneratingReport ? (
                 <div className="py-8 text-center">
-                  <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <div className="mb-3 mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted dark:bg-muted/50">
                     <FileText className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <p className="text-sm text-muted-foreground">

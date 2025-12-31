@@ -283,23 +283,10 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      {session.isHost && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            router.push(
-                              `/sessions/${session.id}/${session.adminAccessToken}`,
-                            );
-                          }}
-                        >
-                          管理
-                        </Button>
-                      )}
+                    <div className="flex gap-2 items-center">
                       <Button
                         size="sm"
+                        className="h-8"
                         onClick={(event) => {
                           event.stopPropagation();
                           window.open(
@@ -312,6 +299,21 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                         参加
                         <SquareArrowOutUpRight className="h-3.5 w-3.5" />
                       </Button>
+                      {session.isHost && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            router.push(
+                              `/sessions/${session.id}/${session.adminAccessToken}`,
+                            );
+                          }}
+                        >
+                          管理
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>

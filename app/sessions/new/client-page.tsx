@@ -14,6 +14,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Field,
+  FieldLabel,
+  FieldDescription,
+  FieldError,
+} from "@/components/ui/field";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 
@@ -71,16 +79,16 @@ const renderSuggestionCard = (
   if (fieldSuggestions.length === 0) return null;
 
   return (
-    <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900/60 dark:bg-blue-950/40">
+    <Card className="border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/50">
       <CardContent className="pt-6">
         <div className="flex items-start gap-3">
           <div className="flex-1 space-y-3">
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/60 dark:text-blue-100">
+            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-100">
               <Sparkles className="h-3 w-3" />
               AI入力アシスト
             </span>
             {fieldSuggestions.length === 1 ? (
-              <p className="text-sm leading-relaxed text-blue-900 dark:text-blue-100">
+              <p className="text-sm leading-relaxed text-indigo-900 dark:text-indigo-100">
                 {fieldSuggestions[0].message}
               </p>
             ) : (
@@ -88,7 +96,7 @@ const renderSuggestionCard = (
                 {fieldSuggestions.map((suggestion, index) => (
                   <li
                     key={`${suggestion.field}-${index}`}
-                    className="text-sm leading-relaxed text-blue-900 dark:text-blue-100"
+                    className="text-sm leading-relaxed text-indigo-900 dark:text-indigo-100"
                   >
                     {suggestion.message}
                   </li>
@@ -120,6 +128,7 @@ function NewSessionContent() {
   const [titleError, setTitleError] = useState<string | null>(null);
   const [purposeError, setPurposeError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
   const [highlightedField, setHighlightedField] =
     useState<SuggestionField | null>(null);
   const lastFormStateRef = useRef<string>("");
@@ -164,6 +173,7 @@ function NewSessionContent() {
 
     if (!backgroundInfo.trim() && !purpose.trim()) {
       setSuggestions([]);
+      setIsSuggestionsLoading(false);
       return;
     }
 
@@ -173,6 +183,8 @@ function NewSessionContent() {
       }
       const controller = new AbortController();
       suggestionAbortRef.current = controller;
+
+      setIsSuggestionsLoading(true);
 
       const response = await axios.post<{
         suggestions: Array<Suggestion | string>;
@@ -201,11 +213,13 @@ function NewSessionContent() {
       });
 
       setSuggestions(normalizedSuggestions);
+      setIsSuggestionsLoading(false);
     } catch (err) {
       if ((err as { name?: string }).name === "CanceledError") {
         return;
       }
       console.error("Failed to fetch suggestions:", err);
+      setIsSuggestionsLoading(false);
     }
   }, [backgroundInfo, purpose]);
 
@@ -308,7 +322,7 @@ function NewSessionContent() {
   const textareaClasses = (field: SuggestionField, hasError?: boolean) =>
     [
       "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y",
-      highlightedField === field ? "ring-2 ring-blue-400 border-blue-400" : "",
+      highlightedField === field ? "ring-2 ring-indigo-400 border-indigo-400" : "",
       hasError ? "border-red-500 focus-visible:ring-red-500" : "",
     ]
       .filter(Boolean)
@@ -318,8 +332,28 @@ function NewSessionContent() {
     const hasSuggestions = suggestions.some(
       (suggestion) => suggestion.field === field,
     );
+
+    if (isSuggestionsLoading && (backgroundInfo.trim() || purpose.trim())) {
+      return (
+        <Card className="border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <div className="flex-1 space-y-3">
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-100">
+                  <Sparkles className="h-3 w-3" />
+                  AI入力アシスト
+                </span>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
     if (!hasSuggestions) {
-      return <p className="text-xs text-muted-foreground">{fallback}</p>;
+      return <FieldDescription>{fallback}</FieldDescription>;
     }
     return renderSuggestionCard(field, suggestions, handleSuggestionClick);
   };
@@ -453,9 +487,28 @@ function NewSessionContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="order-2 lg:order-1">
             {isPreviewLoading && (
-              <Card className="border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/50 min-h-[600px] flex items-center justify-center">
-                <CardContent className="pt-6 flex items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600 dark:text-indigo-300" />
+              <Card className="border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/50 min-h-[600px] flex flex-col">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base text-indigo-900 dark:text-indigo-100 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    質問のプレビュー
+                  </CardTitle>
+                  <CardDescription>
+                    AIが質問を生成しています...
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-hidden flex flex-col">
+                  <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className="rounded-lg border border-border/60 bg-white dark:bg-slate-950/40 shadow-sm px-4 py-3"
+                      >
+                        <Skeleton className="h-4 w-full mb-2" />
+                        <Skeleton className="h-4 w-3/4" />
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -499,7 +552,7 @@ function NewSessionContent() {
                             className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
                               expandedQuestionIndex === index
                                 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/70 dark:text-indigo-200"
-                                : "bg-slate-100 text-slate-600 group-hover:bg-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:group-hover:bg-slate-700/70"
+                                : "bg-muted text-slate-600 group-hover:bg-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:group-hover:bg-slate-700/70"
                             }`}
                           >
                             <Pencil className="h-3 w-3" />
@@ -511,10 +564,9 @@ function NewSessionContent() {
                             <label className="text-xs text-muted-foreground">
                               この質問についての補足や修正点
                             </label>
-                            <textarea
+                            <Textarea
                               value={questionFeedback}
                               onChange={(e) => setQuestionFeedback(e.target.value)}
-                              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
                               rows={3}
                               placeholder="例: この質問は前提が違います。実際には..."
                               onClick={(e) => e.stopPropagation()}
@@ -581,11 +633,11 @@ function NewSessionContent() {
             <Card className="min-h-[600px]">
               <CardContent className="pt-6">
                 <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label htmlFor="title" className="text-base font-semibold">
+              <Field data-invalid={!!titleError}>
+                <FieldLabel htmlFor="title" className="text-base font-semibold">
                   セッションのタイトル{" "}
                   <span className="text-red-500">*</span>
-                </label>
+                </FieldLabel>
                 <Input
                   type="text"
                   id="title"
@@ -595,23 +647,24 @@ function NewSessionContent() {
                     if (titleError) setTitleError(null);
                   }}
                   placeholder="例: 社内チャットツールの入れ替えに関する各メンバーの現状認識のすり合わせ"
+                  aria-invalid={!!titleError}
                   className={titleError ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
                 {titleError ? (
-                  <p className="text-xs text-red-600 font-medium">{titleError}</p>
+                  <FieldError>{titleError}</FieldError>
                 ) : (
-                  <p className="text-xs text-muted-foreground">
+                  <FieldDescription>
                     それぞれの参加者が、何のために回答を収集しているのか分かりやすいタイトルをつけましょう
-                  </p>
+                  </FieldDescription>
                 )}
-              </div>
+              </Field>
 
-              <div className="space-y-2">
-                <label htmlFor="purpose" className="text-base font-semibold">
+              <Field data-invalid={!!purposeError}>
+                <FieldLabel htmlFor="purpose" className="text-base font-semibold">
                   何をするために倍速会議を使うのですか？{" "}
                   <span className="text-red-500">*</span>
-                </label>
-                <textarea
+                </FieldLabel>
+                <Textarea
                   id="purpose"
                   value={purpose}
                   onChange={(e) => {
@@ -621,28 +674,29 @@ function NewSessionContent() {
                   rows={6}
                   className={textareaClasses("purpose", !!purposeError)}
                   placeholder="例: 社内チャットツールの入れ替えを検討しているが、チーム内で認識のずれがありそう。導入前にメンバー間の認識差をなくし、切り替え計画とサポート体制を明確にしたい。現状の使い方、課題、懸念点、導入後の期待などをすり合わせたい。"
+                  aria-invalid={!!purposeError}
                 />
                 {purposeError ? (
-                  <p className="text-xs text-red-600 font-medium">{purposeError}</p>
+                  <FieldError>{purposeError}</FieldError>
                 ) : (
                   renderFieldAid(
                     "purpose",
                     "倍速会議を使う目的や、洗い出したい認識の内容を自由に記載してください。",
                   )
                 )}
-              </div>
+              </Field>
 
-              <div className="space-y-2">
-                <label
+              <Field>
+                <FieldLabel
                   htmlFor="backgroundInfo"
                   className="text-base font-semibold"
                 >
                   背景情報{" "}
-                  <span className="ml-1.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
+                  <span className="ml-1.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/60 dark:text-yellow-100">
                     任意
                   </span>
-                </label>
-                <textarea
+                </FieldLabel>
+                <Textarea
                   id="backgroundInfo"
                   value={backgroundInfo}
                   onChange={(e) => setBackgroundInfo(e.target.value)}
@@ -654,7 +708,7 @@ function NewSessionContent() {
                   "backgroundInfo",
                   "認識のズレを感じた具体的なきっかけや、解決したい困りごとはありますか？今の状況や背景を少し詳しく何えると、セッションをよりスムーズに進めるための良いヒントになります。",
                 )}
-              </div>
+              </Field>
 
               {error && (
                 <Card className="border-red-300 bg-red-50 dark:border-red-900/60 dark:bg-red-950/40">

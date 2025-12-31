@@ -109,7 +109,7 @@ export function StatementTagPopover({
   }, []);
 
   const getValueBgColor = (value: number | null) => {
-    if (value === null) return "bg-slate-100";
+    if (value === null) return "bg-muted";
     if (value >= 1) return "bg-emerald-100 text-emerald-800";
     if (value <= -1) return "bg-rose-100 text-rose-800";
     return "bg-amber-100 text-amber-800";
@@ -122,7 +122,7 @@ export function StatementTagPopover({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <span className="cursor-help rounded bg-slate-100 px-1 py-0.5 font-mono text-sm text-slate-700 transition-colors hover:bg-slate-200">
+      <span className="cursor-help rounded bg-muted px-1 py-0.5 font-mono text-sm text-slate-700 transition-colors hover:bg-slate-200">
         #{statementNumber}
       </span>
 
@@ -132,7 +132,7 @@ export function StatementTagPopover({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          <span className="block rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+          <span className="block rounded-lg border border-border bg-white p-4 shadow-lg">
             {loading && (
               <span className="flex items-center justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
@@ -177,7 +177,7 @@ export function StatementTagPopover({
                             {response.valueLabel}
                           </span>
                         ) : (
-                          <span className="rounded bg-slate-100 px-2 py-1 text-xs font-normal text-slate-700">
+                          <span className="rounded bg-muted px-2 py-1 text-xs font-normal text-slate-700">
                             {response.textResponse}
                           </span>
                         )}

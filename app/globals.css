@@ -1,85 +1,165 @@
 @import "tailwindcss";
 @import "github-markdown-css/github-markdown-light.css";
 
+@custom-variant dark (&:is(.dark *));
+
 :root {
   /* Background colors */
-  --background: 0 0% 98%;
-  --foreground: 222 47% 11%;
 
   /* Card colors */
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
 
   /* Popover colors */
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
 
-  /* Primary button - Dark slate blue */
-  --primary: 222 47% 11%;
-  --primary-foreground: 0 0% 98%;
+  /* Primary button - Dark slate */
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
 
   /* Secondary button - Light gray */
-  --secondary: 210 17% 94%;
-  --secondary-foreground: 222 47% 11%;
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
 
   /* Muted colors */
-  --muted: 210 17% 94%;
-  --muted-foreground: 215 16% 47%;
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
 
   /* Accent colors */
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
 
   /* Destructive colors */
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
 
-  /* Border and input */
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 222 47% 11%;
+  /* Border and input - Clear and visible */
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
 
   /* Border radius */
-  --radius: 0.5rem;
+  --radius: 0.625rem;
+
+  /* Chart colors for data visualization */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+
+  /* Status colors for reports and sessions */
+  --status-pending: 43 74% 66%; /* amber-500 */
+  --status-pending-foreground: 43 74% 30%;
+  --status-generating: 199 89% 48%; /* sky-500 */
+  --status-generating-foreground: 199 89% 20%;
+  --status-completed: 142 71% 45%; /* emerald-500 */
+  --status-completed-foreground: 142 71% 20%;
+  --status-failed: 0 72% 51%; /* rose-500 */
+  --status-failed-foreground: 0 72% 25%;
+
+  /* Sentiment colors for user responses */
+  --sentiment-neutral: 43 74% 66%; /* amber */
+  --sentiment-neutral-foreground: 43 74% 30%;
+  --sentiment-positive: 199 89% 48%; /* sky */
+  --sentiment-positive-foreground: 199 89% 20%;
+  --sentiment-strong-positive: 142 71% 45%; /* emerald */
+  --sentiment-strong-positive-foreground: 142 71% 20%;
+  --sentiment-negative: 0 72% 51%; /* rose */
+  --sentiment-negative-foreground: 0 72% 25%;
+
+  /* Neutral colors for general UI */
+  --neutral: 215.4 16.3% 46.9%; /* slate-600 */
+  --neutral-foreground: 210 40% 98%;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
   /* Background colors */
-  --background: 0 0% 0%;
-  --foreground: 0 0% 98%;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
 
   /* Card colors */
-  --card: 0 0% 8%;
-  --card-foreground: 0 0% 98%;
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
 
   /* Popover colors */
-  --popover: 0 0% 8%;
-  --popover-foreground: 0 0% 98%;
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
 
-  /* Primary button - Light slate blue */
-  --primary: 0 0% 98%;
-  --primary-foreground: 222 47% 11%;
+  /* Primary button - Light */
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
 
   /* Secondary button - Dark gray */
-  --secondary: 215 25% 27%;
-  --secondary-foreground: 0 0% 98%;
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
 
   /* Muted colors */
-  --muted: 215 25% 27%;
-  --muted-foreground: 215 16% 65%;
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
 
   /* Accent colors */
-  --accent: 215 25% 20%;
-  --accent-foreground: 0 0% 98%;
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
 
   /* Destructive colors */
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
 
-  /* Border and input */
-  --border: 215 25% 27%;
-  --input: 215 25% 27%;
-  --ring: 0 0% 98%;
+  /* Border and input - Visible in dark mode */
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+
+  /* Chart colors for data visualization */
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+
+  /* Status colors for reports and sessions */
+  --status-pending: 43 74% 60%; /* amber, lighter for dark */
+  --status-pending-foreground: 43 74% 90%;
+  --status-generating: 199 89% 55%; /* sky, lighter for dark */
+  --status-generating-foreground: 199 89% 90%;
+  --status-completed: 142 71% 50%; /* emerald, lighter for dark */
+  --status-completed-foreground: 142 71% 90%;
+  --status-failed: 0 72% 58%; /* rose, lighter for dark */
+  --status-failed-foreground: 0 72% 95%;
+
+  /* Sentiment colors for user responses */
+  --sentiment-neutral: 43 74% 60%; /* amber */
+  --sentiment-neutral-foreground: 43 74% 90%;
+  --sentiment-positive: 199 89% 55%; /* sky */
+  --sentiment-positive-foreground: 199 89% 90%;
+  --sentiment-strong-positive: 142 71% 50%; /* emerald */
+  --sentiment-strong-positive-foreground: 142 71% 90%;
+  --sentiment-negative: 0 72% 58%; /* rose */
+  --sentiment-negative-foreground: 0 72% 95%;
+
+  /* Neutral colors for general UI */
+  --neutral: 215 20.2% 65.1%; /* slate-400 for dark mode */
+  --neutral-foreground: 222.2 47.4% 11.2%;
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 body {
@@ -199,4 +279,54 @@ body {
 .dark .markdown-body table th,
 .dark .markdown-body table td {
   border-color: #30363d !important;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

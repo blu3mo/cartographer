@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 
 import { StatementTagPopover } from "@/components/report/StatementTagPopover";
 import { Button } from "@/components/ui/Button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useUserId } from "@/lib/useUserId";
 
 type SessionReportStatus = "pending" | "generating" | "completed" | "failed";
@@ -156,18 +157,26 @@ export default function SessionReportPrintPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+      <div className="min-h-screen bg-background dark:bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">レポートを読み込んでいます...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !report) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
-        <p className="text-sm text-slate-500">
-          {error ?? "レポートが見つかりません。"}
-        </p>
+      <div className="min-h-screen bg-background dark:bg-background flex flex-col items-center justify-center gap-6 px-4">
+        <div className="text-center space-y-2">
+          <h2 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+            {error ? "エラーが発生しました" : "レポートが見つかりません"}
+          </h2>
+          <p className="text-sm text-muted-foreground leading-7">
+            {error ?? "指定されたレポートは存在しないか、アクセス権限がありません。"}
+          </p>
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -182,9 +191,10 @@ export default function SessionReportPrintPage({
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 print:bg-white">
+    <div className="min-h-screen bg-background dark:bg-background text-foreground print:bg-white print:text-black">
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0 print:space-y-6">
-        <div className="flex items-center justify-end gap-4 print:hidden">
+        <div className="flex items-center justify-between print:hidden">
+          <ThemeToggle />
           <Button
             type="button"
             variant="outline"
@@ -197,30 +207,44 @@ export default function SessionReportPrintPage({
           </Button>
         </div>
 
-        <header className="space-y-2 text-center print:hidden">
-          <h1 className="text-3xl font-semibold">
-            セッションレポート v{String(report.version).padStart(2, "0")}
-          </h1>
-          <div className="flex justify-center gap-4 text-xs text-slate-500">
-            <span>セッションID: {sessionId}</span>
-            <span>レポートID: {report.id}</span>
+        <header className="space-y-4 border-b border-border pb-6 print:hidden">
+          <div className="text-center space-y-3">
+            <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
+              セッションレポート
+            </h1>
+            <p className="text-xl text-muted-foreground">
+              バージョン {String(report.version).padStart(2, "0")}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto pt-4">
+            <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/50 dark:bg-muted/30">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">セッションID</span>
+              <span className="text-sm font-mono text-foreground">{sessionId}</span>
+            </div>
+            <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/50 dark:bg-muted/30">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">レポートID</span>
+              <span className="text-sm font-mono text-foreground">{report.id}</span>
+            </div>
           </div>
         </header>
 
         {report.requestMarkdown ? (
-          <section className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-6 text-sm text-indigo-900 print:hidden">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
-              レポート生成のリクエスト
-            </p>
-            <p className="mt-2 whitespace-pre-wrap leading-relaxed">
-              {report.requestMarkdown}
-            </p>
+          <section className="rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/30 p-6 print:hidden">
+            <div className="space-y-3">
+              <h3 className="scroll-m-20 text-lg font-semibold tracking-tight text-indigo-900 dark:text-indigo-200">
+                レポート生成のリクエスト
+              </h3>
+              <p className="whitespace-pre-wrap leading-7 text-sm text-indigo-800 dark:text-indigo-300">
+                {report.requestMarkdown}
+              </p>
+            </div>
           </section>
         ) : null}
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm print:border-0 print:bg-transparent print:p-0 print:shadow-none">
+        <section className="rounded-2xl border border-border bg-card dark:bg-card p-8 shadow-sm print:border-0 print:bg-transparent print:p-0 print:shadow-none">
           {report.status === "completed" && report.contentMarkdown ? (
-            <div className="markdown-body prose prose-slate max-w-none text-base leading-relaxed print:text-[12pt]">
+            <article className="markdown-body prose prose-slate dark:prose-invert max-w-none text-base leading-7 print:text-[12pt] prose-headings:scroll-m-20 prose-headings:tracking-tight prose-h1:text-4xl prose-h1:font-extrabold prose-h1:text-balance prose-h2:border-b prose-h2:pb-2 prose-h2:text-3xl prose-h2:font-semibold prose-h2:first:mt-0 prose-h3:text-2xl prose-h3:font-semibold prose-h4:text-xl prose-h4:font-semibold prose-p:leading-7 prose-p:[&:not(:first-child)]:mt-6 prose-blockquote:mt-6 prose-blockquote:border-l-2 prose-blockquote:pl-6 prose-blockquote:italic prose-code:relative prose-code:rounded prose-code:bg-muted prose-code:px-[0.3rem] prose-code:py-[0.2rem] prose-code:font-mono prose-code:text-sm prose-code:font-semibold prose-ul:my-6 prose-ul:[&:not(:first-child)]:mt-6 prose-ol:my-6 prose-ol:[&:not(:first-child)]:mt-6 prose-li:my-2">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -244,29 +268,67 @@ export default function SessionReportPrintPage({
               >
                 {report.contentMarkdown}
               </ReactMarkdown>
-            </div>
+            </article>
           ) : report.status === "failed" ? (
-            <p className="text-sm text-rose-600">
-              レポート生成に失敗しました:{" "}
-              {report.errorMessage ?? "詳細は管理画面を確認してください。"}
-            </p>
+            <div className="py-8 text-center space-y-3">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 dark:bg-destructive/20">
+                <span className="text-2xl">⚠️</span>
+              </div>
+              <div className="space-y-2">
+                <h3 className="scroll-m-20 text-lg font-semibold tracking-tight text-destructive">
+                  レポート生成に失敗しました
+                </h3>
+                <p className="text-sm text-muted-foreground leading-7 max-w-md mx-auto">
+                  {report.errorMessage ?? "詳細は管理画面を確認してください。"}
+                </p>
+              </div>
+            </div>
           ) : (
-            <p className="text-sm text-slate-500">
-              レポートはまだ完成していません。管理画面から進行状況を確認してください。
-            </p>
+            <div className="py-8 text-center space-y-3">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted dark:bg-muted/50">
+                <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="scroll-m-20 text-lg font-semibold tracking-tight">
+                  レポートを生成中
+                </h3>
+                <p className="text-sm text-muted-foreground leading-7 max-w-md mx-auto">
+                  レポートはまだ完成していません。管理画面から進行状況を確認してください。
+                </p>
+              </div>
+            </div>
           )}
         </section>
 
-        <footer className="text-center text-[11px] uppercase tracking-[0.2em] text-slate-400 print:hidden">
-          <p>
-            作成:{" "}
-            {new Date(report.createdAt).toLocaleString("ja-JP", {
-              hour12: false,
-            })}
-            {report.completedAt
-              ? ` / 更新: ${new Date(report.completedAt).toLocaleString("ja-JP", { hour12: false })}`
-              : ""}
-          </p>
+        <footer className="border-t border-border pt-6 print:hidden">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-6">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-medium">作成:</span>
+              <time dateTime={report.createdAt} className="font-mono">
+                {new Date(report.createdAt).toLocaleString("ja-JP", {
+                  hour12: false,
+                })}
+              </time>
+            </div>
+            {report.completedAt && (
+              <>
+                <span className="hidden sm:inline text-muted-foreground">•</span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="font-medium">完成:</span>
+                  <time dateTime={report.completedAt} className="font-mono">
+                    {new Date(report.completedAt).toLocaleString("ja-JP", {
+                      hour12: false,
+                    })}
+                  </time>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="mt-4 text-center">
+            <p className="text-xs text-muted-foreground">
+              Model: <span className="font-mono">{report.model}</span>
+            </p>
+          </div>
         </footer>
       </div>
     </div>

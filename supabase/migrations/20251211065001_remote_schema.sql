@@ -762,4 +762,7 @@ CREATE TRIGGER broadcast_event_threads AFTER INSERT OR DELETE OR UPDATE ON publi
 
 CREATE TRIGGER broadcast_responses AFTER INSERT OR DELETE OR UPDATE ON public.responses FOR EACH ROW EXECUTE FUNCTION broadcast_table_changes('responses');
 
+-- Grant schema-level permissions to Supabase roles
+grant usage on schema public to anon, authenticated, service_role, authenticator;
+
 

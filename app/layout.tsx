@@ -1,7 +1,9 @@
 import "./globals.css";
 import type { Metadata } from "next";
 
+import { ThemeProvider } from "@/components/theme-provider";
 import { buildMetadata } from "@/lib/metadata";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = buildMetadata({});
 
@@ -12,22 +14,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                const theme = localStorage.getItem('theme');
-                if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.documentElement.classList.add('dark');
-                }
-              })();
-            `,
-          }}
-        />
-      </head>
-      <body className="antialiased" suppressHydrationWarning>
-        {children}
+      <body className="antialiased">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster richColors />
+        </ThemeProvider>
       </body>
     </html>
   );

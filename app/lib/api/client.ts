@@ -14,7 +14,10 @@ export async function createSession(
   });
 
   if (!response.ok) {
-    throw new Error(`Backend Error: ${response.status} ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(
+      `Backend Error: ${response.status} ${response.statusText}\nBody: ${errorBody}`,
+    );
   }
 
   return response.json();
