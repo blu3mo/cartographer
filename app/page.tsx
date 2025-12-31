@@ -284,21 +284,6 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                       </div>
                     </div>
                     <div className="flex gap-2 items-center">
-                      <Button
-                        size="sm"
-                        className="h-8"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          window.open(
-                            `/sessions/${session.id}`,
-                            "_blank",
-                            "noopener,noreferrer",
-                          );
-                        }}
-                      >
-                        参加
-                        <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                      </Button>
                       {session.isHost && (
                         <Button
                           variant="outline"
@@ -314,6 +299,21 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                           管理
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        className="h-8"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          window.open(
+                            `/sessions/${session.id}`,
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
+                        }}
+                      >
+                        参加
+                        <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
