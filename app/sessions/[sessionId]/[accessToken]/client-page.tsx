@@ -759,26 +759,6 @@ export default function AdminPage({
     setShareUrl(`${window.location.origin}/sessions/${sessionId}`);
   }, [sessionId]);
 
-  useEffect(() => {
-    if (!isShareQrFullscreen || typeof document === "undefined") return;
-    const { style } = document.body;
-    const previousOverflow = style.overflow;
-    style.overflow = "hidden";
-    return () => {
-      style.overflow = previousOverflow;
-    };
-  }, [isShareQrFullscreen]);
-
-  useEffect(() => {
-    if (!isShareQrFullscreen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsShareQrFullscreen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isShareQrFullscreen]);
 
   const shareQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
@@ -1985,6 +1965,7 @@ export default function AdminPage({
                       alt="参加用QRコード"
                       width={SHARE_QR_SIZE}
                       height={SHARE_QR_SIZE}
+                      unoptimized
                       className="mx-auto h-[176px] w-[176px] rounded-xl border border-border bg-white object-contain p-2 shadow-sm dark:border-border dark:bg-white"
                     />
                   ) : (
@@ -1995,52 +1976,32 @@ export default function AdminPage({
                 </div>
               </CardContent>
             </Card>
-            {isShareQrFullscreen && fullscreenQrUrl && (
-              <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-black/85 p-4 sm:p-10 backdrop-blur-sm relative">
-                <button
-                  type="button"
-                  aria-label="全画面表示を閉じる"
-                  className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
-                  onClick={() => setIsShareQrFullscreen(false)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      setIsShareQrFullscreen(false);
-                    }
-                  }}
-                />
-                <div
-                  className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 text-center"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="参加用QRコードの全画面表示"
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsShareQrFullscreen(false)}
-                    className="absolute right-0 top-0 text-white hover:bg-white/10 focus-visible:ring-white"
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
-                    <Image
-                      src={fullscreenQrUrl}
-                      alt="参加用QRコード"
-                      width={FULLSCREEN_QR_SIZE}
-                      height={FULLSCREEN_QR_SIZE}
-                      className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
-                    />
+            <Dialog
+              open={isShareQrFullscreen}
+              onOpenChange={setIsShareQrFullscreen}
+            >
+              <DialogContent className="max-w-5xl border-white/10 bg-black/85 p-8 backdrop-blur-sm">
+                <DialogHeader>
+                  <DialogTitle className="text-3xl font-semibold text-white text-center">
+                    QRコードを携帯でスキャン
+                  </DialogTitle>
+                </DialogHeader>
+                {fullscreenQrUrl && (
+                  <div className="flex justify-center">
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
+                      <Image
+                        src={fullscreenQrUrl}
+                        alt="参加用QRコード"
+                        width={FULLSCREEN_QR_SIZE}
+                        height={FULLSCREEN_QR_SIZE}
+                        unoptimized
+                        className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <h2 className="text-3xl font-semibold text-white">
-                      QRコードを携帯でスキャン
-                    </h2>
-                  </div>
-                </div>
-              </div>
-            )}
+                )}
+              </DialogContent>
+            </Dialog>
 
             <Card>
               <CardHeader>
