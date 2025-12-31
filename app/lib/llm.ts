@@ -1,7 +1,10 @@
 import axios from "axios";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+export const FAST_MODEL = "google/gemini-3-flash-preview";
+export const ACCURATE_MODEL = "google/gemini-3-pro-preview";
+const DEFAULT_MODEL = ACCURATE_MODEL;
+const DEFAULT_STREAM_MODEL = FAST_MODEL;
 
 interface LLMMessage {
   role: "system" | "user" | "assistant";
@@ -33,7 +36,7 @@ export function buildSessionBrief(
 
 export async function callLLM(
   messages: LLMMessage[],
-  model: string = MODEL,
+  model: string = DEFAULT_MODEL,
 ): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -96,7 +99,7 @@ export async function callLLM(
 export async function callLLMStreaming(
   messages: LLMMessage[],
   onChunk: (chunk: string) => void,
-  model: string = MODEL,
+  model: string = DEFAULT_STREAM_MODEL,
 ): Promise<void> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -187,6 +190,7 @@ export async function generateIndividualReport(input: {
   context: string;
   responses: IndividualReportResponse[];
   userName: string;
+  taste?: string;
 }): Promise<string> {
   const responsesText = input.responses
     .map((r) => {
@@ -210,6 +214,21 @@ export async function generateIndividualReport(input: {
     })
     .join("\n");
 
+  // Define tone based on taste
+  const toneInstructions: Record<string, string> = {
+    neutral:
+      "客観的で中立的なトーンで、バランスの取れた分析を提供してください。",
+    encouraging:
+      "励ましとポジティブなフィードバックを重視し、建設的で前向きな表現を使ってください。",
+    analytical:
+      "詳細で論理的な分析を提供し、深い洞察と具体的な観察を含めてください。",
+    casual:
+      "親しみやすくフレンドリーなトーンで、くだけた表現を使いながらも敬意を保ってください。",
+  };
+
+  const toneInstruction =
+    toneInstructions[input.taste || "neutral"] || toneInstructions.neutral;
+
   const prompt = `あなたは思慮深いコーチまたはカウンセラーです。
 
 **セッションタイトル:**
@@ -229,7 +248,7 @@ ${responsesText}
 **レポート作成の指示:**
 1. 特徴的な回答や、他の人と意見が異なりそうな点を優しく指摘してください
 2. 自己理解を深める手助けをしてください
-3. ポジティブで建設的なトーンを保ってください
+3. ${toneInstruction}
 4. Markdown形式で見やすく構造化してください
 
 Markdownのみを出力し、他の説明文は含めないでください。`;

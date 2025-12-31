@@ -1,4 +1,4 @@
-import { callLLM } from "@/lib/llm";
+import { ACCURATE_MODEL, callLLM } from "@/lib/llm";
 import { supabase } from "@/lib/supabase";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
@@ -239,6 +239,7 @@ export async function createSessionReportRecord(options: {
       status: "pending",
       request_markdown: trimmedRequest,
       created_by: options.userId,
+      model: ACCURATE_MODEL,
     })
     .select(
       "id, session_id, version, status, request_markdown, content_markdown, created_by, model, error_message, token_usage, prompt_snapshot, created_at, updated_at, completed_at",
@@ -744,10 +745,13 @@ export async function generateSessionReport(reportId: string): Promise<void> {
       requestMarkdown: reportRow.request_markdown ?? "",
     });
 
-    const content = await callLLM([
-      { role: "system", content: prompt.system },
-      { role: "user", content: prompt.user },
-    ]);
+    const content = await callLLM(
+      [
+        { role: "system", content: prompt.system },
+        { role: "user", content: prompt.user },
+      ],
+      ACCURATE_MODEL,
+    );
 
     await supabase
       .from("session_reports")
@@ -755,6 +759,7 @@ export async function generateSessionReport(reportId: string): Promise<void> {
         status: "completed",
         content_markdown: content,
         prompt_snapshot: snapshot,
+        model: ACCURATE_MODEL,
         updated_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
       })

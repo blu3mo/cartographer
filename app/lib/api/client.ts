@@ -1,4 +1,4 @@
-import { CreateSessionRequest, CreateSessionResponse } from "./types";
+import type { CreateSessionRequest, CreateSessionResponse } from "./types";
 
 const BACKEND_URL = process.env.HASKELL_BACKEND_URL || "http://localhost:8080";
 
@@ -14,7 +14,10 @@ export async function createSession(
   });
 
   if (!response.ok) {
-    throw new Error(`Backend Error: ${response.status} ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(
+      `Backend Error: ${response.status} ${response.statusText}\nBody: ${errorBody}`,
+    );
   }
 
   return response.json();

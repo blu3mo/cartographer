@@ -5,6 +5,7 @@ import {
   requireSessionAdminToken,
   SessionAccessError,
 } from "@/lib/server/session-access";
+import { getSessionReportById } from "@/lib/server/session-reports";
 import { supabase } from "@/lib/supabase";
 
 type ResponseValue = -2 | -1 | 0 | 1 | 2;
@@ -24,6 +25,50 @@ function getResponseLabel(value: ResponseValue): string {
     default:
       return "Unknown";
   }
+}
+
+function getStatementFromSnapshot(
+  snapshot: Record<string, unknown> | null,
+  statementNumber: number,
+): { id: string; text: string | null } | null {
+  if (!snapshot || typeof snapshot !== "object") {
+    return null;
+  }
+
+  const stats = (snapshot as { statementStats?: unknown }).statementStats;
+  if (!Array.isArray(stats)) {
+    return null;
+  }
+
+  for (const item of stats) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const stat = item as {
+      statementId?: unknown;
+      statementNumber?: unknown;
+      text?: unknown;
+    };
+
+    if (
+      typeof stat.statementId !== "string" ||
+      typeof stat.statementNumber !== "number"
+    ) {
+      continue;
+    }
+
+    if (stat.statementNumber !== statementNumber) {
+      continue;
+    }
+
+    return {
+      id: stat.statementId,
+      text: typeof stat.text === "string" ? stat.text : null,
+    };
+  }
+
+  return null;
 }
 
 function handleAccessError(error: unknown) {
@@ -49,7 +94,7 @@ export async function GET(
     }>;
   },
 ) {
-  const { sessionId, accessToken } = await params;
+  const { sessionId, accessToken, reportId } = await params;
   const userId = getUserIdFromRequest(request);
 
   if (!userId) {
@@ -67,7 +112,7 @@ export async function GET(
   }
 
   const statementNumber = parseInt(statementNumberParam, 10);
-  if (isNaN(statementNumber) || statementNumber < 1) {
+  if (Number.isNaN(statementNumber) || statementNumber < 1) {
     return NextResponse.json(
       { error: "Invalid statementNumber" },
       { status: 400 },
@@ -77,29 +122,49 @@ export async function GET(
   try {
     await requireSessionAdminToken(sessionId, accessToken);
 
-    // order_index is 0-based, statementNumber is 1-based
-    const orderIndex = statementNumber - 1;
+    const report = await getSessionReportById(reportId);
 
-    const { data: statement, error: statementError } = await supabase
-      .from("statements")
-      .select("id, text, order_index")
-      .eq("session_id", sessionId)
-      .eq("order_index", orderIndex)
-      .maybeSingle();
-
-    if (statementError) {
-      console.error("Failed to fetch statement:", statementError);
-      return NextResponse.json(
-        { error: "Failed to fetch statement" },
-        { status: 500 },
-      );
+    if (!report || report.sessionId !== sessionId) {
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
-    if (!statement) {
-      return NextResponse.json(
-        { error: "Statement not found" },
-        { status: 404 },
-      );
+    const snapshotStatement = getStatementFromSnapshot(
+      report.promptSnapshot,
+      statementNumber,
+    );
+
+    let statementId = snapshotStatement?.id ?? null;
+    let statementText = snapshotStatement?.text ?? null;
+
+    if (!statementId || statementText === null) {
+      // order_index is 0-based, statementNumber is 1-based
+      const orderIndex = statementNumber - 1;
+      const { data: statements, error: statementError } = await supabase
+        .from("statements")
+        .select("id, text, order_index")
+        .eq("session_id", sessionId)
+        .eq("order_index", orderIndex)
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (statementError) {
+        console.error("Failed to fetch statement:", statementError);
+        return NextResponse.json(
+          { error: "Failed to fetch statement" },
+          { status: 500 },
+        );
+      }
+
+      const statement = statements?.[0];
+      if (!statement) {
+        return NextResponse.json(
+          { error: "Statement not found" },
+          { status: 404 },
+        );
+      }
+
+      statementId = statement.id;
+      statementText = statement.text;
     }
 
     // Fetch all responses for this statement
@@ -107,7 +172,7 @@ export async function GET(
       .from("responses")
       .select("participant_user_id, response_type, value, text_response")
       .eq("session_id", sessionId)
-      .eq("statement_id", statement.id);
+      .eq("statement_id", statementId);
 
     if (responsesError) {
       console.error("Failed to fetch responses:", responsesError);
@@ -140,6 +205,7 @@ export async function GET(
       const value = response.value as ResponseValue | null;
 
       return {
+        participantUserId: response.participant_user_id,
         participantName:
           participantMap.get(response.participant_user_id) ?? "Unknown",
         responseType: response.response_type as "scale" | "free_text",
@@ -151,9 +217,9 @@ export async function GET(
 
     return NextResponse.json({
       statement: {
-        id: statement.id,
+        id: statementId,
         number: statementNumber,
-        text: statement.text,
+        text: statementText ?? "",
       },
       responses: formattedResponses,
     });

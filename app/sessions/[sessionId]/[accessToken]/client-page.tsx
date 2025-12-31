@@ -14,8 +14,6 @@ import {
   Info,
   Loader2,
   Maximize2,
-  Pause,
-  Play,
   Send,
   Settings,
   SquareArrowOutUpRight,
@@ -34,7 +32,21 @@ import {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { toast } from "sonner";
 
+import { ReportTasteSelect } from "@/components/report/ReportTasteSelect";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -44,8 +56,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import { useUserId } from "@/lib/useUserId";
+import {
+  createResponseLogColumns,
+  type ResponseLogRow,
+} from "./response-logs-columns";
+import { ResponseLogsDataTable } from "./response-logs-data-table";
 
 type ThreadEventType = "plan" | "survey" | "survey_analysis" | "user_message";
 
@@ -184,24 +212,45 @@ const REPORT_STATUS_META: Record<
 > = {
   pending: {
     label: "待機中",
-    dot: "bg-amber-500",
-    text: "text-amber-600",
+    dot: "bg-status-pending",
+    text: "text-status-pending-foreground",
   },
   generating: {
     label: "生成中",
-    dot: "bg-sky-500",
-    text: "text-sky-600",
+    dot: "bg-status-generating",
+    text: "text-status-generating-foreground",
   },
   completed: {
     label: "完了",
-    dot: "bg-emerald-500",
-    text: "text-emerald-600",
+    dot: "bg-status-completed",
+    text: "text-status-completed-foreground",
   },
   failed: {
     label: "失敗",
-    dot: "bg-rose-500",
-    text: "text-rose-600",
+    dot: "bg-status-failed",
+    text: "text-status-failed-foreground",
   },
+};
+
+const DEFAULT_REPORT_TASTE_LABEL = "スタンダード";
+const FREEFORM_REPORT_TASTE_LABEL = "自由記述";
+
+const getReportTasteLabel = (report: SessionReport): string => {
+  const trimmedPrompt = report.requestMarkdown.trim();
+  if (!trimmedPrompt) {
+    return DEFAULT_REPORT_TASTE_LABEL;
+  }
+
+  const matchedTemplate = REPORT_TEMPLATES.find((template) => {
+    if (template.id === "freeform") return false;
+    return template.prompt.trim() === trimmedPrompt;
+  });
+
+  return matchedTemplate?.name ?? FREEFORM_REPORT_TASTE_LABEL;
+};
+
+const getReportStatusLabel = (status: SessionReportStatus): string => {
+  return REPORT_STATUS_META[status]?.label ?? status;
 };
 
 type ReportTemplateType = "empathy" | "logical" | "psychopath" | "freeform";
@@ -227,7 +276,8 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       "参加者の感情や心理的な側面に配慮し、共感的で温かみのある表現を用いてレポートをまとめてください。対立よりも相互理解を促す視点で記述し、前向きな雰囲気を作ることを意識してください。",
     samplePreview:
       "こんにちは、皆さん。\n\n今回のセッションでは、それぞれの視点や思いを共有していただき、本当にありがとうございました。お一人お一人の意見には、大切な想いや背景があることがよく伝わってきました。\n\n特に印象的だったのは、異なる立場にいる方々が、互いの状況を理解しようと努めていた点です。完全な合意には至らなかったテーマもありますが、それぞれの価値観を尊重し合う姿勢が見られたことは、とても前向きな一歩だと感じます。",
-    color: "bg-pink-50 border-pink-200 hover:bg-pink-100 text-pink-900",
+    color:
+      "bg-pink-100 border-pink-200 hover:bg-pink-200 text-pink-900 dark:bg-pink-950/30 dark:border-pink-800 dark:hover:bg-pink-950/50 dark:text-pink-300",
   },
   {
     id: "logical",
@@ -238,7 +288,8 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       "論理的で明確な構成を重視し、意思決定に必要な情報を簡潔にまとめてください。データや数値、合意・対立のポイントを明確に示し、次のアクションにつながる提言を含めてください。",
     samplePreview:
       "## エグゼクティブサマリー\n\n本セッションでは、参加者間で以下の3つの重要な対立軸が確認されました：\n\n1. **施策Aの優先順位**：賛成67%、反対33%\n2. **予算配分の方針**：意見が二分（賛成48%、反対52%）\n3. **実施時期**：即時実施派と段階的実施派が対立\n\n## 推奨アクション\n\n1. 施策Aについては支持が過半数を超えているため、早急に実行計画を策定すべき\n2. 予算配分については追加の議論が必要。次回セッションで数値根拠を提示し、再検討を推奨",
-    color: "bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-900",
+    color:
+      "bg-blue-100 border-blue-200 hover:bg-blue-200 text-blue-900 dark:bg-blue-950/30 dark:border-blue-800 dark:hover:bg-blue-950/50 dark:text-blue-300",
   },
   {
     id: "psychopath",
@@ -249,7 +300,8 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
       "感情的な共感や寄り添いは一切廃してください。論理、事実、真実のみでレポートを構成してください。参加者が矛盾した意見を持っている場合は、個人名を明示しながら鋭くその点を指摘してください。曖昧な表現は避け、明確で容赦のない分析を行ってください。",
     samplePreview:
       "## 分析結果\n\n本セッションにおける参加者の回答には、複数の論理的矛盾が検出された。\n\n### 矛盾の指摘\n\n**田中太郎氏**は設問3で「予算削減が必要」と回答しているにもかかわらず、設問7では「全部署への予算増額」に賛成している。この2つの立場は論理的に両立しない。\n\n**佐藤花子氏**は「迅速な意思決定が重要」と主張する一方で、「全員の合意形成を最優先すべき」とも述べている。迅速性と全員合意は多くの場合トレードオフの関係にあり、両方を同時に達成することは現実的ではない。\n\n### 結論\n\n参加者の多くは自身の意見の一貫性を保てていない。感情的な反応に基づく場当たり的な回答が目立つ。",
-    color: "bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-900",
+    color:
+      "bg-purple-100 border-purple-200 hover:bg-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:hover:bg-purple-950/50 dark:text-purple-300",
   },
   {
     id: "freeform",
@@ -258,7 +310,35 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
     description: "自由に指示を記載",
     prompt: "",
     samplePreview: "",
-    color: "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900",
+    color: "bg-muted border-border hover:bg-secondary text-foreground",
+  },
+];
+
+const REPORT_STYLE_OPTIONS = [
+  {
+    value: "auto",
+    label: "スタンダード",
+    icon: <FileText className="h-4 w-4" />,
+  },
+  {
+    value: "empathy",
+    label: "共感重視",
+    icon: <Heart className="h-4 w-4 text-pink-600 dark:text-pink-500" />,
+  },
+  {
+    value: "logical",
+    label: "論理重視",
+    icon: <Brain className="h-4 w-4 text-blue-600 dark:text-blue-500" />,
+  },
+  {
+    value: "psychopath",
+    label: "サイコパスモード",
+    icon: <Zap className="h-4 w-4 text-purple-600 dark:text-purple-500" />,
+  },
+  {
+    value: "freeform",
+    label: "自由記述",
+    icon: <Settings className="h-4 w-4" />,
   },
 ];
 
@@ -268,23 +348,27 @@ const EVENT_TYPE_META: Record<
 > = {
   plan: {
     label: "Plan",
-    accent: "text-sky-600",
-    badge: "bg-sky-50 text-sky-700 border-sky-200",
+    accent: "text-sky-700 dark:text-primary",
+    badge:
+      "bg-sky-50 text-sky-700 border-sky-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
   survey: {
     label: "Survey",
-    accent: "text-emerald-600",
-    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    accent: "text-emerald-700 dark:text-primary",
+    badge:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
   survey_analysis: {
     label: "Analysis",
-    accent: "text-purple-600",
-    badge: "bg-purple-50 text-purple-700 border-purple-200",
+    accent: "text-purple-700 dark:text-primary",
+    badge:
+      "bg-purple-50 text-purple-700 border-purple-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
   user_message: {
     label: "You",
-    accent: "text-indigo-600",
-    badge: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    accent: "text-slate-700 dark:text-primary",
+    badge:
+      "bg-slate-50 text-slate-700 border-slate-200 dark:bg-muted dark:text-foreground dark:border-border",
   },
 };
 
@@ -459,6 +543,12 @@ export default function AdminPage({
   >("auto");
 
   const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
+  const [showGenerateQuestionDialog, setShowGenerateQuestionDialog] =
+    useState(false);
+  const [generatedQuestions, setGeneratedQuestions] = useState<string[]>([]);
+  const [generateQuestionError, setGenerateQuestionError] = useState<
+    string | null
+  >(null);
   const [showResponseLog, setShowResponseLog] = useState(false);
   const [responseLogsData, setResponseLogsData] =
     useState<ResponseLogsData | null>(null);
@@ -467,48 +557,55 @@ export default function AdminPage({
     null,
   );
 
-  const fetchAdminData = useCallback(async () => {
-    if (!userId) return;
+  const fetchAdminData = useCallback(
+    async (withSpinner = true) => {
+      if (!userId) return;
 
-    try {
-      setLoading(true);
-      const response = await axios.get(
-        `/api/sessions/${sessionId}/${accessToken}`,
-        {
-          headers: { Authorization: `Bearer ${userId}` },
-        },
-      );
-      const responseData = response.data.data as SessionAdminData & {
-        canEdit?: boolean;
-      };
-      setData({
-        ...responseData,
-        goal: responseData.goal ?? "",
-        context: responseData.context ?? "",
-        statements: responseData.statements ?? [],
-        participants: responseData.participants ?? [],
-        totalStatements:
-          typeof responseData.totalStatements === "number"
-            ? responseData.totalStatements
-            : (responseData.statements?.length ?? 0),
-        totalParticipants:
-          typeof responseData.totalParticipants === "number"
-            ? responseData.totalParticipants
-            : (responseData.participants?.length ?? 0),
-      });
-      setCanEdit(responseData.canEdit ?? false);
-      setError(null);
-    } catch (err: unknown) {
-      console.error("Failed to fetch admin data:", err);
-      if (axios.isAxiosError(err) && err.response?.status === 403) {
-        setError("このセッションへのアクセス権限がありません。");
-      } else {
-        setError("データの取得に失敗しました。");
+      try {
+        if (withSpinner) {
+          setLoading(true);
+        }
+        const response = await axios.get(
+          `/api/sessions/${sessionId}/${accessToken}`,
+          {
+            headers: { Authorization: `Bearer ${userId}` },
+          },
+        );
+        const responseData = response.data.data as SessionAdminData & {
+          canEdit?: boolean;
+        };
+        setData({
+          ...responseData,
+          goal: responseData.goal ?? "",
+          context: responseData.context ?? "",
+          statements: responseData.statements ?? [],
+          participants: responseData.participants ?? [],
+          totalStatements:
+            typeof responseData.totalStatements === "number"
+              ? responseData.totalStatements
+              : (responseData.statements?.length ?? 0),
+          totalParticipants:
+            typeof responseData.totalParticipants === "number"
+              ? responseData.totalParticipants
+              : (responseData.participants?.length ?? 0),
+        });
+        setCanEdit(responseData.canEdit ?? false);
+        setError(null);
+      } catch (err: unknown) {
+        console.error("Failed to fetch admin data:", err);
+        if (axios.isAxiosError(err) && err.response?.status === 403) {
+          setError("このセッションへのアクセス権限がありません。");
+        } else {
+          setError("データの取得に失敗しました。");
+        }
+      } finally {
+        if (withSpinner) {
+          setLoading(false);
+        }
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionId, accessToken, userId]);
+    },
+    [sessionId, accessToken, userId],
+  );
 
   const fetchEventThread = useCallback(
     async (withSpinner = false) => {
@@ -598,7 +695,7 @@ export default function AdminPage({
 
   useEffect(() => {
     if (isUserIdLoading) return;
-    void fetchAdminData();
+    void fetchAdminData(true);
   }, [fetchAdminData, isUserIdLoading]);
 
   useEffect(() => {
@@ -632,16 +729,43 @@ export default function AdminPage({
     return () => window.clearInterval(intervalId);
   }, [fetchReports, hasActiveReport, userId]);
 
+  // Track report completion and show toast
+  const prevReportsRef = useRef<SessionReport[]>([]);
+  useEffect(() => {
+    const prevReports = prevReportsRef.current;
+    prevReportsRef.current = reports;
+
+    // Check if any report just transitioned to "completed"
+    reports.forEach((report) => {
+      const prevReport = prevReports.find((r) => r.id === report.id);
+      if (
+        prevReport &&
+        (prevReport.status === "pending" ||
+          prevReport.status === "generating") &&
+        report.status === "completed"
+      ) {
+        toast.success("レポート生成が完了しました", {
+          description: `バージョン ${report.version} のレポートが生成されました`,
+          duration: 5000,
+        });
+      } else if (
+        prevReport &&
+        (prevReport.status === "pending" ||
+          prevReport.status === "generating") &&
+        report.status === "failed"
+      ) {
+        toast.error("レポート生成に失敗しました", {
+          description: "もう一度お試しください",
+          duration: 5000,
+        });
+      }
+    });
+  }, [reports]);
+
   const selectedReport = useMemo(
     () => reports.find((report) => report.id === selectedReportId) ?? null,
     [reports, selectedReportId],
   );
-
-  const latestReport = reports[0] ?? null;
-  const isViewingLatestReport =
-    selectedReport !== null &&
-    latestReport !== null &&
-    selectedReport.id === latestReport.id;
 
   useEffect(() => {
     if (data) {
@@ -697,27 +821,6 @@ export default function AdminPage({
     if (typeof window === "undefined") return;
     setShareUrl(`${window.location.origin}/sessions/${sessionId}`);
   }, [sessionId]);
-
-  useEffect(() => {
-    if (!isShareQrFullscreen || typeof document === "undefined") return;
-    const { style } = document.body;
-    const previousOverflow = style.overflow;
-    style.overflow = "hidden";
-    return () => {
-      style.overflow = previousOverflow;
-    };
-  }, [isShareQrFullscreen]);
-
-  useEffect(() => {
-    if (!isShareQrFullscreen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsShareQrFullscreen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isShareQrFullscreen]);
 
   const shareQrUrl = shareUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${SHARE_QR_SIZE}x${SHARE_QR_SIZE}&data=${encodeURIComponent(
@@ -834,18 +937,11 @@ export default function AdminPage({
   const handleDeleteSession = async () => {
     if (!canEdit) return;
 
-    if (
-      !confirm("このセッションを完全に削除しますか？この操作は取り消せません。")
-    ) {
-      return;
-    }
-
     try {
       setDeleting(true);
       await axios.delete(`/api/sessions/${sessionId}/${accessToken}`, {
         headers: { Authorization: `Bearer ${userId}` },
       });
-      alert("セッションを削除しました。");
       window.location.href = "/";
     } catch (err) {
       console.error("Failed to delete session:", err);
@@ -866,6 +962,11 @@ export default function AdminPage({
       setCopyStatus("error");
       window.setTimeout(() => setCopyStatus("idle"), 2000);
     }
+  };
+
+  const handleOpenShareLink = () => {
+    if (!shareUrl) return;
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleCloseReportModal = () => {
@@ -958,6 +1059,7 @@ export default function AdminPage({
 
     try {
       setIsGeneratingQuestion(true);
+      setGenerateQuestionError(null);
       const response = await axios.post(
         `/api/sessions/${sessionId}/statements/generate`,
         {},
@@ -969,12 +1071,26 @@ export default function AdminPage({
       const newStatements = response.data.statements;
       if (newStatements && newStatements.length > 0) {
         // Refresh data to show the new statements
-        await fetchAdminData();
-        alert(`${newStatements.length}問の質問を生成しました。`);
+        await fetchAdminData(false);
+        setGeneratedQuestions(
+          newStatements
+            .map((statement: { text?: string }) => statement.text ?? "")
+            .filter((text: string) => text.length > 0),
+        );
+        toast.success("質問生成が完了しました", {
+          description: `${newStatements.length}問の質問を追加しました。参加用リンクの画面を再読み込みすると追加の質問に回答できます。`,
+          duration: 5000,
+        });
+      } else {
+        setGenerateQuestionError("質問を生成できませんでした。");
       }
     } catch (err) {
       console.error("Failed to generate questions:", err);
-      alert("質問の生成に失敗しました。");
+      setGenerateQuestionError("質問の生成に失敗しました。");
+      toast.error("質問の生成に失敗しました", {
+        description: "もう一度お試しください",
+        duration: 5000,
+      });
     } finally {
       setIsGeneratingQuestion(false);
     }
@@ -1121,19 +1237,19 @@ export default function AdminPage({
 
   if (isUserIdLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground dark:text-muted-foreground" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-background">
         <div className="max-w-6xl mx-auto px-6 py-16">
-          <Card className="border-red-200/70 bg-red-50/80">
+          <Card className="border-red-200/70 bg-red-50/80 dark:border-red-800/70 dark:bg-red-950/50">
             <CardContent className="pt-6">
-              <p className="text-red-700">{error}</p>
+              <p className="text-red-700 dark:text-red-400">{error}</p>
             </CardContent>
           </Card>
         </div>
@@ -1143,30 +1259,31 @@ export default function AdminPage({
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">セッションが見つかりません。</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-[90rem] mx-auto px-6 py-10 space-y-10">
         <header className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
-              <h1 className="text-3xl font-semibold text-slate-900">
+              <h1 className="text-3xl font-semibold text-foreground">
                 {data.title}
               </h1>
             </div>
+            <ThemeToggle />
           </div>
         </header>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
           <div className="space-y-8">
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">参加者状況の把握</CardTitle>
+            <Card>
+              <CardHeader>
+                <CardTitle>参加者状況の把握</CardTitle>
                 <CardDescription>
                   このセッションに参加している人の回答状況をリアルタイムに確認できます。更新する場合は、ページを再読み込みしてください。
                 </CardDescription>
@@ -1198,7 +1315,7 @@ export default function AdminPage({
                 </div>
 
                 {participants.length === 0 ? (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-muted-foreground">
                     まだ参加者はいません。リンクを共有して参加を促しましょう。
                   </p>
                 ) : (
@@ -1212,7 +1329,104 @@ export default function AdminPage({
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="flex justify-end border-t border-slate-100 pt-4">
+              <CardFooter className="flex flex-wrap justify-end gap-4 border-t pt-6">
+                {canEdit && (
+                  <AlertDialog
+                    open={showGenerateQuestionDialog}
+                    onOpenChange={(open) => {
+                      setShowGenerateQuestionDialog(open);
+                      if (!open) {
+                        setGeneratedQuestions([]);
+                        setGenerateQuestionError(null);
+                      }
+                    }}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isGeneratingQuestion}
+                        className="gap-2"
+                      >
+                        <Bot className="h-4 w-4" />
+                        追加質問を生成
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {generatedQuestions.length > 0
+                            ? "追加の質問を生成しました"
+                            : "追加の質問を生成しますか？"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {generatedQuestions.length > 0
+                            ? "以下の質問がセッションに追加されました。"
+                            : "これまでの回答をもとに、追加で15問の質問を生成します。生成された質問はすぐにセッションへ追加されます。"}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <div className="space-y-3">
+                        {generateQuestionError && (
+                          <p className="text-xs text-rose-600 dark:text-rose-400">
+                            {generateQuestionError}
+                          </p>
+                        )}
+                        {generatedQuestions.length > 0 ? (
+                          <>
+                            <p className="text-xs font-medium text-muted-foreground">
+                              追加された質問のプレビュー（
+                              {generatedQuestions.length}問）
+                            </p>
+                            <div className="max-h-60 space-y-2 overflow-y-auto">
+                              {generatedQuestions.map((question) => (
+                                <div
+                                  key={question}
+                                  className="rounded-lg border border-border/80 bg-background/80 p-3 text-sm text-foreground shadow-sm"
+                                >
+                                  <p className="text-sm leading-relaxed">
+                                    {question}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              参加用リンクの画面を再読み込みすると追加の質問に回答できます。
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            生成が完了すると、追加された質問のプレビューがここに表示されます。
+                          </p>
+                        )}
+                      </div>
+                      <AlertDialogFooter>
+                        {generatedQuestions.length > 0 ? (
+                          <AlertDialogCancel>閉じる</AlertDialogCancel>
+                        ) : (
+                          <>
+                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={(event) => {
+                                event.preventDefault();
+                                void handleGenerateQuestion();
+                              }}
+                              disabled={isGeneratingQuestion}
+                            >
+                              {isGeneratingQuestion ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  生成中...
+                                </>
+                              ) : (
+                                "生成する"
+                              )}
+                            </AlertDialogAction>
+                          </>
+                        )}
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1224,37 +1438,35 @@ export default function AdminPage({
                   className="gap-2"
                 >
                   <FileText className="h-4 w-4" />
-                  解答ログを表示
+                  参加者の回答ログを表示
                 </Button>
               </CardFooter>
             </Card>
 
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
+            <Card>
+              <CardHeader>
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="space-y-1.5">
-                    <CardTitle className="text-lg">
-                      セッションレポート
-                    </CardTitle>
+                  <div className="space-y-2">
+                    <CardTitle>レポート</CardTitle>
                     <CardDescription>
                       参加者の回答をもとに洞察レポートを生成します
                     </CardDescription>
                   </div>
-                  {selectedReport ? (
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                        最新の状態
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">
-                        v{String(selectedReport.version).padStart(2, "0")}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 {canEdit ? (
-                  <div className="relative">
+                  <div className="space-y-3 rounded-xl border border-border/50 bg-muted/30 p-4">
+                    <ReportTasteSelect
+                      value={selectedReportStyle}
+                      options={REPORT_STYLE_OPTIONS}
+                      onClick={() => {
+                        setShowReportModal(true);
+                        setReportMode("custom");
+                      }}
+                      disabled={creatingReport}
+                    />
+
                     <Button
                       type="button"
                       size="lg"
@@ -1272,217 +1484,143 @@ export default function AdminPage({
                       }}
                       disabled={creatingReport}
                       isLoading={creatingReport}
-                      className="min-h-[52px] w-full justify-center gap-3 rounded-2xl px-5 pl-32 pr-32 text-center text-base shadow-lg shadow-slate-900/10 sm:text-lg"
+                      className="h-12 w-full justify-center gap-3 rounded-lg text-base font-semibold shadow-sm transition-all hover:shadow-md"
                     >
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5" />
-                        <span className="font-semibold">
-                          新しいレポートを生成
-                        </span>
-                      </div>
+                      <FileText className="h-5 w-5" />
+                      <span>レポートを生成</span>
                     </Button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowReportModal(true);
-                        setReportMode("custom");
-                      }}
-                      disabled={creatingReport}
-                      className="absolute right-3 top-1/2 inline-flex h-10 -translate-y-1/2 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold text-white/90 shadow-sm shadow-black/10 backdrop-blur transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {selectedReportStyle === "auto" ? (
-                        <FileText className="h-4 w-4 text-blue-600" />
-                      ) : selectedReportStyle === "empathy" ? (
-                        <Heart className="h-4 w-4 text-pink-600" />
-                      ) : selectedReportStyle === "logical" ? (
-                        <Brain className="h-4 w-4 text-blue-600" />
-                      ) : selectedReportStyle === "psychopath" ? (
-                        <Zap className="h-4 w-4 text-purple-600" />
-                      ) : (
-                        <Settings className="h-4 w-4 text-slate-600" />
-                      )}
-                      <span>
-                        {selectedReportStyle === "auto"
-                          ? "スタンダード"
-                          : selectedReportStyle === "empathy"
-                            ? "共感重視"
-                            : selectedReportStyle === "logical"
-                              ? "論理重視"
-                              : selectedReportStyle === "psychopath"
-                                ? "サイコパスモード"
-                                : "自由記述"}
-                      </span>
-                      <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                    </button>
                   </div>
                 ) : (
-                  <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs text-slate-500">
+                  <div className="rounded-3xl border border-border/70 bg-muted/80 px-4 py-3 text-xs text-muted-foreground">
                     レポート生成はセッションのホストのみ利用できます。
                   </div>
                 )}
 
-                {showReportModal && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <button
-                      type="button"
-                      aria-label="レポートモーダルを閉じる"
-                      className="absolute inset-0 h-full w-full bg-slate-950/70 backdrop-blur-sm"
-                      onClick={handleCloseReportModal}
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          handleCloseReportModal();
-                        }
-                      }}
-                    />
-                    <div
-                      role="dialog"
-                      aria-modal="true"
-                      tabIndex={-1}
-                      className="relative z-10 w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl"
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          handleCloseReportModal();
-                        }
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={handleCloseReportModal}
-                        className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
+                <Dialog
+                  open={showReportModal}
+                  onOpenChange={setShowReportModal}
+                >
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl">
+                        レポートスタイルを選択
+                      </DialogTitle>
+                      <DialogDescription>
+                        目的に合わせてレポートのスタイルを選択できます
+                      </DialogDescription>
+                    </DialogHeader>
 
-                      <div className="space-y-6">
-                        <div>
-                          <h2 className="text-2xl font-semibold text-slate-900">
-                            レポートスタイルを選択
-                          </h2>
-                          <p className="mt-1 text-sm text-slate-600">
-                            目的に合わせてレポートのスタイルを選択できます
-                          </p>
-                        </div>
-
-                        <div className="flex gap-4">
-                          {/* 左側: テンプレートリスト */}
-                          <div className="flex-1 space-y-3">
-                            {/* スタンダード */}
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTemplate(null)}
-                              disabled={creatingReport}
-                              className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition ${
-                                selectedTemplate === null
-                                  ? "border-blue-300 bg-blue-50"
-                                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                              } ${
-                                creatingReport
-                                  ? "cursor-not-allowed opacity-50"
-                                  : "cursor-pointer"
-                              }`}
-                            >
-                              <div className="rounded-lg bg-white p-2 shadow-sm">
-                                <FileText className="h-5 w-5 text-slate-700" />
+                    <div className="space-y-6">
+                      <div className="flex flex-col gap-6 lg:flex-row">
+                        {/* 左側: テンプレートリスト */}
+                        <div className="flex-1 space-y-2">
+                          {/* スタンダード */}
+                          <Card
+                            className={`cursor-pointer transition-all hover:shadow-md ${
+                              selectedTemplate === null
+                                ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
+                                : "hover:border-primary/50"
+                            } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
+                            onClick={() =>
+                              !creatingReport && setSelectedTemplate(null)
+                            }
+                          >
+                            <CardContent className="flex items-start gap-3 p-4">
+                              <div className="rounded-lg bg-muted p-2">
+                                <FileText className="h-5 w-5 text-muted-foreground" />
                               </div>
                               <div className="flex-1">
-                                <h3 className="text-base font-semibold text-slate-900">
+                                <h3 className="font-semibold text-foreground">
                                   スタンダード
                                 </h3>
-                                <p className="mt-1 text-sm text-slate-600">
+                                <p className="mt-0.5 text-xs text-muted-foreground">
                                   標準的な分析レポート
                                 </p>
                               </div>
-                            </button>
+                            </CardContent>
+                          </Card>
 
-                            {REPORT_TEMPLATES.filter(
-                              (t) => t.id !== "freeform",
-                            ).map((template) => {
-                              const Icon = template.icon;
-                              const isSelected =
-                                selectedTemplate === template.id;
-                              return (
-                                <button
-                                  key={template.id}
-                                  type="button"
-                                  onClick={() =>
-                                    handleSelectTemplate(template.id)
-                                  }
-                                  disabled={creatingReport}
-                                  className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition ${
-                                    isSelected
-                                      ? "border-blue-300 bg-blue-50"
-                                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                                  } ${
-                                    creatingReport
-                                      ? "cursor-not-allowed opacity-50"
-                                      : "cursor-pointer"
-                                  }`}
-                                >
-                                  <div className="rounded-lg bg-white p-2 shadow-sm">
-                                    <Icon className="h-5 w-5 text-slate-700" />
+                          {REPORT_TEMPLATES.filter(
+                            (t) => t.id !== "freeform",
+                          ).map((template) => {
+                            const Icon = template.icon;
+                            const isSelected = selectedTemplate === template.id;
+                            return (
+                              <Card
+                                key={template.id}
+                                className={`cursor-pointer transition-all hover:shadow-md ${
+                                  isSelected
+                                    ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
+                                    : "hover:border-primary/50"
+                                } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
+                                onClick={() =>
+                                  !creatingReport &&
+                                  handleSelectTemplate(template.id)
+                                }
+                              >
+                                <CardContent className="flex items-start gap-3 p-4">
+                                  <div className="rounded-lg bg-muted p-2">
+                                    <Icon className="h-5 w-5 text-muted-foreground" />
                                   </div>
                                   <div className="flex-1">
-                                    <h3 className="text-base font-semibold text-slate-900">
+                                    <h3 className="font-semibold text-foreground">
                                       {template.name}
                                     </h3>
-                                    <p className="mt-1 text-sm text-slate-600">
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
                                       {template.description}
                                     </p>
                                   </div>
-                                </button>
-                              );
-                            })}
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
 
-                            {/* 自由記述は区切り線の下に表示 */}
-                            <div className="border-t border-slate-300 pt-3">
-                              <button
-                                type="button"
-                                onClick={() => handleSelectTemplate("freeform")}
-                                disabled={creatingReport}
-                                className={`flex w-full items-start gap-4 rounded-2xl border-2 border-dashed p-4 text-left transition ${
-                                  selectedTemplate === "freeform"
-                                    ? "border-purple-400 bg-purple-50"
-                                    : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
-                                } ${
-                                  creatingReport
-                                    ? "cursor-not-allowed opacity-50"
-                                    : "cursor-pointer"
-                                }`}
-                              >
-                                <div className="rounded-lg bg-white p-2 shadow-sm">
-                                  <Settings className="h-5 w-5 text-slate-700" />
+                          {/* 自由記述は区切り線の下に表示 */}
+                          <div className="border-t border-border pt-2 mt-3">
+                            <Card
+                              className={`cursor-pointer border-dashed transition-all hover:shadow-md ${
+                                selectedTemplate === "freeform"
+                                  ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2"
+                                  : "hover:border-primary/50"
+                              } ${creatingReport ? "pointer-events-none opacity-50" : ""}`}
+                              onClick={() =>
+                                !creatingReport &&
+                                handleSelectTemplate("freeform")
+                              }
+                            >
+                              <CardContent className="flex items-start gap-3 p-4">
+                                <div className="rounded-lg bg-muted p-2">
+                                  <Settings className="h-5 w-5 text-muted-foreground" />
                                 </div>
                                 <div className="flex-1">
-                                  <h3 className="text-base font-semibold text-slate-900">
+                                  <h3 className="font-semibold text-foreground">
                                     自由記述
                                   </h3>
-                                  <p className="mt-1 text-sm text-slate-600">
+                                  <p className="mt-0.5 text-xs text-muted-foreground">
                                     自由に指示を記載
                                   </p>
                                 </div>
-                              </button>
-                            </div>
+                              </CardContent>
+                            </Card>
                           </div>
+                        </div>
 
-                          {/* 右側: レポートプレビュー */}
-                          <div className="flex-1">
-                            <div className="sticky top-0 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        {/* 右側: レポートプレビュー */}
+                        <div className="flex-1">
+                          <Card className="sticky top-0">
+                            <CardHeader className="pb-3">
                               <div className="flex items-center justify-between">
-                                <label
-                                  htmlFor="templatePrompt"
-                                  className="text-sm font-medium text-slate-700"
-                                >
+                                <CardTitle className="text-base">
                                   {selectedTemplate === "freeform"
                                     ? "プロンプト"
                                     : "レポートプレビュー"}
-                                </label>
+                                </CardTitle>
                                 {selectedTemplate !== "freeform" &&
                                   selectedTemplate !== null && (
                                     <div className="group relative">
-                                      <Info className="h-4 w-4 cursor-help text-slate-400 transition hover:text-slate-600" />
-                                      <div className="invisible absolute right-0 top-6 z-10 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700 shadow-lg opacity-0 transition-all group-hover:visible group-hover:opacity-100">
-                                        <div className="mb-1 font-semibold text-slate-900">
+                                      <Info className="h-4 w-4 cursor-help text-muted-foreground transition hover:text-foreground" />
+                                      <div className="invisible absolute right-0 top-6 z-10 w-80 rounded-lg border border-border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-lg opacity-0 transition-all group-hover:visible group-hover:opacity-100">
+                                        <div className="mb-1 font-semibold">
                                           AIへの指示プロンプト:
                                         </div>
                                         {
@@ -1494,21 +1632,23 @@ export default function AdminPage({
                                     </div>
                                   )}
                               </div>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
                               {selectedTemplate === "freeform" ? (
                                 <>
-                                  <textarea
+                                  <Textarea
                                     id="templatePrompt"
                                     value={customPrompt}
                                     onChange={(e) =>
                                       setCustomPrompt(e.target.value)
                                     }
-                                    rows={8}
+                                    rows={10}
                                     maxLength={5000}
                                     placeholder="例:「共有している価値観について重点的に分析してほしい」「易しい言葉を使った分かりやすいレポートを出力してほしい」"
-                                    className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                                    className="resize-none"
                                   />
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs text-slate-500">
+                                    <span className="text-xs text-muted-foreground">
                                       {customPrompt.length} / 5000
                                     </span>
                                     <Button
@@ -1525,7 +1665,7 @@ export default function AdminPage({
                                 </>
                               ) : selectedTemplate ? (
                                 <>
-                                  <div className="min-h-[200px] whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700">
+                                  <div className="min-h-[240px] max-h-[400px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
                                     {
                                       REPORT_TEMPLATES.find(
                                         (t) => t.id === selectedTemplate,
@@ -1545,7 +1685,7 @@ export default function AdminPage({
                                 </>
                               ) : (
                                 <>
-                                  <div className="min-h-[200px] whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700">
+                                  <div className="min-h-[240px] max-h-[400px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
                                     {`## セッション分析レポート
 
 本セッションでは、参加者の回答データに基づいて以下の分析を行いました。
@@ -1570,13 +1710,13 @@ export default function AdminPage({
                                   </div>
                                 </>
                               )}
-                            </div>
-                          </div>
+                            </CardContent>
+                          </Card>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  </DialogContent>
+                </Dialog>
 
                 {reportsError && (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -1586,11 +1726,11 @@ export default function AdminPage({
 
                 {reportsLoading ? (
                   <div className="space-y-4">
-                    <div className="h-12 animate-pulse rounded-2xl bg-slate-100/80" />
-                    <div className="h-[420px] animate-pulse rounded-3xl bg-slate-100/80" />
+                    <div className="h-12 animate-pulse rounded-2xl bg-muted/80" />
+                    <div className="h-[420px] animate-pulse rounded-3xl bg-muted/80" />
                   </div>
                 ) : reports.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
+                  <div className="rounded-2xl border border-dashed border-border bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
                     まだレポートはありません。ボタンをクリックして作成。
                   </div>
                 ) : selectedReport ? (
@@ -1599,9 +1739,9 @@ export default function AdminPage({
                       <div className="space-y-2">
                         <label
                           htmlFor="reportVersionSelect"
-                          className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                          className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
                         >
-                          表示するバージョン
+                          表示するレポートのバージョン
                         </label>
                         <div className="flex flex-wrap items-center gap-3">
                           <select
@@ -1610,77 +1750,23 @@ export default function AdminPage({
                             onChange={(event) =>
                               setSelectedReportId(event.target.value)
                             }
-                            className="max-w-xs rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                            className="max-w-xs rounded-2xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card"
                           >
                             {reports.map((report) => {
-                              const meta = REPORT_STATUS_META[report.status];
                               return (
                                 <option key={report.id} value={report.id}>
-                                  v{String(report.version).padStart(2, "0")}・
-                                  {meta.label}
+                                  {`v${String(report.version).padStart(2, "0")}・${getReportTasteLabel(report)}・${getReportStatusLabel(report.status)}`}
                                 </option>
                               );
                             })}
                           </select>
-                          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600">
-                            <span
-                              className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
-                            />
-                            {REPORT_STATUS_META[selectedReport.status].label}
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-500">
-                            {isViewingLatestReport
-                              ? "最新バージョンを表示中"
-                              : latestReport
-                                ? `最新: v${String(latestReport.version).padStart(2, "0")}`
-                                : "最新バージョン情報なし"}
-                          </span>
                         </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={
-                            selectedReport.status !== "completed" ||
-                            !selectedReport.contentMarkdown
-                          }
-                          onClick={handleCopyReportMarkdown}
-                          className="gap-1.5 text-xs"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          {reportCopyStatus === "copied"
-                            ? "コピー済み"
-                            : reportCopyStatus === "error"
-                              ? "コピー失敗"
-                              : "Markdownをコピー"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 text-xs"
-                          disabled={
-                            selectedReport.status !== "completed" ||
-                            !selectedReport.contentMarkdown
-                          }
-                          onClick={() =>
-                            window.open(
-                              `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
-                              "_blank",
-                            )
-                          }
-                        >
-                          <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                          レポート詳細ページを開く
-                        </Button>
                       </div>
                     </div>
 
                     {selectedReport.requestMarkdown ? (
-                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm text-indigo-900">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
+                      <div className="rounded-2xl border border-border bg-muted/70 p-4 text-sm text-foreground">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                           レポート生成のリクエスト
                         </p>
                         <p className="mt-1 whitespace-pre-wrap leading-relaxed">
@@ -1689,100 +1775,104 @@ export default function AdminPage({
                       </div>
                     ) : null}
 
-                    <div className="min-h-[360px] rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-inner">
+                    <div className="min-h-[360px] rounded-3xl border border-border bg-card/80 p-6 shadow-inner dark:bg-card/50">
                       <div className="flex h-full flex-col gap-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                              Version
-                            </p>
-                            <p className="text-xl font-semibold text-slate-900">
-                              v{String(selectedReport.version).padStart(2, "0")}
-                            </p>
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                            <span>
+                              作成: {formatDateTime(selectedReport.createdAt)}
+                            </span>
+                            {selectedReport.completedAt ? (
+                              <span>
+                                最終更新:{" "}
+                                {formatDateTime(selectedReport.completedAt)}
+                              </span>
+                            ) : null}
                           </div>
-                          <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                            <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                              {selectedReport.model}
-                            </div>
-                            <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
-                              <span
-                                className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
-                              />
-                              {REPORT_STATUS_META[selectedReport.status].label}
-                            </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                selectedReport.status !== "completed" ||
+                                !selectedReport.contentMarkdown
+                              }
+                              onClick={handleCopyReportMarkdown}
+                              className="gap-1.5 text-xs"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              {reportCopyStatus === "copied"
+                                ? "コピー済み"
+                                : reportCopyStatus === "error"
+                                  ? "コピー失敗"
+                                  : "Markdownをコピー"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-xs"
+                              disabled={
+                                selectedReport.status !== "completed" ||
+                                !selectedReport.contentMarkdown
+                              }
+                              onClick={() =>
+                                window.open(
+                                  `/sessions/${sessionId}/${accessToken}/reports/${selectedReport.id}/print`,
+                                  "_blank",
+                                )
+                              }
+                            >
+                              <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                              レポート詳細ページを開く
+                            </Button>
                           </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-4">
+                        <div className="flex-1 overflow-y-auto rounded-2xl border border-border bg-background/90 p-4 dark:bg-card/90">
                           {selectedReport.status === "completed" &&
                           selectedReport.contentMarkdown ? (
-                            <div className="markdown-body prose prose-slate max-w-none text-sm leading-relaxed">
+                            <div className="markdown-body prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                 {selectedReport.contentMarkdown}
                               </ReactMarkdown>
                             </div>
                           ) : selectedReport.status === "failed" ? (
-                            <div className="text-sm text-rose-600">
+                            <div className="text-sm text-rose-600 dark:text-rose-400">
                               レポート生成に失敗しました。
                               <br />
                               {selectedReport.errorMessage ??
                                 "詳細はログを確認してください。"}
                             </div>
                           ) : (
-                            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-slate-500">
-                              <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                               <p>レポートを生成しています…</p>
-                              <p className="text-[11px] text-slate-400">
+                              <p className="text-[11px] text-muted-foreground">
                                 完了まで1~2分ほどかかる場合があります。
                               </p>
                             </div>
                           )}
                         </div>
-
-                        <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                          <span>
-                            作成: {formatDateTime(selectedReport.createdAt)}
-                          </span>
-                          {selectedReport.completedAt ? (
-                            <span>
-                              最終更新:{" "}
-                              {formatDateTime(selectedReport.completedAt)}
-                            </span>
-                          ) : null}
-                        </div>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
+                  <div className="rounded-2xl border border-dashed border-border/80 bg-white/70 px-4 py-6 text-center text-sm text-muted-foreground">
                     レポートを選択するとここに表示されます。
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">意見の可視化</CardTitle>
-                    <CardDescription>
-                      参加者の回答をもとに、合意できている点、対立している点、みんなが分からない点を把握できます
-                    </CardDescription>
-                  </div>
-                  {canEdit && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleGenerateQuestion}
-                      disabled={isGeneratingQuestion}
-                      isLoading={isGeneratingQuestion}
-                      className="gap-1.5 text-xs"
-                    >
-                      <Bot className="h-3.5 w-3.5" />
-                      質問を生成
-                    </Button>
-                  )}
+            <Card>
+              <CardHeader>
+                <div className="space-y-2">
+                  <CardTitle>回答意見の可視化</CardTitle>
+                  <CardDescription>
+                    参加者の回答をもとに、合意できている点、対立している点、みんなが分からない点を把握できます
+                  </CardDescription>
                 </div>
               </CardHeader>
 
@@ -1810,26 +1900,34 @@ export default function AdminPage({
               </CardContent>
             </Card>
 
-            <Card className="border-none bg-white/80 shadow-lg">
-              <CardHeader className="pb-4">
+            <Card>
+              <CardHeader>
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">進行ログ</CardTitle>
+                  <div className="space-y-2">
+                    <CardTitle>進行ログ</CardTitle>
                     <CardDescription>
                       ファシリテーターAIの進行状況をここから確認できます
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <ThreadStatusPill
+                  <div className="flex flex-col items-end gap-1 text-right">
+                    <ThreadStatusToggle
                       shouldProceed={threadData?.thread?.shouldProceed ?? false}
+                      onToggle={handleToggleShouldProceed}
+                      disabled={!canEdit || !threadData?.thread}
+                      isLoading={togglingProceed}
                     />
+                    <span className="text-[11px] text-muted-foreground">
+                      {threadData?.thread?.shouldProceed
+                        ? "全員が回答したら質問を自動生成する"
+                        : "全員が回答しても質問を自動生成しない"}
+                    </span>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-inner">
+                <div className="relative overflow-hidden rounded-3xl border border-border bg-card/70 shadow-inner">
                   {threadLoading && (
-                    <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-white/90 to-white/30 py-2 text-center text-xs text-slate-500">
+                    <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-background/90 to-background/30 py-2 text-center text-xs text-muted-foreground">
                       更新中…
                     </div>
                   )}
@@ -1861,7 +1959,7 @@ export default function AdminPage({
                         );
                       })
                     ) : (
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-muted-foreground">
                         まだイベントはありません。Agentとの会話はここに表示されます。
                       </p>
                     )}
@@ -1869,35 +1967,43 @@ export default function AdminPage({
                 </div>
 
                 {canEdit && (
-                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                    <label
-                      htmlFor="adminMessage"
-                      className="text-xs font-medium text-slate-600"
-                    >
-                      ファシリテーターAIへのメッセージ
-                    </label>
-                    <textarea
-                      id="adminMessage"
-                      value={messageDraft}
-                      onChange={(event) => setMessageDraft(event.target.value)}
-                      rows={3}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      placeholder="ファシリテーターAIへ伝えたい情報や、与えたい指示を書き込めます。"
-                    />
-                    <div className="flex items-center justify-between">
-                      <Button
-                        type="button"
-                        onClick={handleSendMessage}
-                        disabled={
-                          sendingMessage || messageDraft.trim().length === 0
-                        }
-                        isLoading={sendingMessage}
-                        size="sm"
-                        className="gap-1.5 text-xs"
+                  <div className="space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="adminMessage"
+                        className="text-sm font-medium"
                       >
-                        <Send className="h-3.5 w-3.5" />
-                        送信
-                      </Button>
+                        ファシリテーターAIへのメッセージ
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        AIに伝えたい情報や指示を入力できます
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Textarea
+                        id="adminMessage"
+                        value={messageDraft}
+                        onChange={(event) =>
+                          setMessageDraft(event.target.value)
+                        }
+                        rows={3}
+                        className="resize-none"
+                        placeholder="例: 次の質問では環境問題に焦点を当ててください"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          onClick={handleSendMessage}
+                          disabled={
+                            sendingMessage || messageDraft.trim().length === 0
+                          }
+                          isLoading={sendingMessage}
+                          size="sm"
+                        >
+                          <Send className="h-4 w-4" />
+                          送信
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1906,9 +2012,9 @@ export default function AdminPage({
           </div>
 
           <div className="space-y-8">
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">参加用リンク</CardTitle>
+            <Card>
+              <CardHeader>
+                <CardTitle>参加用リンク</CardTitle>
                 <CardDescription>
                   共有リンクやQRコードから参加者を招待できます
                 </CardDescription>
@@ -1917,7 +2023,7 @@ export default function AdminPage({
                 <div className="space-y-2">
                   <label
                     htmlFor="shareLink"
-                    className="text-xs font-medium text-slate-600"
+                    className="text-xs font-medium text-foreground"
                   >
                     コピー用URL
                   </label>
@@ -1949,14 +2055,26 @@ export default function AdminPage({
                     </Button>
                   </div>
                 </div>
-                <div className="relative rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleOpenShareLink}
+                    className="gap-1.5 text-xs"
+                    disabled={!shareUrl}
+                  >
+                    <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                    クリックして別タブで参加
+                  </Button>
+                </div>
+                <div className="relative rounded-2xl border border-border bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner dark:border-border dark:from-slate-900/40 dark:to-slate-950/40">
                   {shareQrUrl && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => setIsShareQrFullscreen(true)}
-                      className="absolute right-4 top-4 gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 text-xs text-slate-700 shadow-sm hover:bg-white"
+                      className="absolute right-4 top-4 gap-1.5 rounded-full border border-border bg-card px-3 text-xs text-muted-foreground shadow-sm hover:bg-accent"
                     >
                       <Maximize2 className="h-3.5 w-3.5" />
                     </Button>
@@ -1967,75 +2085,56 @@ export default function AdminPage({
                       alt="参加用QRコード"
                       width={SHARE_QR_SIZE}
                       height={SHARE_QR_SIZE}
-                      className="mx-auto h-[176px] w-[176px] rounded-xl border border-slate-200 bg-white object-contain p-2 shadow-sm"
+                      unoptimized
+                      className="mx-auto h-[176px] w-[176px] rounded-xl border border-border bg-white object-contain p-2 shadow-sm dark:border-border dark:bg-white"
                     />
                   ) : (
-                    <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-xs text-slate-400">
+                    <div className="mx-auto flex h-[176px] w-[176px] items-center justify-center rounded-xl border border-dashed border-border bg-card text-xs text-muted-foreground">
                       QRコードを生成できませんでした
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
-            {isShareQrFullscreen && fullscreenQrUrl && (
-              <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 sm:p-10 backdrop-blur-sm relative">
-                <button
-                  type="button"
-                  aria-label="全画面表示を閉じる"
-                  className="absolute inset-0 z-0 h-full w-full cursor-pointer bg-transparent focus:outline-none"
-                  onClick={() => setIsShareQrFullscreen(false)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      setIsShareQrFullscreen(false);
-                    }
-                  }}
-                />
-                <div
-                  className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 text-center"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="参加用QRコードの全画面表示"
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsShareQrFullscreen(false)}
-                    className="absolute right-0 top-0 text-white hover:bg-white/10 focus-visible:ring-white"
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
-                    <Image
-                      src={fullscreenQrUrl}
-                      alt="参加用QRコード"
-                      width={FULLSCREEN_QR_SIZE}
-                      height={FULLSCREEN_QR_SIZE}
-                      className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
-                    />
+            <Dialog
+              open={isShareQrFullscreen}
+              onOpenChange={setIsShareQrFullscreen}
+            >
+              <DialogContent className="max-w-5xl border-white/10 bg-black/85 p-8 backdrop-blur-sm">
+                <DialogHeader>
+                  <DialogTitle className="text-3xl font-semibold text-white text-center">
+                    QRコードを携帯でスキャン
+                  </DialogTitle>
+                </DialogHeader>
+                {fullscreenQrUrl && (
+                  <div className="flex justify-center">
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur">
+                      <Image
+                        src={fullscreenQrUrl}
+                        alt="参加用QRコード"
+                        width={FULLSCREEN_QR_SIZE}
+                        height={FULLSCREEN_QR_SIZE}
+                        unoptimized
+                        className="h-auto w-full max-w-[min(95vw,880px)] rounded-2xl border border-white bg-white p-6 shadow-lg"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <h2 className="text-3xl font-semibold text-white">
-                      QRコードを携帯でスキャン
-                    </h2>
-                  </div>
-                </div>
-              </div>
-            )}
+                )}
+              </DialogContent>
+            </Dialog>
 
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
+            <Card>
+              <CardHeader>
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">セッション情報</CardTitle>
+                  <div className="space-y-2">
+                    <CardTitle>セッション概要の編集</CardTitle>
                     <CardDescription>
                       {canEdit
                         ? "基本情報を編集してアップデートできます"
                         : "セッションの基本情報"}
                     </CardDescription>
                   </div>
-                  {!isEditingSettings && canEdit && (
+                  {canEdit && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -2048,210 +2147,190 @@ export default function AdminPage({
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
-                {!isEditingSettings ? (
-                  <div className="space-y-4 text-sm text-slate-600">
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        ゴール
-                      </p>
-                      <p
-                        className="mt-1 leading-relaxed"
-                        title={data.goal ?? undefined}
-                      >
-                        {data.goal ? truncateText(data.goal, 160) : "未設定"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
-                        背景情報
-                      </p>
-                      <p
-                        className="mt-1 leading-relaxed whitespace-pre-wrap"
-                        title={data.context ?? undefined}
-                      >
-                        {data.context
-                          ? truncateText(data.context, 160)
-                          : "未設定"}
-                      </p>
-                    </div>
+                <div className="space-y-4 text-sm text-muted-foreground">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-[0.12em] dark:text-muted-foreground">
+                      ゴール
+                    </p>
+                    <p
+                      className="mt-1 leading-relaxed"
+                      title={data.goal ?? undefined}
+                    >
+                      {data.goal ? truncateText(data.goal, 160) : "未設定"}
+                    </p>
                   </div>
-                ) : (
-                  <form onSubmit={handleSaveSettings} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="sessionTitle"
-                        className="text-xs font-medium text-slate-600"
-                      >
-                        タイトル
-                      </label>
-                      <Input
-                        id="sessionTitle"
-                        type="text"
-                        value={editingTitle}
-                        onChange={(event) =>
-                          setEditingTitle(event.target.value)
-                        }
-                        required
-                        className="text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="sessionGoal"
-                        className="text-xs font-medium text-slate-600"
-                      >
-                        ゴール
-                      </label>
-                      <textarea
-                        id="sessionGoal"
-                        value={editingGoal}
-                        onChange={(event) => setEditingGoal(event.target.value)}
-                        required
-                        rows={5}
-                        className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="sessionContext"
-                        className="text-xs font-medium text-slate-600"
-                      >
-                        背景情報
-                      </label>
-                      <textarea
-                        id="sessionContext"
-                        value={editingContext}
-                        onChange={(event) =>
-                          setEditingContext(event.target.value)
-                        }
-                        rows={5}
-                        className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 resize-none"
-                      />
-                    </div>
-
-                    {(settingsMessage || settingsError) && (
-                      <div
-                        className={`rounded-xl px-3 py-2 text-xs ${
-                          settingsError
-                            ? "bg-red-50 text-red-600"
-                            : "bg-emerald-50 text-emerald-700"
-                        }`}
-                      >
-                        {settingsError ?? settingsMessage}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="submit"
-                        disabled={isSavingSettings}
-                        isLoading={isSavingSettings}
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                      >
-                        保存
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setIsEditingSettings(false);
-                          setSettingsMessage(null);
-                          setSettingsError(null);
-                          if (data) {
-                            setEditingTitle(data.title);
-                            setEditingContext(data.context);
-                            setEditingGoal(data.goal);
-                          }
-                        }}
-                        className="gap-1.5 text-xs"
-                      >
-                        キャンセル
-                      </Button>
-                    </div>
-                  </form>
-                )}
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-[0.12em] dark:text-muted-foreground">
+                      背景情報
+                    </p>
+                    <p
+                      className="mt-1 leading-relaxed whitespace-pre-wrap"
+                      title={data.context ?? undefined}
+                    >
+                      {data.context
+                        ? truncateText(data.context, 160)
+                        : "未設定"}
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            <Card className="border-none bg-white/80 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">進行設定</CardTitle>
-                <CardDescription>
-                  自動質問生成の制御やセッションの管理を行えます
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <button
-                  type="button"
-                  onClick={canEdit ? handleToggleShouldProceed : undefined}
-                  disabled={togglingProceed || !canEdit}
-                  aria-pressed={Boolean(threadData?.thread?.shouldProceed)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                    threadData?.thread?.shouldProceed
-                      ? "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
-                      : "border-amber-200 bg-amber-50/60 hover:bg-amber-50"
-                  } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">
-                        新規Statementの自動生成
-                      </p>
-                      <p className="text-xs text-slate-600">
-                        {threadData?.thread?.shouldProceed
-                          ? "全員が回答を終えると、新しい質問が生成されます"
-                          : "全員が回答を終えても、新しい質問は生成されません"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div
-                        aria-hidden="true"
-                        className={`flex h-7 w-14 items-center rounded-full border px-1 transition-all duration-150 ${
-                          threadData?.thread?.shouldProceed
-                            ? "border-emerald-300 bg-emerald-500/90 justify-end"
-                            : "border-amber-300 bg-amber-200/90 justify-start"
-                        }`}
-                      >
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-150">
-                          {threadData?.thread?.shouldProceed ? (
-                            <Play className="h-3 w-3 text-emerald-500" />
-                          ) : (
-                            <Pause className="h-3 w-3 text-amber-500" />
-                          )}
-                        </div>
-                      </div>
-
-                      {togglingProceed && (
-                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                      )}
-                    </div>
-                  </div>
-                </button>
-
-                {canEdit && (
-                  <div className="rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-4">
-                    <p className="text-sm font-medium text-red-700">
-                      セッションを削除
-                    </p>
-                    <p className="mt-1 text-xs text-red-600">
-                      この操作は取り消せません。全てのデータが削除されます。
-                    </p>
-                    <Button
-                      onClick={handleDeleteSession}
-                      disabled={deleting}
-                      isLoading={deleting}
-                      variant="destructive"
-                      size="sm"
-                      className="mt-3 gap-1.5 text-xs"
+            <Dialog
+              open={isEditingSettings}
+              onOpenChange={setIsEditingSettings}
+            >
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>セッション情報を編集</DialogTitle>
+                  <DialogDescription>
+                    セッションの基本情報を更新できます
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSaveSettings} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="sessionTitle"
+                      className="text-xs font-medium text-foreground"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      セッションを削除
-                    </Button>
+                      タイトル
+                    </label>
+                    <Input
+                      id="sessionTitle"
+                      type="text"
+                      value={editingTitle}
+                      onChange={(event) => setEditingTitle(event.target.value)}
+                      required
+                      className="text-sm"
+                    />
                   </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="sessionGoal"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      ゴール
+                    </label>
+                    <Textarea
+                      id="sessionGoal"
+                      value={editingGoal}
+                      onChange={(event) => setEditingGoal(event.target.value)}
+                      required
+                      rows={5}
+                      className="rounded-xl resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="sessionContext"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      背景情報
+                    </label>
+                    <Textarea
+                      id="sessionContext"
+                      value={editingContext}
+                      onChange={(event) =>
+                        setEditingContext(event.target.value)
+                      }
+                      rows={5}
+                      className="rounded-xl resize-none"
+                    />
+                  </div>
+
+                  {(settingsMessage || settingsError) && (
+                    <div
+                      className={`rounded-xl px-3 py-2 text-xs ${
+                        settingsError
+                          ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                          : "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                      }`}
+                    >
+                      {settingsError ?? settingsMessage}
+                    </div>
+                  )}
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditingSettings(false);
+                        setSettingsMessage(null);
+                        setSettingsError(null);
+                        if (data) {
+                          setEditingTitle(data.title);
+                          setEditingContext(data.context);
+                          setEditingGoal(data.goal);
+                        }
+                      }}
+                      className="gap-1.5 text-xs"
+                    >
+                      キャンセル
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSavingSettings}
+                      isLoading={isSavingSettings}
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                    >
+                      保存
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>セッション管理</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {canEdit && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        disabled={deleting}
+                        variant="destructive"
+                        size="sm"
+                        className="gap-1.5"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        セッションを削除
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          セッションを削除しますか？
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          この操作は取り消せません。全てのデータが完全に削除されます。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteSession}
+                          disabled={deleting}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {deleting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              削除中...
+                            </>
+                          ) : (
+                            "削除する"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </CardContent>
             </Card>
@@ -2260,7 +2339,7 @@ export default function AdminPage({
 
         {/* Response Log Modal */}
         {showResponseLog && (
-          <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 m-0 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
             <button
               type="button"
               aria-label="モーダルを閉じる"
@@ -2274,17 +2353,17 @@ export default function AdminPage({
               }}
             />
             <div
-              className="relative z-10 w-full max-w-7xl max-h-[90vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              className="relative z-10 w-full max-w-7xl max-h-[90vh] overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
               role="dialog"
               aria-modal="true"
               aria-label="回答ログ"
             >
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div className="flex items-center justify-between border-b border-border px-6 py-4">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">
+                  <h2 className="text-xl font-semibold text-foreground">
                     解答ログ
                   </h2>
-                  <p className="mt-1 text-sm text-slate-600">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     全参加者の詳細な回答データを確認・エクスポートできます
                   </p>
                 </div>
@@ -2315,7 +2394,7 @@ export default function AdminPage({
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowResponseLog(false)}
-                    className="text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                    className="text-muted-foreground hover:bg-muted hover:text-muted-foreground"
                   >
                     <X className="h-5 w-5" />
                   </Button>
@@ -2327,8 +2406,10 @@ export default function AdminPage({
               >
                 {responseLogsLoading ? (
                   <div className="flex flex-col items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                    <p className="mt-3 text-sm text-slate-600">読み込み中...</p>
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      読み込み中...
+                    </p>
                   </div>
                 ) : responseLogsError ? (
                   <div className="flex flex-col items-center justify-center py-12">
@@ -2340,27 +2421,27 @@ export default function AdminPage({
                 ) : responseLogsData ? (
                   <div className="space-y-6">
                     <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
-                        <p className="text-xs font-medium text-slate-600 uppercase tracking-wider">
+                      <div className="rounded-xl border border-border bg-card px-4 py-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           参加者数
                         </p>
-                        <p className="mt-1 text-2xl font-semibold text-slate-900">
+                        <p className="mt-1 text-2xl font-semibold text-card-foreground">
                           {responseLogsData.totalParticipants}人
                         </p>
                       </div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
-                        <p className="text-xs font-medium text-slate-600 uppercase tracking-wider">
+                      <div className="rounded-xl border border-border bg-card px-4 py-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           設問数
                         </p>
-                        <p className="mt-1 text-2xl font-semibold text-slate-900">
+                        <p className="mt-1 text-2xl font-semibold text-card-foreground">
                           {responseLogsData.totalStatements}問
                         </p>
                       </div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
-                        <p className="text-xs font-medium text-slate-600 uppercase tracking-wider">
+                      <div className="rounded-xl border border-border bg-card px-4 py-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           総回答数
                         </p>
-                        <p className="mt-1 text-2xl font-semibold text-slate-900">
+                        <p className="mt-1 text-2xl font-semibold text-card-foreground">
                           {responseLogsData.participants.reduce(
                             (sum, p) =>
                               sum +
@@ -2373,104 +2454,24 @@ export default function AdminPage({
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto rounded-xl border border-slate-200">
-                      <table className="w-full text-left text-sm">
-                        <thead className="border-b border-slate-200 bg-slate-50">
-                          <tr>
-                            <th className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">
-                              参加者
-                            </th>
-                            {responseLogsData.statements.map((statement) => (
-                              <th
-                                key={statement.id}
-                                className="px-4 py-3 font-medium text-slate-700 min-w-[200px]"
-                              >
-                                <div className="flex flex-col gap-1">
-                                  <span className="text-xs text-slate-500">
-                                    設問 {statement.orderIndex + 1}
-                                  </span>
-                                  <span className="line-clamp-2 text-xs font-normal">
-                                    {statement.text}
-                                  </span>
-                                </div>
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {responseLogsData.participants.map((participant) => (
-                            <tr
-                              key={participant.userId}
-                              className="hover:bg-slate-50/50"
-                            >
-                              <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-                                <div className="flex flex-col gap-0.5">
-                                  <span>{participant.name}</span>
-                                  <span className="text-xs text-slate-500">
-                                    {formatDateTime(participant.joinedAt)}
-                                  </span>
-                                </div>
-                              </td>
-                              {participant.responses.map((response) => (
-                                <td
-                                  key={response.statementId}
-                                  className="px-4 py-3"
-                                >
-                                  {response.responseType === "scale" ? (
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-                                          response.value === 2
-                                            ? "bg-emerald-100 text-emerald-700"
-                                            : response.value === 1
-                                              ? "bg-emerald-50 text-emerald-600"
-                                              : response.value === 0
-                                                ? "bg-slate-100 text-slate-600"
-                                                : response.value === -1
-                                                  ? "bg-amber-50 text-amber-600"
-                                                  : response.value === -2
-                                                    ? "bg-amber-100 text-amber-700"
-                                                    : "bg-slate-100 text-slate-500"
-                                        }`}
-                                      >
-                                        {response.value !== null
-                                          ? response.value > 0
-                                            ? `+${response.value}`
-                                            : response.value
-                                          : "?"}
-                                      </span>
-                                      <span className="text-xs text-slate-600">
-                                        {response.value === 2
-                                          ? "強く同意"
-                                          : response.value === 1
-                                            ? "同意"
-                                            : response.value === 0
-                                              ? "わからない・自信がない"
-                                              : response.value === -1
-                                                ? "反対"
-                                                : response.value === -2
-                                                  ? "強く反対"
-                                                  : "未回答"}
-                                      </span>
-                                    </div>
-                                  ) : response.responseType === "free_text" ? (
-                                    <div className="max-w-xs">
-                                      <p className="line-clamp-3 text-xs text-slate-700">
-                                        {response.textResponse}
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-slate-400">
-                                      未回答
-                                    </span>
-                                  )}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <ResponseLogsDataTable
+                      columns={createResponseLogColumns(
+                        responseLogsData.statements,
+                      )}
+                      data={responseLogsData.participants.map(
+                        (participant): ResponseLogRow => {
+                          const row: ResponseLogRow = {
+                            participantUserId: participant.userId,
+                            participantName: participant.name,
+                            joinedAt: participant.joinedAt,
+                          };
+                          participant.responses.forEach((response) => {
+                            row[`statement_${response.statementId}`] = response;
+                          });
+                          return row;
+                        },
+                      )}
+                    />
                   </div>
                 ) : null}
               </div>
@@ -2497,15 +2498,17 @@ function MonitoringMetric({
 }: MonitoringMetricProps) {
   const toneClass =
     tone === "emerald"
-      ? "bg-emerald-50/80 border-emerald-100 text-emerald-700"
-      : "bg-slate-100/60 border-slate-100 text-slate-700";
+      ? "border-emerald-200/70 bg-emerald-50/70 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-100"
+      : "bg-card border-border text-foreground";
   return (
     <div className={`rounded-2xl border px-4 py-4 shadow-sm ${toneClass}`}>
-      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
+      <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </p>
       <p className="mt-2 text-xl font-semibold">{value}</p>
-      {subLabel && <p className="mt-2 text-xs text-slate-500">{subLabel}</p>}
+      {subLabel && (
+        <p className="mt-2 text-xs text-muted-foreground">{subLabel}</p>
+      )}
     </div>
   );
 }
@@ -2528,29 +2531,26 @@ function ParticipantProgressRow({ participant }: ParticipantProgressRowProps) {
       : 0;
 
   return (
-    <div className="flex h-full flex-col gap-2 rounded-xl border border-slate-200/70 bg-white/70 p-3 shadow-sm">
+    <div className="flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-slate-900">
+          <p className="truncate text-sm font-medium text-foreground">
             {participant.name || "名称未設定"}
           </p>
-          <p className="text-[10px] text-slate-400">{updatedLabel}に参加</p>
+          <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
+            {updatedLabel}に参加
+          </p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-slate-900">
+          <p className="text-sm font-semibold text-foreground">
             {completionLabel}
           </p>
-          <p className="text-[10px] text-slate-500">
+          <p className="text-[10px] text-muted-foreground">
             {participant.answeredCount}/{participant.totalStatements}
           </p>
         </div>
       </div>
-      <div className="mt-2 h-1 w-full rounded-full bg-slate-200">
-        <div
-          className="h-full rounded-full bg-indigo-500 transition-all"
-          style={{ width: `${progressRatio}%` }}
-        />
-      </div>
+      <Progress value={progressRatio} className="mt-2 h-1" />
     </div>
   );
 }
@@ -2581,23 +2581,23 @@ function StatementHighlightColumn({
 }: StatementHighlightColumnProps) {
   const toneClass =
     tone === "emerald"
-      ? "bg-emerald-50 border-emerald-100"
+      ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800/50"
       : tone === "amber"
-        ? "bg-amber-50 border-amber-100"
-        : "bg-slate-50 border-slate-100";
+        ? "bg-purple-50 border-purple-200 dark:bg-purple-950/20 dark:border-purple-800/50"
+        : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/50";
 
   const badgeClass =
     tone === "emerald"
-      ? "bg-emerald-100 text-emerald-800"
+      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
       : tone === "amber"
-        ? "bg-amber-100 text-amber-800"
-        : "bg-slate-200 text-slate-700";
+        ? "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
+        : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300";
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       {items.length === 0 ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           まだ十分な回答データがありません。
         </p>
       ) : (
@@ -2612,26 +2612,28 @@ function StatementHighlightColumn({
               >
                 #{index + 1}
               </span>
-              <div className="text-[11px] text-slate-500">
+              <div className="text-[11px] text-muted-foreground">
                 回答率 {formatPercentage(item.responseRate)}
               </div>
             </div>
-            <p className="mt-3 text-sm text-slate-800 leading-relaxed">
+            <p className="mt-3 text-sm text-foreground leading-relaxed">
               {item.statement.text}
             </p>
-            <div className="mt-4 flex items-center gap-3 text-[11px] text-slate-600">
-              <span className="font-medium text-emerald-700">
+            <div className="mt-4 flex items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="font-medium text-blue-700 dark:text-blue-400">
                 Yes {formatPercentage(item.positive)}
               </span>
-              <span className="font-medium text-amber-700">
+              <span className="font-medium text-purple-700 dark:text-purple-400">
                 No {formatPercentage(item.negative)}
               </span>
-              <span>わからない・自信がない {formatPercentage(item.neutral)}</span>
+              <span className="font-medium text-amber-700 dark:text-amber-400">
+                わからない・自信がない {formatPercentage(item.neutral)}
+              </span>
             </div>
             {item.statement.responses.freeTextCount > 0 && (
-              <div className="mt-3 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-[11px] text-slate-700 shadow-inner">
+              <div className="mt-3 rounded-xl border border-border bg-muted/70 px-3 py-2 text-[11px] text-muted-foreground shadow-inner">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-800">
+                  <span className="font-semibold text-foreground">
                     自由記述 {item.statement.responses.freeTextCount}件
                   </span>
                 </div>
@@ -2640,10 +2642,10 @@ function StatementHighlightColumn({
                     (sample, sampleIndex) => (
                       <li
                         key={`${item.statement.id}-sample-${sampleIndex}`}
-                        className="text-slate-600 whitespace-pre-wrap break-words"
+                        className="text-muted-foreground whitespace-pre-wrap break-words"
                       >
                         ・{sample.text}
-                        <span className="ml-2 text-[10px] text-slate-400">
+                        <span className="ml-2 text-[10px] text-muted-foreground dark:text-muted-foreground">
                           —{" "}
                           {sample.participantUserId
                             ? (participantNameMap[sample.participantUserId] ??
@@ -2663,23 +2665,42 @@ function StatementHighlightColumn({
   );
 }
 
-function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
+function ThreadStatusToggle({
+  shouldProceed,
+  onToggle,
+  disabled,
+  isLoading,
+}: {
+  shouldProceed: boolean;
+  onToggle: () => void;
+  disabled: boolean;
+  isLoading: boolean;
+}) {
+  const statusDescription = shouldProceed
+    ? "新規Statementの自動生成: 全員が回答を終えると、新しい質問が生成されます"
+    : "新規Statementの自動生成: 全員が回答を終えても、新しい質問は生成されません";
+  const isDisabled = disabled || isLoading;
+
   return (
-    <div
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-        shouldProceed
-          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-          : "bg-amber-50 text-amber-600 border border-amber-200"
-      }`}
-    >
-      {shouldProceed ? (
-        <>
-          <Play className="h-3 w-3" /> 自動生成 ON
-        </>
-      ) : (
-        <>
-          <Pause className="h-3 w-3" /> 一時停止中
-        </>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={shouldProceed}
+        data-state={shouldProceed ? "checked" : "unchecked"}
+        onClick={onToggle}
+        disabled={isDisabled}
+        aria-label="新規Statementの自動生成を切り替え"
+        title={statusDescription}
+        className="peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input"
+      >
+        <span
+          data-state={shouldProceed ? "checked" : "unchecked"}
+          className="pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0"
+        />
+      </button>
+      {isLoading && (
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
       )}
     </div>
   );
@@ -2699,10 +2720,10 @@ function ThreadEventBubble({
   onToggle,
 }: ThreadEventBubbleProps) {
   const markdownProseClass =
-    "markdown-body prose prose-sm max-w-none text-slate-800 [&_ol]:list-decimal [&_ul]:list-disc";
+    "markdown-body prose prose-sm dark:prose-invert max-w-none text-foreground [&_ol]:list-decimal [&_ul]:list-disc";
   const fadeGradientClass = isHostMessage
-    ? "from-indigo-50/95 via-indigo-50/50 to-transparent"
-    : "from-white/95 via-white/60 to-transparent";
+    ? "from-primary/5 via-primary/3 to-transparent dark:from-primary/5 dark:via-primary/3"
+    : "from-card/95 via-card/60 to-transparent dark:from-card/95 dark:via-card/60";
 
   const wrapWithFade = (node: ReactElement) => ({
     content: (
@@ -2723,8 +2744,8 @@ function ThreadEventBubble({
 
   const meta = EVENT_TYPE_META[event.type] ?? {
     label: event.type,
-    accent: "text-slate-500",
-    badge: "bg-slate-100 text-slate-600 border-slate-200",
+    accent: "text-muted-foreground",
+    badge: "bg-muted text-muted-foreground border-border",
   };
 
   const markdown =
@@ -2757,7 +2778,7 @@ function ThreadEventBubble({
   const statementsList = (
     <div className="space-y-2">
       {event.type === "survey" && totalSurveyStatements > 0 ? (
-        <p className="text-base text-slate-900">
+        <p className="text-base text-foreground">
           新しく{totalSurveyStatements}
           個の質問を作成しました。皆さんの回答をお待ちしています。
         </p>
@@ -2765,16 +2786,16 @@ function ThreadEventBubble({
       {visibleStatements.map((statement) => (
         <div
           key={statement.id}
-          className="rounded-2xl border border-slate-200/70 bg-white/90 px-3 py-2 text-sm text-slate-700 shadow-sm"
+          className="rounded-2xl border border-border bg-card/90 px-3 py-2 text-sm text-foreground shadow-sm"
         >
-          <span className="mr-2 text-[11px] font-medium text-slate-400">
+          <span className="mr-2 text-[11px] font-medium text-muted-foreground">
             #{statement.orderIndex + 1}
           </span>
           {statement.text}
         </div>
       ))}
       {/* {!expanded && event.statements.length > visibleStatements.length && (
-        <p className="text-[11px] text-slate-500">
+        <p className="text-[11px] text-muted-foreground">
           他{event.statements.length - visibleStatements.length}
           件のステートメントがあります。
         </p>
@@ -2788,7 +2809,7 @@ function ThreadEventBubble({
     <button
       type="button"
       onClick={onToggle}
-      className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700"
+      className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
     >
       {expanded ? (
         <>
@@ -2830,7 +2851,7 @@ function ThreadEventBubble({
     }
 
     return plainContent(
-      <p className="text-sm text-slate-600">内容を準備中です。</p>,
+      <p className="text-sm text-muted-foreground">内容を準備中です。</p>,
     );
   })();
 
@@ -2841,7 +2862,7 @@ function ThreadEventBubble({
       }`}
     >
       {!isHostMessage && (
-        <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm">
+        <div className="mt-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
           <Bot className="h-4 w-4" />
         </div>
       )}
@@ -2854,7 +2875,7 @@ function ThreadEventBubble({
           className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${meta.badge}`}
         >
           <span>{meta.label}</span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] text-muted-foreground">
             #{String(event.orderIndex).padStart(3, "0")}・
             {formatDateTime(event.updatedAt)}
           </span>
@@ -2862,8 +2883,8 @@ function ThreadEventBubble({
         <div
           className={`w-full rounded-3xl border px-4 py-3 shadow-sm ${
             isHostMessage
-              ? "border-indigo-100 bg-indigo-50/80"
-              : "border-slate-200 bg-white/90"
+              ? "border-border bg-muted/80"
+              : "border-border bg-card/90"
           }`}
         >
           <div className="flex flex-col gap-0">
@@ -2880,11 +2901,11 @@ function ThreadEventBubble({
           </div>
         </div>
         {/* {progressPercent > 0 && progressPercent < 100 && (
-          <div className="flex w-full items-center gap-3 text-[11px] text-slate-500">
-            <div className="h-1.5 w-full rounded-full bg-slate-200">
+          <div className="flex w-full items-center gap-3 text-[11px] text-muted-foreground">
+            <div className="h-1.5 w-full rounded-full bg-secondary">
               <div
                 className={`h-full rounded-full ${
-                  isHostMessage ? "bg-indigo-400" : "bg-slate-500"
+                  isHostMessage ? "bg-indigo-400" : "bg-muted0"
                 }`}
                 style={{ width: `${progressPercent}%` }}
               />

@@ -4,7 +4,10 @@ import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
+
 interface StatementResponse {
+  participantUserId: string | null;
   participantName: string;
   responseType: "scale" | "free_text";
   value: number | null;
@@ -44,7 +47,7 @@ export function StatementTagPopover({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const containerRef = useRef<HTMLSpanElement>(null);
+  const containerRef = useRef<HTMLButtonElement>(null);
 
   const cacheKey = `${sessionId}-${statementNumber}`;
 
@@ -109,30 +112,33 @@ export function StatementTagPopover({
   }, []);
 
   const getValueBgColor = (value: number | null) => {
-    if (value === null) return "bg-slate-100";
+    if (value === null) return "bg-muted";
     if (value >= 1) return "bg-emerald-100 text-emerald-800";
     if (value <= -1) return "bg-rose-100 text-rose-800";
     return "bg-amber-100 text-amber-800";
   };
 
   return (
-    <span
+    <button
       ref={containerRef}
-      className="relative inline-block"
+      type="button"
+      className="relative inline-block bg-transparent p-0"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onFocus={handleMouseEnter}
+      onBlur={handleMouseLeave}
+      aria-expanded={isOpen}
     >
-      <span className="cursor-help rounded bg-slate-100 px-1 py-0.5 font-mono text-sm text-slate-700 transition-colors hover:bg-slate-200">
+      <Badge
+        variant="secondary"
+        className="cursor-help font-mono text-[11px] text-foreground/90 shadow-sm transition-shadow hover:shadow"
+      >
         #{statementNumber}
-      </span>
+      </Badge>
 
       {isOpen && (
-        <span
-          className="absolute left-1/2 z-50 mt-2 block w-80 -translate-x-1/2 transform"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          <span className="block rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+        <span className="absolute left-1/2 z-50 mt-2 block w-80 -translate-x-1/2 transform">
+          <span className="block rounded-lg border border-border bg-white p-4 shadow-lg">
             {loading && (
               <span className="flex items-center justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
@@ -162,9 +168,11 @@ export function StatementTagPopover({
                   </span>
                 ) : (
                   <span className="block max-h-48 space-y-2 overflow-y-auto">
-                    {data.responses.map((response, index) => (
+                    {data.responses.map((response) => (
                       <span
-                        key={index}
+                        key={
+                          response.participantUserId ?? response.participantName
+                        }
                         className="flex items-start gap-2 text-sm"
                       >
                         <span className="shrink-0 font-medium text-slate-700">
@@ -177,7 +185,7 @@ export function StatementTagPopover({
                             {response.valueLabel}
                           </span>
                         ) : (
-                          <span className="rounded bg-slate-100 px-2 py-1 text-xs font-normal text-slate-700">
+                          <span className="rounded bg-muted px-2 py-1 text-xs font-normal text-slate-700">
                             {response.textResponse}
                           </span>
                         )}
@@ -193,6 +201,6 @@ export function StatementTagPopover({
           <span className="absolute -top-2 left-1/2 block h-0 w-0 -translate-x-1/2 transform border-x-8 border-b-8 border-x-transparent border-b-white drop-shadow-sm" />
         </span>
       )}
-    </span>
+    </button>
   );
 }
