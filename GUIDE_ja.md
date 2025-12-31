@@ -8,7 +8,7 @@
 
 - **アプリ本体**: Next.js 15 (App Router) + React 19 で構築されたフロントエンド/バックエンド。`app/api` 配下に API ルートを実装。
 - **データストア**: Supabase（PostgreSQL/Realtime）を採用。`supabase/schema.sql` でテーブルを管理。
-- **LLM 連携**: OpenRouter 経由で Google Gemini 2.5 Pro を呼び出し、セッションゴール・ステートメント・分析レポートを生成。
+- **LLM 連携**: OpenRouter 経由で Google Gemini 3 Flash (preview) / 3 Pro (preview)（`google/gemini-3-flash-preview` / `google/gemini-3-pro-preview`）を用途別に呼び出し、セッションゴール・ステートメント・分析レポートを生成。
 - **エージェント**: `npm run agent` で起動する Node.js プロセス。Supabase Realtime を購読し、Plan → Survey → Analysis のイベント生成を自動化（`agents/AgentManager.ts` + `agents/PtolemyAgent.ts`）。
 
 ### 1.1 コンポーネントのつながり（ざっくり版）
@@ -50,7 +50,7 @@
    - anon キー (`NEXT_PUBLIC_SUPABASE_ANON_KEY`)
    - Service Role キー (`SUPABASE_SERVICE_ROLE_KEY`) ※サーバーサイド専用
 2. **OpenRouter アカウント**
-   - `OPENROUTER_API_KEY`（Gemini 2.5 Pro を利用可能なプラン）
+   - `OPENROUTER_API_KEY`（Gemini 3 Flash (preview) / 3 Pro (preview) を利用可能なプラン）
 3. 任意: Neon 等の外部 PostgreSQL を利用する場合は、Supabase 互換の Realtime 設定を用意。
 
 ---

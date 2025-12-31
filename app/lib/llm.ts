@@ -1,7 +1,10 @@
 import axios from "axios";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+export const FAST_MODEL = "google/gemini-3-flash-preview";
+export const ACCURATE_MODEL = "google/gemini-3-pro-preview";
+const DEFAULT_MODEL = ACCURATE_MODEL;
+const DEFAULT_STREAM_MODEL = FAST_MODEL;
 
 interface LLMMessage {
   role: "system" | "user" | "assistant";
@@ -33,7 +36,7 @@ export function buildSessionBrief(
 
 export async function callLLM(
   messages: LLMMessage[],
-  model: string = MODEL,
+  model: string = DEFAULT_MODEL,
 ): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -96,7 +99,7 @@ export async function callLLM(
 export async function callLLMStreaming(
   messages: LLMMessage[],
   onChunk: (chunk: string) => void,
-  model: string = MODEL,
+  model: string = DEFAULT_STREAM_MODEL,
 ): Promise<void> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -213,7 +216,8 @@ export async function generateIndividualReport(input: {
 
   // Define tone based on taste
   const toneInstructions: Record<string, string> = {
-    neutral: "客観的で中立的なトーンで、バランスの取れた分析を提供してください。",
+    neutral:
+      "客観的で中立的なトーンで、バランスの取れた分析を提供してください。",
     encouraging:
       "励ましとポジティブなフィードバックを重視し、建設的で前向きな表現を使ってください。",
     analytical:

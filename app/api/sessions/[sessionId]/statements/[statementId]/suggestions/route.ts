@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getUserIdFromRequest } from "@/lib/auth";
-import { callLLMStreaming } from "@/lib/llm";
+import { callLLMStreaming, FAST_MODEL } from "@/lib/llm";
 import { supabase } from "@/lib/supabase";
 
 type StatementRow = {
@@ -225,7 +225,7 @@ ${contextText}
           }
         }
       },
-      "google/gemini-3-flash-preview",
+      FAST_MODEL,
     );
 
     // Handle any remaining text

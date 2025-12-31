@@ -14,19 +14,26 @@ export type ParticipantReflectionInput = {
 };
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+const FAST_MODEL = "google/gemini-3-flash-preview";
+const ACCURATE_MODEL = "google/gemini-3-pro-preview";
+const DEFAULT_MODEL = FAST_MODEL;
 
 async function callLLM(
   messages: LLMMessage[],
-  options?: { temperature?: number; reasoning_max_tokens?: number },
+  options?: {
+    temperature?: number;
+    reasoning_max_tokens?: number;
+    model?: string;
+  },
 ): Promise<string> {
+  const model = options?.model ?? DEFAULT_MODEL;
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY is not set");
   }
 
   console.log("[LLM] request", {
-    model: MODEL,
+    model,
     messageCount: messages.length,
   });
   messages.forEach((message, index) => {
@@ -40,7 +47,7 @@ async function callLLM(
     temperature: number;
     reasoning?: { max_tokens: number };
   } = {
-    model: MODEL,
+    model,
     messages,
     temperature: options?.temperature ?? 0.7,
   };
@@ -192,7 +199,9 @@ ${input.participantReflections
 `;
 
   try {
-    const response = await callLLM([{ role: "user", content: prompt }]);
+    const response = await callLLM([{ role: "user", content: prompt }], {
+      model: ACCURATE_MODEL,
+    });
     return response.trim();
   } catch (error) {
     console.error("[LLM] Plan generation failed:", error);
@@ -243,6 +252,7 @@ export async function generateSurveyStatements(input: {
   try {
     const response = await callLLM([{ role: "user", content: prompt }], {
       reasoning_max_tokens: 1,
+      model: FAST_MODEL,
     });
     const parsed = extractJsonArray(response);
     if (!parsed) {
@@ -298,6 +308,7 @@ export async function generateSingleSurveyStatement(input: {
   try {
     const response = await callLLM([{ role: "user", content: prompt }], {
       reasoning_max_tokens: 1,
+      model: FAST_MODEL,
     });
     const parsed = extractJsonArray(response);
     if (!parsed || parsed.length === 0) {
@@ -457,7 +468,9 @@ ${surveyResultsText}
 `;
 
   try {
-    const response = await callLLM([{ role: "user", content: prompt }]);
+    const response = await callLLM([{ role: "user", content: prompt }], {
+      model: ACCURATE_MODEL,
+    });
     return response.trim();
   } catch (error) {
     console.error("[LLM] Survey analysis generation failed:", error);
