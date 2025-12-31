@@ -1663,28 +1663,6 @@ export default function AdminPage({
 
                     <div className="min-h-[360px] rounded-3xl border border-border bg-card/80 p-6 shadow-inner dark:bg-card/50">
                       <div className="flex h-full flex-col gap-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                              Version
-                            </p>
-                            <p className="text-xl font-semibold text-foreground">
-                              v{String(selectedReport.version).padStart(2, "0")}
-                            </p>
-                          </div>
-                          <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                            <div className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                              {selectedReport.model}
-                            </div>
-                            <div className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
-                              <span
-                                className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
-                              />
-                              {REPORT_STATUS_META[selectedReport.status].label}
-                            </div>
-                          </div>
-                        </div>
-
                         <div className="flex-1 overflow-y-auto rounded-2xl border border-border bg-background/90 p-4 dark:bg-card/90">
                           {selectedReport.status === "completed" &&
                           selectedReport.contentMarkdown ? (
