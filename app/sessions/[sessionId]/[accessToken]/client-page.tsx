@@ -1281,16 +1281,6 @@ export default function AdminPage({
                       参加者の回答をもとに洞察レポートを生成します
                     </CardDescription>
                   </div>
-                  {selectedReport ? (
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground dark:text-muted-foreground">
-                        最新の状態
-                      </p>
-                      <p className="text-sm font-semibold text-foreground">
-                        v{String(selectedReport.version).padStart(2, "0")}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1598,7 +1588,7 @@ export default function AdminPage({
                           htmlFor="reportVersionSelect"
                           className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
                         >
-                          表示するバージョン
+                          表示するレポートのバージョン
                         </label>
                         <div className="flex flex-wrap items-center gap-3">
                           <select
@@ -1610,28 +1600,13 @@ export default function AdminPage({
                             className="max-w-xs rounded-2xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card"
                           >
                             {reports.map((report) => {
-                              const meta = REPORT_STATUS_META[report.status];
                               return (
                                 <option key={report.id} value={report.id}>
-                                  v{String(report.version).padStart(2, "0")}・
-                                  {meta.label}
+                                  v{String(report.version).padStart(2, "0")}
                                 </option>
                               );
                             })}
                           </select>
-                          <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-[11px] font-medium text-muted-foreground">
-                            <span
-                              className={`h-2 w-2 rounded-full ${REPORT_STATUS_META[selectedReport.status].dot}`}
-                            />
-                            {REPORT_STATUS_META[selectedReport.status].label}
-                          </span>
-                          <span className="rounded-full bg-muted px-3 py-1 text-[11px] text-muted-foreground">
-                            {isViewingLatestReport
-                              ? "最新バージョンを表示中"
-                              : latestReport
-                                ? `最新: v${String(latestReport.version).padStart(2, "0")}`
-                                : "最新バージョン情報なし"}
-                          </span>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
