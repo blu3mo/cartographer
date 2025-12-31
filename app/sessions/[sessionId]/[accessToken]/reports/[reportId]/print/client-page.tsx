@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { ArrowLeft, Copy, Loader2, Printer } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, Loader2, Printer } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import { StatementTagPopover } from "@/components/report/StatementTagPopover";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { cn } from "@/lib/utils";
 import { useUserId } from "@/lib/useUserId";
 
 type SessionReportStatus = "pending" | "generating" | "completed" | "failed";
@@ -20,6 +21,7 @@ interface SessionReport {
   status: SessionReportStatus;
   requestMarkdown: string;
   contentMarkdown: string | null;
+  promptSnapshot: Record<string, unknown> | null;
   createdBy: string;
   model: string;
   errorMessage: string | null;
@@ -28,8 +30,36 @@ interface SessionReport {
   completedAt: string | null;
 }
 
+type SessionSnapshot = {
+  session?: {
+    title?: string;
+    goal?: string;
+    context?: string;
+  };
+};
+
 // Regex to match #n pattern (e.g., #1, #12, #123)
 const STATEMENT_TAG_REGEX = /#(\d+)/g;
+
+const getSnapshotSession = (
+  snapshot: SessionReport["promptSnapshot"],
+): SessionSnapshot["session"] | null => {
+  if (!snapshot || typeof snapshot !== "object") {
+    return null;
+  }
+
+  const session = (snapshot as SessionSnapshot).session;
+  if (!session || typeof session !== "object") {
+    return null;
+  }
+
+  const { title, goal, context } = session as SessionSnapshot["session"];
+  return {
+    title: typeof title === "string" ? title : undefined,
+    goal: typeof goal === "string" ? goal : undefined,
+    context: typeof context === "string" ? context : undefined,
+  };
+};
 
 export default function SessionReportPrintPage({
   sessionId,
@@ -45,6 +75,7 @@ export default function SessionReportPrintPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [infoOpen, setInfoOpen] = useState({ goal: true, context: false });
 
   // Process a single string to replace #n with interactive popovers
   const processString = useCallback(
@@ -205,11 +236,27 @@ export default function SessionReportPrintPage({
     );
   }
 
+  const snapshotSession = getSnapshotSession(report.promptSnapshot);
+  const sessionTitle = snapshotSession?.title?.trim() || "セッションレポート";
+  const sessionGoal = snapshotSession?.goal?.trim();
+  const sessionContext = snapshotSession?.context?.trim();
+  const createdAtLabel = new Date(report.createdAt).toLocaleString("ja-JP", {
+    hour12: false,
+  });
+  const completedAtLabel = report.completedAt
+    ? new Date(report.completedAt).toLocaleString("ja-JP", {
+        hour12: false,
+      })
+    : null;
+
+  const toggleInfo = (key: "goal" | "context") => {
+    setInfoOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   return (
     <div className="min-h-screen bg-background dark:bg-background text-foreground print:bg-white print:text-black">
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0 print:space-y-6">
         <div className="flex items-center justify-between print:hidden">
-          <ThemeToggle />
           <div className="flex gap-2">
             <Button
               type="button"
@@ -237,28 +284,77 @@ export default function SessionReportPrintPage({
               印刷する
             </Button>
           </div>
+          <ThemeToggle />
         </div>
 
         <header className="space-y-4 border-b border-border pb-6 print:hidden">
           <div className="text-center space-y-3">
             <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
-              セッションレポート
+              {sessionTitle}
             </h1>
             <p className="text-xl text-muted-foreground">
               バージョン {String(report.version).padStart(2, "0")}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto pt-4">
-            <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/50 dark:bg-muted/30">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">セッションID</span>
-              <span className="text-sm font-mono text-foreground">{sessionId}</span>
-            </div>
-            <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/50 dark:bg-muted/30">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">レポートID</span>
-              <span className="text-sm font-mono text-foreground">{report.id}</span>
+          <div className="mx-auto w-full max-w-3xl">
+            <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/30">
+              <div className="border-b border-border/70 last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => toggleInfo("goal")}
+                  aria-expanded={infoOpen.goal}
+                  className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-sm font-semibold text-foreground/90 transition hover:bg-muted/60"
+                >
+                  <span>ゴール</span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-muted-foreground transition-transform",
+                      infoOpen.goal ? "rotate-180" : "",
+                    )}
+                  />
+                </button>
+                <div
+                  className={cn(
+                    "px-4 pb-4 text-sm leading-7 text-muted-foreground whitespace-pre-wrap",
+                    infoOpen.goal ? "block" : "hidden print:block",
+                  )}
+                >
+                  {sessionGoal && sessionGoal.length > 0
+                    ? sessionGoal
+                    : "未設定"}
+                </div>
+              </div>
+
+              <div className="border-b border-border/70 last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => toggleInfo("context")}
+                  aria-expanded={infoOpen.context}
+                  className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-sm font-semibold text-foreground/90 transition hover:bg-muted/60"
+                >
+                  <span>背景情報</span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-muted-foreground transition-transform",
+                      infoOpen.context ? "rotate-180" : "",
+                    )}
+                  />
+                </button>
+                <div
+                  className={cn(
+                    "px-4 pb-4 text-sm leading-7 text-muted-foreground whitespace-pre-wrap",
+                    infoOpen.context ? "block" : "hidden print:block",
+                  )}
+                >
+                  {sessionContext && sessionContext.length > 0
+                    ? sessionContext
+                    : "未設定"}
+                </div>
+              </div>
             </div>
           </div>
+
         </header>
 
         {report.requestMarkdown ? (
@@ -332,36 +428,46 @@ export default function SessionReportPrintPage({
           )}
         </section>
 
-        <footer className="border-t border-border pt-6 print:hidden">
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-6">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-medium">作成:</span>
-              <time dateTime={report.createdAt} className="font-mono">
-                {new Date(report.createdAt).toLocaleString("ja-JP", {
-                  hour12: false,
-                })}
-              </time>
+        <section className="rounded-xl border border-border/60 bg-muted/30 px-4 py-4 text-xs text-muted-foreground print:border-border/40 print:bg-transparent print:text-[9pt]">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+            <div className="space-y-1">
+              <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                Model
+              </dt>
+              <dd className="font-mono text-foreground/80">{report.model}</dd>
             </div>
-            {report.completedAt && (
-              <>
-                <span className="hidden sm:inline text-muted-foreground">•</span>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span className="font-medium">完成:</span>
-                  <time dateTime={report.completedAt} className="font-mono">
-                    {new Date(report.completedAt).toLocaleString("ja-JP", {
-                      hour12: false,
-                    })}
-                  </time>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="mt-4 text-center">
-            <p className="text-xs text-muted-foreground">
-              Model: <span className="font-mono">{report.model}</span>
-            </p>
-          </div>
-        </footer>
+            <div className="space-y-1">
+              <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                作成
+              </dt>
+              <dd className="font-mono text-foreground/80">{createdAtLabel}</dd>
+            </div>
+            {completedAtLabel ? (
+              <div className="space-y-1">
+                <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                  完成
+                </dt>
+                <dd className="font-mono text-foreground/80">
+                  {completedAtLabel}
+                </dd>
+              </div>
+            ) : null}
+            <div className="space-y-1 sm:col-span-3">
+              <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                セッションID
+              </dt>
+              <dd className="break-all font-mono text-foreground/80">{sessionId}</dd>
+            </div>
+            <div className="space-y-1 sm:col-span-3">
+              <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                レポートID
+              </dt>
+              <dd className="break-all font-mono text-foreground/80">
+                {report.id}
+              </dd>
+            </div>
+          </dl>
+        </section>
       </div>
     </div>
   );
