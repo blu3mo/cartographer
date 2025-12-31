@@ -14,8 +14,6 @@ import {
   Info,
   Loader2,
   Maximize2,
-  Pause,
-  Play,
   Send,
   Settings,
   SquareArrowOutUpRight,
@@ -36,6 +34,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 
+import { ReportTasteSelect } from "@/components/report/ReportTasteSelect";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -68,7 +67,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useUserId } from "@/lib/useUserId";
 import {
@@ -292,6 +290,34 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
   },
 ];
 
+const REPORT_STYLE_OPTIONS = [
+  {
+    value: "auto",
+    label: "スタンダード",
+    icon: <FileText className="h-4 w-4" />,
+  },
+  {
+    value: "empathy",
+    label: "共感重視",
+    icon: <Heart className="h-4 w-4 text-pink-600 dark:text-pink-500" />,
+  },
+  {
+    value: "logical",
+    label: "論理重視",
+    icon: <Brain className="h-4 w-4 text-blue-600 dark:text-blue-500" />,
+  },
+  {
+    value: "psychopath",
+    label: "サイコパスモード",
+    icon: <Zap className="h-4 w-4 text-purple-600 dark:text-purple-500" />,
+  },
+  {
+    value: "freeform",
+    label: "自由記述",
+    icon: <Settings className="h-4 w-4" />,
+  },
+];
+
 const EVENT_TYPE_META: Record<
   ThreadEventType,
   { label: string; accent: string; badge: string }
@@ -489,6 +515,12 @@ export default function AdminPage({
   >("auto");
 
   const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
+  const [showGenerateQuestionDialog, setShowGenerateQuestionDialog] =
+    useState(false);
+  const [generatedQuestions, setGeneratedQuestions] = useState<string[]>([]);
+  const [generateQuestionError, setGenerateQuestionError] = useState<
+    string | null
+  >(null);
   const [showResponseLog, setShowResponseLog] = useState(false);
   const [responseLogsData, setResponseLogsData] =
     useState<ResponseLogsData | null>(null);
@@ -497,11 +529,13 @@ export default function AdminPage({
     null,
   );
 
-  const fetchAdminData = useCallback(async () => {
+  const fetchAdminData = useCallback(async (withSpinner = true) => {
     if (!userId) return;
 
     try {
-      setLoading(true);
+      if (withSpinner) {
+        setLoading(true);
+      }
       const response = await axios.get(
         `/api/sessions/${sessionId}/${accessToken}`,
         {
@@ -536,7 +570,9 @@ export default function AdminPage({
         setError("データの取得に失敗しました。");
       }
     } finally {
-      setLoading(false);
+      if (withSpinner) {
+        setLoading(false);
+      }
     }
   }, [sessionId, accessToken, userId]);
 
@@ -628,7 +664,7 @@ export default function AdminPage({
 
   useEffect(() => {
     if (isUserIdLoading) return;
-    void fetchAdminData();
+    void fetchAdminData(true);
   }, [fetchAdminData, isUserIdLoading]);
 
   useEffect(() => {
@@ -992,6 +1028,7 @@ export default function AdminPage({
 
     try {
       setIsGeneratingQuestion(true);
+      setGenerateQuestionError(null);
       const response = await axios.post(
         `/api/sessions/${sessionId}/statements/generate`,
         {},
@@ -1003,14 +1040,22 @@ export default function AdminPage({
       const newStatements = response.data.statements;
       if (newStatements && newStatements.length > 0) {
         // Refresh data to show the new statements
-        await fetchAdminData();
+        await fetchAdminData(false);
+        setGeneratedQuestions(
+          newStatements
+            .map((statement: { text?: string }) => statement.text ?? "")
+            .filter((text: string) => text.length > 0),
+        );
         toast.success("質問生成が完了しました", {
-          description: `${newStatements.length}問の質問を生成しました`,
+          description: `${newStatements.length}問の質問を追加しました。参加用リンクの画面を再読み込みすると追加の質問に回答できます。`,
           duration: 5000,
         });
+      } else {
+        setGenerateQuestionError("質問を生成できませんでした。");
       }
     } catch (err) {
       console.error("Failed to generate questions:", err);
+      setGenerateQuestionError("質問の生成に失敗しました。");
       toast.error("質問の生成に失敗しました", {
         description: "もう一度お試しください",
         duration: 5000,
@@ -1253,7 +1298,103 @@ export default function AdminPage({
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="flex justify-end border-t pt-6">
+              <CardFooter className="flex flex-wrap justify-end gap-3 border-t pt-6">
+                {canEdit && (
+                  <AlertDialog
+                    open={showGenerateQuestionDialog}
+                    onOpenChange={(open) => {
+                      setShowGenerateQuestionDialog(open);
+                      if (!open) {
+                        setGeneratedQuestions([]);
+                        setGenerateQuestionError(null);
+                      }
+                    }}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isGeneratingQuestion}
+                        className="gap-2"
+                      >
+                        <Bot className="h-4 w-4" />
+                        追加質問を生成
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {generatedQuestions.length > 0
+                            ? "追加の質問を生成しました"
+                            : "追加の質問を生成しますか？"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {generatedQuestions.length > 0
+                            ? "以下の質問がセッションに追加されました。"
+                            : "これまでの回答をもとに、追加で15問の質問を生成します。生成された質問はすぐにセッションへ追加されます。"}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <div className="space-y-3">
+                        {generateQuestionError && (
+                          <p className="text-xs text-rose-600 dark:text-rose-400">
+                            {generateQuestionError}
+                          </p>
+                        )}
+                        {generatedQuestions.length > 0 ? (
+                          <>
+                            <p className="text-xs font-medium text-muted-foreground">
+                              追加された質問のプレビュー（{generatedQuestions.length}問）
+                            </p>
+                            <div className="max-h-60 space-y-2 overflow-y-auto">
+                              {generatedQuestions.map((question, index) => (
+                                <div
+                                  key={`${question}-${index}`}
+                                  className="rounded-lg border border-border/80 bg-background/80 p-3 text-sm text-foreground shadow-sm"
+                                >
+                                  <p className="text-sm leading-relaxed">
+                                    {question}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              参加用リンクの画面を再読み込みすると追加の質問に回答できます。
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            生成が完了すると、追加された質問のプレビューがここに表示されます。
+                          </p>
+                        )}
+                      </div>
+                      <AlertDialogFooter>
+                        {generatedQuestions.length > 0 ? (
+                          <AlertDialogCancel>閉じる</AlertDialogCancel>
+                        ) : (
+                          <>
+                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={(event) => {
+                                event.preventDefault();
+                                void handleGenerateQuestion();
+                              }}
+                              disabled={isGeneratingQuestion}
+                            >
+                              {isGeneratingQuestion ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  生成中...
+                                </>
+                              ) : (
+                                "生成する"
+                              )}
+                            </AlertDialogAction>
+                          </>
+                        )}
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1274,9 +1415,7 @@ export default function AdminPage({
               <CardHeader>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="space-y-2">
-                    <CardTitle>
-                      セッションレポート
-                    </CardTitle>
+                    <CardTitle>レポート</CardTitle>
                     <CardDescription>
                       参加者の回答をもとに洞察レポートを生成します
                     </CardDescription>
@@ -1286,44 +1425,15 @@ export default function AdminPage({
               <CardContent className="space-y-6">
                 {canEdit ? (
                   <div className="space-y-3 rounded-xl border border-border/50 bg-muted/30 p-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        レポートのテイスト
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowReportModal(true);
-                          setReportMode("custom");
-                        }}
-                        disabled={creatingReport}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-card-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50 dark:border-border dark:bg-card dark:hover:bg-accent"
-                      >
-                        {selectedReportStyle === "auto" ? (
-                          <FileText className="h-4 w-4" />
-                        ) : selectedReportStyle === "empathy" ? (
-                          <Heart className="h-4 w-4 text-pink-600 dark:text-pink-500" />
-                        ) : selectedReportStyle === "logical" ? (
-                          <Brain className="h-4 w-4 text-blue-600 dark:text-blue-500" />
-                        ) : selectedReportStyle === "psychopath" ? (
-                          <Zap className="h-4 w-4 text-purple-600 dark:text-purple-500" />
-                        ) : (
-                          <Settings className="h-4 w-4" />
-                        )}
-                        <span className="flex-1 text-left">
-                          {selectedReportStyle === "auto"
-                            ? "スタンダード"
-                            : selectedReportStyle === "empathy"
-                              ? "共感重視"
-                              : selectedReportStyle === "logical"
-                                ? "論理重視"
-                                : selectedReportStyle === "psychopath"
-                                  ? "サイコパスモード"
-                                  : "自由記述"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                    </div>
+                    <ReportTasteSelect
+                      value={selectedReportStyle}
+                      options={REPORT_STYLE_OPTIONS}
+                      onClick={() => {
+                        setShowReportModal(true);
+                        setReportMode("custom");
+                      }}
+                      disabled={creatingReport}
+                    />
 
                     <Button
                       type="button"
@@ -1715,26 +1825,11 @@ export default function AdminPage({
 
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-2">
-                    <CardTitle>意見の可視化</CardTitle>
-                    <CardDescription>
-                      参加者の回答をもとに、合意できている点、対立している点、みんなが分からない点を把握できます
-                    </CardDescription>
-                  </div>
-                  {canEdit && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleGenerateQuestion}
-                      disabled={isGeneratingQuestion}
-                      isLoading={isGeneratingQuestion}
-                      className="gap-1.5 text-xs"
-                    >
-                      <Bot className="h-3.5 w-3.5" />
-                      質問を生成
-                    </Button>
-                  )}
+                <div className="space-y-2">
+                  <CardTitle>回答意見の可視化</CardTitle>
+                  <CardDescription>
+                    参加者の回答をもとに、合意できている点、対立している点、みんなが分からない点を把握できます
+                  </CardDescription>
                 </div>
               </CardHeader>
 
@@ -1771,10 +1866,18 @@ export default function AdminPage({
                       ファシリテーターAIの進行状況をここから確認できます
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <ThreadStatusPill
+                  <div className="flex flex-col items-end gap-1 text-right">
+                    <ThreadStatusToggle
                       shouldProceed={threadData?.thread?.shouldProceed ?? false}
+                      onToggle={handleToggleShouldProceed}
+                      disabled={!canEdit || !threadData?.thread}
+                      isLoading={togglingProceed}
                     />
+                    <span className="text-[11px] text-muted-foreground">
+                      {threadData?.thread?.shouldProceed
+                        ? "全員が回答したら質問を自動生成する"
+                        : "全員が回答しても質問を自動生成しない"}
+                    </span>
                   </div>
                 </div>
               </CardHeader>
@@ -1830,27 +1933,29 @@ export default function AdminPage({
                         AIに伝えたい情報や指示を入力できます
                       </p>
                     </div>
-                    <Textarea
-                      id="adminMessage"
-                      value={messageDraft}
-                      onChange={(event) => setMessageDraft(event.target.value)}
-                      rows={3}
-                      className="resize-none"
-                      placeholder="例: 次の質問では環境問題に焦点を当ててください"
-                    />
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        type="button"
-                        onClick={handleSendMessage}
-                        disabled={
-                          sendingMessage || messageDraft.trim().length === 0
-                        }
-                        isLoading={sendingMessage}
-                        size="sm"
-                      >
-                        <Send className="h-4 w-4" />
-                        送信
-                      </Button>
+                    <div className="space-y-2">
+                      <Textarea
+                        id="adminMessage"
+                        value={messageDraft}
+                        onChange={(event) => setMessageDraft(event.target.value)}
+                        rows={3}
+                        className="resize-none"
+                        placeholder="例: 次の質問では環境問題に焦点を当ててください"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          onClick={handleSendMessage}
+                          disabled={
+                            sendingMessage || messageDraft.trim().length === 0
+                          }
+                          isLoading={sendingMessage}
+                          size="sm"
+                        >
+                          <Send className="h-4 w-4" />
+                          送信
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1962,7 +2067,7 @@ export default function AdminPage({
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2">
-                    <CardTitle>セッション情報</CardTitle>
+                    <CardTitle>セッション概要の編集</CardTitle>
                     <CardDescription>
                       {canEdit
                         ? "基本情報を編集してアップデートできます"
@@ -2121,36 +2226,9 @@ export default function AdminPage({
 
             <Card>
               <CardHeader>
-                <CardTitle>進行設定</CardTitle>
-                <CardDescription>
-                  自動質問生成の制御やセッションの管理を行えます
-                </CardDescription>
+                <CardTitle>セッション管理</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      新規Statementの自動生成
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {threadData?.thread?.shouldProceed
-                        ? "全員が回答を終えると、新しい質問が生成されます"
-                        : "全員が回答を終えても、新しい質問は生成されません"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      checked={Boolean(threadData?.thread?.shouldProceed)}
-                      onCheckedChange={handleToggleShouldProceed}
-                      disabled={togglingProceed || !canEdit}
-                      aria-label="新規Statementの自動生成を切り替え"
-                    />
-                    {togglingProceed && (
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    )}
-                  </div>
-                </div>
-
                 {canEdit && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -2513,23 +2591,42 @@ function StatementHighlightColumn({
   );
 }
 
-function ThreadStatusPill({ shouldProceed }: { shouldProceed: boolean }) {
+function ThreadStatusToggle({
+  shouldProceed,
+  onToggle,
+  disabled,
+  isLoading,
+}: {
+  shouldProceed: boolean;
+  onToggle: () => void;
+  disabled: boolean;
+  isLoading: boolean;
+}) {
+  const statusDescription = shouldProceed
+    ? "新規Statementの自動生成: 全員が回答を終えると、新しい質問が生成されます"
+    : "新規Statementの自動生成: 全員が回答を終えても、新しい質問は生成されません";
+  const isDisabled = disabled || isLoading;
+
   return (
-    <div
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-        shouldProceed
-          ? "bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800"
-          : "bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800"
-      }`}
-    >
-      {shouldProceed ? (
-        <>
-          <Play className="h-3 w-3" /> 自動生成 ON
-        </>
-      ) : (
-        <>
-          <Pause className="h-3 w-3" /> 一時停止中
-        </>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={shouldProceed}
+        data-state={shouldProceed ? "checked" : "unchecked"}
+        onClick={onToggle}
+        disabled={isDisabled}
+        aria-label="新規Statementの自動生成を切り替え"
+        title={statusDescription}
+        className="peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input"
+      >
+        <span
+          data-state={shouldProceed ? "checked" : "unchecked"}
+          className="pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0"
+        />
+      </button>
+      {isLoading && (
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
       )}
     </div>
   );
