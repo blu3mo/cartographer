@@ -1432,7 +1432,7 @@ export default function AdminPage({
                   className="gap-2"
                 >
                   <FileText className="h-4 w-4" />
-                  解答ログを表示
+                  参加者の回答ログを表示
                 </Button>
               </CardFooter>
             </Card>

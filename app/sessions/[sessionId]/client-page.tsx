@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { ReportTasteSelect } from "@/components/report/ReportTasteSelect";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -96,7 +97,6 @@ type ReportTaste = {
   emoji: string;
 };
 
-
 const REPORT_TASTES: ReportTaste[] = [
   {
     id: "neutral",
@@ -123,6 +123,12 @@ const REPORT_TASTES: ReportTaste[] = [
     emoji: "😊",
   },
 ];
+
+const INDIVIDUAL_REPORT_TASTE_OPTIONS = REPORT_TASTES.map((taste) => ({
+  value: taste.id,
+  label: taste.label,
+  icon: <span className="text-base">{taste.emoji}</span>,
+}));
 
 const RESPONSE_CHOICES: Array<{
   value: ResponseValue;
@@ -267,6 +273,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   const [sessionInfoError, setSessionInfoError] = useState<string | null>(null);
   const [state, setState] = useState<SessionState>("NEEDS_NAME");
   const [hasStarted, setHasStarted] = useState(false);
+  const [infoOpen, setInfoOpen] = useState({ goal: true, context: true });
   const [name, setName] = useState("");
   const [currentStatement, setCurrentStatement] = useState<Statement | null>(
     null,
@@ -1500,6 +1507,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
     };
   }, [sessionInfo?.title]);
 
+  const toggleInfo = useCallback((key: "goal" | "context") => {
+    setInfoOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
   const goalSections = useMemo<GoalSection[]>(() => {
     const goal = sessionInfo?.goal?.trim();
     if (!goal) return [];
@@ -1614,10 +1625,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-black">
+    <div className="min-h-screen bg-background dark:bg-black">
       {/* Sticky Header */}
       {shouldShowHeader && (
-        <header className="sticky top-0 left-0 right-0 bg-card/80 dark:bg-card/80 backdrop-blur-md z-50 border-b border-border flex flex-col">
+        <header className="sticky top-0 left-0 right-0 bg-card/95 dark:bg-card/80 backdrop-blur-md z-50 border-b border-border shadow-sm flex flex-col">
           <div className="h-16 flex items-center justify-center px-6 relative">
             <div className="text-xs font-medium text-muted-foreground">
               {currentQuestionNumber} / {totalQuestions} 問目
@@ -1639,59 +1650,101 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
         }`}
       >
         <div className="mb-8 space-y-6">
-          <div>
-            {state === "NEEDS_NAME" && (
+          {state === "NEEDS_NAME" && !hasStarted && (
+            <header className="space-y-4 border-b border-border pb-6">
+              <div className="text-center space-y-3">
+                <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
+                  {sessionInfo?.title ?? "セッション"}
+                </h1>
+              </div>
+              <div className="mx-auto w-full max-w-3xl">
+                <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/30">
+                  <div className="border-b border-border/70 last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleInfo("goal")}
+                      aria-expanded={infoOpen.goal}
+                      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-sm font-semibold text-foreground/90 transition hover:bg-muted/60"
+                    >
+                      <span>ゴール</span>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          infoOpen.goal ? "rotate-180" : "",
+                        )}
+                      />
+                    </button>
+                    <div
+                      className={cn(
+                        "px-4 pb-4 text-sm leading-7 text-muted-foreground whitespace-pre-wrap",
+                        infoOpen.goal ? "block" : "hidden",
+                      )}
+                    >
+                      {goalSections.length > 0 ? (
+                        <div className="space-y-3">
+                          {goalSections.map((section) => (
+                            <div key={section.id} className="space-y-1">
+                              <p className="text-xs font-semibold text-foreground/80">
+                                {section.label}
+                              </p>
+                              <p className="whitespace-pre-line">
+                                {section.value}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        "未設定"
+                      )}
+                    </div>
+                  </div>
+                  <div className="border-b border-border/70 last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleInfo("context")}
+                      aria-expanded={infoOpen.context}
+                      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-sm font-semibold text-foreground/90 transition hover:bg-muted/60"
+                    >
+                      <span>背景情報</span>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          infoOpen.context ? "rotate-180" : "",
+                        )}
+                      />
+                    </button>
+                    <div
+                      className={cn(
+                        "px-4 pb-4 text-sm leading-7 text-muted-foreground whitespace-pre-wrap",
+                        infoOpen.context ? "block" : "hidden",
+                      )}
+                    >
+                      {sessionInfo?.context?.trim()
+                        ? sessionInfo.context
+                        : "未設定"}
+                    </div>
+                  </div>
+                  <div className="border-t border-border/70 bg-card p-4">
+                    <Button
+                      type="button"
+                      className="w-full"
+                      onClick={() => setHasStarted(true)}
+                    >
+                      始める
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </header>
+          )}
+          {state === "NEEDS_NAME" && hasStarted && (
+            <div>
               <h1 className="text-3xl font-bold tracking-tight mb-3">
                 {sessionInfo?.title ?? "セッション"}
               </h1>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-
-        {state === "NEEDS_NAME" && !hasStarted && (
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              {goalSections.length > 0 && (
-                <div className="space-y-3">
-                  {goalSections.map((section) => (
-                    <div key={section.id} className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">
-                        {section.label}
-                      </p>
-                      <p className="text-sm text-muted-foreground whitespace-pre-line">
-                        {section.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {sessionInfo?.context &&
-                sessionInfo.context.trim().length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground">
-                      背景
-                    </p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                      {sessionInfo.context}
-                    </p>
-                  </div>
-                )}
-              {goalSections.length === 0 &&
-                !sessionInfo?.context?.trim() && (
-                  <p className="text-sm text-muted-foreground">
-                    セッション概要はまだ設定されていません。
-                  </p>
-                )}
-              <Button
-                type="button"
-                className="w-full"
-                onClick={() => setHasStarted(true)}
-              >
-                始める
-              </Button>
-            </CardContent>
-          </Card>
-        )}
 
         {state === "NEEDS_NAME" && hasStarted && (
           <Card>
@@ -1916,7 +1969,7 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
 
                     {isActive && (
                       <CardContent className="pt-0 pb-6">
-                        <div className="bg-muted/50 dark:bg-muted/30 backdrop-blur-sm border-t border-border/50 dark:border-border/30 -mx-6 px-3 sm:px-4 py-3 sm:py-4">
+                        <div className="bg-muted/80 dark:bg-muted/30 backdrop-blur-sm border-t border-border dark:border-border/30 -mx-6 px-3 sm:px-4 py-3 sm:py-4">
                           <div className="grid grid-cols-5 gap-2 sm:gap-3">
                           <button
                             type="button"
@@ -1925,10 +1978,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             className={cn(
                               "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
                               response?.value === 2
-                                ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700"
+                                ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
                                 : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
-                                  : "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700",
+                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                  : "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 hover:border-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700",
                             )}
                           >
                             <div className="text-xl sm:text-3xl leading-none">👍</div>
@@ -1943,10 +1996,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             className={cn(
                               "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
                               response?.value === 1
-                                ? "bg-green-400 hover:bg-green-500 text-white border-green-500 hover:border-green-600"
+                                ? "bg-green-500 hover:bg-green-600 text-white border-green-600 hover:border-green-700 dark:bg-green-500 dark:hover:bg-green-600"
                                 : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
-                                  : "bg-green-400 hover:bg-green-500 text-white border-green-500 hover:border-green-600",
+                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                  : "bg-green-500 hover:bg-green-600 text-white border-green-600 hover:border-green-700 dark:bg-green-500 dark:hover:bg-green-600",
                             )}
                           >
                             <div className="text-xl sm:text-3xl leading-none">✓</div>
@@ -1961,10 +2014,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             className={cn(
                               "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
                               response?.value === 0
-                                ? "bg-amber-400 hover:bg-amber-500 text-slate-900 border-amber-500 hover:border-amber-600"
+                                ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600 hover:border-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-900"
                                 : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
-                                  : "bg-amber-400 hover:bg-amber-500 text-slate-900 border-amber-500 hover:border-amber-600",
+                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                  : "bg-amber-500 hover:bg-amber-600 text-white border-amber-600 hover:border-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-900",
                             )}
                           >
                             <div className="text-xl sm:text-3xl leading-none">🤔</div>
@@ -1981,10 +2034,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             className={cn(
                               "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
                               response?.value === -1
-                                ? "bg-rose-400 hover:bg-rose-500 text-white border-rose-500 hover:border-rose-600"
+                                ? "bg-rose-500 hover:bg-rose-600 text-white border-rose-600 hover:border-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600"
                                 : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
-                                  : "bg-rose-400 hover:bg-rose-500 text-white border-rose-500 hover:border-rose-600",
+                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                  : "bg-rose-500 hover:bg-rose-600 text-white border-rose-600 hover:border-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600",
                             )}
                           >
                             <div className="text-xl sm:text-3xl leading-none">✗</div>
@@ -1999,10 +2052,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                             className={cn(
                               "group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-1 sm:px-3 py-4 sm:py-5 border-2 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
                               response?.value === -2
-                                ? "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800"
+                                ? "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800 dark:bg-red-700 dark:hover:bg-red-800"
                                 : response && response.responseType === "scale"
-                                  ? "bg-muted hover:bg-slate-200 text-slate-400 border-border hover:border-slate-300"
-                                  : "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800",
+                                  ? "bg-muted hover:bg-muted/80 text-muted-foreground/50 border-border hover:border-border/80"
+                                  : "bg-red-600 hover:bg-red-700 text-white border-red-700 hover:border-red-800 dark:bg-red-700 dark:hover:bg-red-800",
                             )}
                           >
                             <div className="text-xl sm:text-3xl leading-none">👎</div>
@@ -2197,31 +2250,15 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                   <CardDescription className="text-muted-foreground">
                     あなたの回答から生成された個別分析レポート
                   </CardDescription>
-                  <div className="flex items-center gap-3 pt-2">
+                  <div className="flex items-end gap-3 pt-2">
                     <div className="flex-1">
-                      <button
+                      <ReportTasteSelect
+                        value={selectedTaste}
+                        options={INDIVIDUAL_REPORT_TASTE_OPTIONS}
                         onClick={() => setIsTasteModalOpen(true)}
                         disabled={isGeneratingReport}
-                        className={cn(
-                          "group w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border-2 transition-all",
-                          "hover:border-primary/50 hover:bg-accent/50",
-                          "disabled:opacity-50 disabled:cursor-not-allowed",
-                          "border-border bg-card"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-xl">
-                            {REPORT_TASTES.find((t) => t.id === selectedTaste)?.emoji}
-                          </span>
-                          <div className="text-left">
-                            <div className="text-xs text-muted-foreground">レポートのテイスト</div>
-                            <div className="font-semibold text-foreground">
-                              {REPORT_TASTES.find((t) => t.id === selectedTaste)?.label}
-                            </div>
-                          </div>
-                        </div>
-                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-hover:text-foreground" />
-                      </button>
+                        iconWrapperClassName="h-5 w-5 text-base"
+                      />
                     </div>
                     <Button
                       onClick={() => setIsTasteModalOpen(true)}
@@ -2335,10 +2372,10 @@ export default function SessionPage({ sessionId }: { sessionId: string }) {
                     }}
                     disabled={isGeneratingReport}
                     className={cn(
-                      "group relative flex items-start gap-4 rounded-lg border-2 p-4 text-left transition-all hover:border-primary/50 hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed",
+                      "group relative flex items-start gap-4 rounded-lg border-2 p-4 text-left transition-colors shadow-sm hover:border-primary/40 hover:bg-muted/60 disabled:opacity-50 disabled:cursor-not-allowed",
                       selectedTaste === taste.id
-                        ? "border-primary bg-accent"
-                        : "border-border bg-card",
+                        ? "border-primary/70 bg-primary/10 shadow-md"
+                        : "border-border/60 bg-muted/40",
                     )}
                   >
                     <div className="text-3xl">{taste.emoji}</div>
