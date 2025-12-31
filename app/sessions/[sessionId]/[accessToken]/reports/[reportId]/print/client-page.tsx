@@ -256,34 +256,7 @@ export default function SessionReportPrintPage({
   return (
     <div className="min-h-screen bg-background dark:bg-background text-foreground print:bg-white print:text-black">
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0 print:space-y-6">
-        <div className="flex items-center justify-between print:hidden">
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleCopy}
-              disabled={!report?.contentMarkdown}
-              className="gap-1.5 text-xs"
-            >
-              <Copy className="h-4 w-4" />
-              {copyStatus === "copied"
-                ? "コピー済み"
-                : copyStatus === "error"
-                  ? "コピー失敗"
-                  : "Markdownをコピー"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="gap-1.5 text-xs"
-            >
-              <Printer className="h-4 w-4" />
-              印刷する
-            </Button>
-          </div>
+        <div className="flex items-center justify-end print:hidden">
           <ThemeToggle />
         </div>
 
@@ -371,6 +344,39 @@ export default function SessionReportPrintPage({
         ) : null}
 
         <section className="rounded-2xl border border-border bg-card dark:bg-card p-8 shadow-sm print:border-0 print:bg-transparent print:p-0 print:shadow-none">
+          {report.status === "completed" && report.contentMarkdown ? (
+            <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
+              <p className="text-xs font-semibold text-muted-foreground">
+                レポート本文
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopy}
+                  className="gap-1.5 text-xs"
+                >
+                  <Copy className="h-4 w-4" />
+                  {copyStatus === "copied"
+                    ? "コピー済み"
+                    : copyStatus === "error"
+                      ? "コピー失敗"
+                      : "Markdownをコピー"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrint}
+                  className="gap-1.5 text-xs"
+                >
+                  <Printer className="h-4 w-4" />
+                  印刷する
+                </Button>
+              </div>
+            </div>
+          ) : null}
           {report.status === "completed" && report.contentMarkdown ? (
             <article className="markdown-body prose prose-slate dark:prose-invert max-w-none text-base leading-7 print:text-[12pt] prose-headings:scroll-m-20 prose-headings:tracking-tight prose-h1:text-4xl prose-h1:font-extrabold prose-h1:text-balance prose-h2:border-b prose-h2:pb-2 prose-h2:text-3xl prose-h2:font-semibold prose-h2:first:mt-0 prose-h3:text-2xl prose-h3:font-semibold prose-h4:text-xl prose-h4:font-semibold prose-p:leading-7 prose-p:[&:not(:first-child)]:mt-6 prose-blockquote:mt-6 prose-blockquote:border-l-2 prose-blockquote:pl-6 prose-blockquote:italic prose-code:relative prose-code:rounded prose-code:bg-muted prose-code:px-[0.3rem] prose-code:py-[0.2rem] prose-code:font-mono prose-code:text-sm prose-code:font-semibold prose-ul:my-6 prose-ul:[&:not(:first-child)]:mt-6 prose-ol:my-6 prose-ol:[&:not(:first-child)]:mt-6 prose-li:my-2">
               <ReactMarkdown
