@@ -232,6 +232,27 @@ const REPORT_STATUS_META: Record<
   },
 };
 
+const DEFAULT_REPORT_TASTE_LABEL = "スタンダード";
+const FREEFORM_REPORT_TASTE_LABEL = "自由記述";
+
+const getReportTasteLabel = (report: SessionReport): string => {
+  const trimmedPrompt = report.requestMarkdown.trim();
+  if (!trimmedPrompt) {
+    return DEFAULT_REPORT_TASTE_LABEL;
+  }
+
+  const matchedTemplate = REPORT_TEMPLATES.find((template) => {
+    if (template.id === "freeform") return false;
+    return template.prompt.trim() === trimmedPrompt;
+  });
+
+  return matchedTemplate?.name ?? FREEFORM_REPORT_TASTE_LABEL;
+};
+
+const getReportStatusLabel = (status: SessionReportStatus): string => {
+  return REPORT_STATUS_META[status]?.label ?? status;
+};
+
 type ReportTemplateType = "empathy" | "logical" | "psychopath" | "freeform";
 type ReportModeType = "auto" | "custom";
 
@@ -938,6 +959,11 @@ export default function AdminPage({
     }
   };
 
+  const handleOpenShareLink = () => {
+    if (!shareUrl) return;
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
+  };
+
   const handleCloseReportModal = () => {
     setShowReportModal(false);
     setReportMode(null);
@@ -1298,7 +1324,7 @@ export default function AdminPage({
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="flex flex-wrap justify-end gap-3 border-t pt-6">
+              <CardFooter className="flex flex-wrap justify-end gap-4 border-t pt-6">
                 {canEdit && (
                   <AlertDialog
                     open={showGenerateQuestionDialog}
@@ -1712,7 +1738,7 @@ export default function AdminPage({
                             {reports.map((report) => {
                               return (
                                 <option key={report.id} value={report.id}>
-                                  v{String(report.version).padStart(2, "0")}
+                                  {`v${String(report.version).padStart(2, "0")}・${getReportTasteLabel(report)}・${getReportStatusLabel(report.status)}`}
                                 </option>
                               );
                             })}
@@ -2006,6 +2032,18 @@ export default function AdminPage({
                           : "コピー"}
                     </Button>
                   </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleOpenShareLink}
+                    className="gap-1.5 text-xs"
+                    disabled={!shareUrl}
+                  >
+                    <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                    クリックして別タブで参加
+                  </Button>
                 </div>
                 <div className="relative rounded-2xl border border-border bg-gradient-to-br from-slate-50 to-white px-6 py-6 text-center shadow-inner dark:border-border dark:from-slate-900/40 dark:to-slate-950/40">
                   {shareQrUrl && (

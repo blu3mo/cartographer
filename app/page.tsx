@@ -288,7 +288,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8"
+                          className="h-8 min-w-[72px]"
                           onClick={(event) => {
                             event.stopPropagation();
                             router.push(
@@ -301,7 +301,7 @@ function SessionSections({ sessions }: SessionSectionsProps) {
                       )}
                       <Button
                         size="sm"
-                        className="h-8"
+                        className="h-8 min-w-[72px]"
                         onClick={(event) => {
                           event.stopPropagation();
                           window.open(
