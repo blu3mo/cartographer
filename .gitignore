@@ -56,3 +56,20 @@ dist
 *.log
 .ghc.environment.*
 .m36-data/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+tfplan
+tfplan.*
+.terraform/
+.terraform.lock.hcl
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

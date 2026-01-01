@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { PCA } from "ml-pca";
 import { type NextRequest, NextResponse } from "next/server";
 

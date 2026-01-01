@@ -1,0 +1,153 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy after build'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: kotto5
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+        continue-on-error: true
+
+      - name: Build Haskell backend
+        id: backend-build
+        run: nix build .#cartographer-backend --print-build-logs
+        continue-on-error: true
+
+      - name: Push partial results to Cachix (even on failure)
+        if: always()
+        run: |
+          echo "Pushing built paths to Cachix..."
+          nix path-info --all 2>/dev/null | grep -v '\.drv$' | cachix push kotto5 || true
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Fail if build failed
+        if: steps.backend-build.outcome == 'failure'
+        run: |
+          echo "Backend build failed"
+          exit 1
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Inject secrets and Build Next.js frontend (Standard)
+        run: |
+          # Validate Secrets
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "::error::Secret NEXT_PUBLIC_SUPABASE_URL is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" ]; then
+            echo "::error::Secret NEXT_PUBLIC_SUPABASE_ANON_KEY is not set"
+            exit 1
+          fi
+
+          # Inject secrets for build
+          cat <<EOF > .env.production
+          NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EOF
+          
+          # Install and Build
+          npm ci
+          npm run build
+          
+          # Prepare artifact directory for Nix
+          mkdir -p frontend-artifact/.next/static
+          cp -r .next/standalone/* frontend-artifact/
+          cp -r .next/static frontend-artifact/.next/static
+          cp -r public frontend-artifact/public
+          
+          git add -f frontend-artifact
+
+
+      - name: Package frontend with Nix
+        id: frontend-build
+        run: nix build .#cartographer-frontend --print-build-logs
+
+      # Skipping Cachix push for frontend as requested (Direct copy via Colmena later)
+
+      - name: Fail if frontend build failed
+        if: steps.frontend-build.outcome == 'failure'
+        run: |
+          echo "Frontend build failed"
+          exit 1
+
+
+  deploy:
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    # Deploy only on main branch AND when secrets are configured AND (push OR manual with deploy=true)
+    if: |
+      github.ref == 'refs/heads/main' && 
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy == true))
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: kotto5
+        continue-on-error: true
+
+      - name: Check deployment secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ] || [ -z "${{ secrets.SERVER_IP }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Deployment secrets not configured. Skipping deploy."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup SSH
+        if: steps.check-secrets.outputs.skip != 'true'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy via Colmena
+        if: steps.check-secrets.outputs.skip != 'true'
+        run: |
+          nix run github:zhaofengli/colmena -- apply \
+            --on cartographer-prod \
+            --verbose
+        env:
+          NIX_SSHOPTS: "-i ~/.ssh/id_ed25519"

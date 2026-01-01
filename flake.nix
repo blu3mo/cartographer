@@ -7,6 +7,12 @@
     haskell-flake.url = "github:srid/haskell-flake";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     project-m36.url = "github:plural-reality/project-m36";
+    colmena.url = "github:zhaofengli/colmena";
+  };
+
+  nixConfig = {
+    extra-substituters = [ "https://kotto5.cachix.org" ];
+    extra-trusted-public-keys = [ "kotto5.cachix.org-1:kIqTVHIxWyPkkiJ24ceZpS6JVvs2BE8GTIA48virk/s=" ];
   };
 
   outputs =
@@ -34,10 +40,18 @@
           system,
           lib,
           config,
-          pkgs,
           ...
         }:
         let
+          # Allow Terraform (BSL license)
+          pkgs = import inputs.nixpkgs {
+            inherit system;
+            config.allowUnfreePredicate =
+              pkg:
+              builtins.elem (lib.getName pkg) [
+                "terraform"
+              ];
+          };
           # project-m36 の lib を使って override を構築
           m36lib = inputs.project-m36.lib;
           fullOverrides = m36lib.composeOverrides m36lib.m36Overrides (m36lib.mkPkgsDependentOverrides pkgs);
@@ -138,6 +152,66 @@
                   sed -i '/test-suite cartographer-backend-test/a \ \ buildable: False' cartographer-backend.cabal
                 '';
               });
+
+          packages.cartographer-frontend = pkgs.buildNpmPackage {
+            pname = "cartographer-frontend";
+            version = "0.1.0";
+            src = ./.;
+
+            npmDepsHash = "sha256-XLo0yeTllvEDX38dPKnDV25UGZ/nEa2KuRSpPbebeLU="; # Updated hash
+
+            # Next.js build needs these
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [ pkgs.vips ];
+
+            # Filter out unnecessary files to avoid unnecessary rebuilds
+            # src = lib.cleanSourceWith {
+            #   filter = name: type:
+            #     let base = baseNameOf name; in
+            #     !(type == "directory" && (base == ".next" || base == "node_modules" || base == ".git"))
+            #     && base != "flake.nix"
+            #     && base != "flake.lock";
+            #   src = ./.;
+            # };
+            # Simplified source filter for now
+
+            # Next.js tries to write to cache
+            npmFlags = [
+              "--legacy-peer-deps"
+              "--ignore-scripts"
+            ];
+
+            # Environment variables for build
+            env = {
+              NEXT_TELEMETRY_DISABLED = "1";
+              # Allow installing devDependencies (typescript) during npm install
+              NODE_ENV = "development";
+
+              # Build-time env vars (using values from .env for now)
+              NEXT_PUBLIC_SUPABASE_URL = "https://uyuyqdhssttxswmflzrx.supabase.co";
+              NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5dXlxZGhzc3R0eHN3bWZsenJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0MjU1MDgsImV4cCI6MjA3NzAwMTUwOH0.u7iVjncFD_p_9CClxEQ4heejvbmEHFDFfDTG2VoyYXM";
+            };
+            buildPhase = ''
+              runHook preBuild
+              export NODE_ENV=production
+              npm run build
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p $out
+              # Copy standalone directory as 'app'
+              cp -r .next/standalone $out/app
+
+              # Copy static assets
+              mkdir -p $out/app/.next/static
+              cp -r .next/static/* $out/app/.next/static/
+              cp -r public $out/app/public
+
+              runHook postInstall
+            '';
+          };
 
           # TODO: EventId変更に伴いテストファイルの修正が必要
           # テストファイル修正後に以下のchecksを復活すること
@@ -241,6 +315,9 @@
                 git
                 watchman
                 libpq.pg_config
+                awscli2
+                terraform
+                gh # GitHub CLI for workflow management
                 config.haskellProjects.default.outputs.finalPackages.project-m36 # Provides tutd, project-m36-server
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
@@ -268,5 +345,81 @@
             '';
           };
         };
+
+      # Colmena configuration (outside perSystem)
+      flake = {
+        colmenaHive = inputs.colmena.lib.makeHive {
+          meta = {
+            nixpkgs = import nixpkgs {
+              system = "aarch64-linux";
+            };
+          };
+
+          defaults =
+            { pkgs, ... }:
+            {
+              environment.systemPackages = with pkgs; [
+                vim
+                htop
+                git
+              ];
+            };
+
+          # OS configuration only - always works from Mac
+          # Usage: colmena apply --on cartographer-infra
+          cartographer-infra =
+            { pkgs, ... }:
+            {
+              deployment = {
+                targetHost = "13.192.44.10";
+                targetUser = "root";
+                buildOnTarget = true;
+              };
+
+              imports = [
+                ./nixos/infrastructure.nix
+              ];
+            };
+
+          # Full deployment with applications - now works from Mac (aarch64)
+          # Usage: colmena apply --on cartographer-prod
+          cartographer-prod =
+            {
+              name,
+              nodes,
+              pkgs,
+              ...
+            }:
+            let
+              backendPackage = self.packages.aarch64-linux.cartographer-backend;
+              frontendPackage = self.packages.aarch64-linux.cartographer-frontend;
+            in
+            {
+              deployment = {
+                targetHost = "13.192.44.10";
+                targetUser = "root";
+                buildOnTarget = true; # Build on target (EC2) because Mac cannot build aarch64-linux
+
+                keys."env-file" = {
+                  keyFile = "/Users/yui/Developer/plural-reality/cartographer/.env.production";
+                  destDir = "/run/keys";
+                  user = "root";
+                  group = "cartographer";
+                  permissions = "0640";
+                };
+              };
+
+              imports = [
+                ./nixos/infrastructure.nix
+                ./nixos/application.nix
+              ];
+
+              _module.args = {
+                cartographer-backend = backendPackage;
+                cartographer-frontend = frontendPackage;
+              };
+            };
+        };
+      };
     };
 }

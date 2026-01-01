@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 import { getUserIdFromRequest } from "@/lib/auth";
 import {
   requireSessionAdminToken,
