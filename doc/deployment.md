@@ -1,85 +1,54 @@
 # Cartographer デプロイメントガイド
 
-## アーキテクチャ
+AWS ARM インスタンス上の NixOS システムへのデプロイ手順です。
 
-```
-ユーザー → Cloudflare (HTTPS) → EC2 (NixOS)
-                                   ├── Next.js (:80)
-                                   └── Haskell (:8080)
-                                        └── EFS (M36 データ)
-```
+通常は 2. 以降のみで良いと思います(AWS自体をいじる必要がない場合。)
 
 ## 前提条件
 
-- AWS CLI 設定済み `aws configure`
-- Nix インストール済み
-- SSH 鍵ペア作成済み
+- **Nix** (Flakes 有効化済み)
+- **AWS CLI** (`aws configure` 済み)
+- **SSH 鍵** (Terraform で指定したもの)
 
-## 初回セットアップ
+## デプロイ手順
 
-### 1. Terraform でインフラ作成
+### 1. インフラ構築 (Terraform)
 
 ```bash
 cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
-# terraform.tfvars の ssh_public_key を編集
+# terraform.tfvars を編集 (ssh_public_key など)
 
 terraform init
-terraform plan
 terraform apply
 ```
 
-### 2. SSH 設定
+出力された `instance_public_ip` を `flake.nix` の `targetHost` に設定してください。
 
-`~/.ssh/config` に追加：
-```
-Host cartographer-prod
-  HostName <Terraform 出力の instance_public_ip>
-  User root
-  IdentityFile ~/.ssh/cartographer
-```
+### 2. 環境変数の設定
 
-### 3. Cloudflare DNS
-
-Terraform 出力の `instance_public_ip` を Cloudflare DNS に設定
-
-## デプロイ
-
-### インフラのみ（Mac から実行可能）
-
-OS 設定、SSH 鍵、ファイアウォール等の変更：
+プロジェクトルートに `.env.production` を作成し、シークレットを記述します。
 
 ```bash
-nix run github:zhaofengli/colmena -- apply --on cartographer-infra
+# .env.production (例)
+DATABASE_URL=postgresql://postgres:PASSWORD@db.xxx.supabase.co:5432/postgres?sslmode=require
+OPENROUTER_API_KEY=sk-or-xxx
 ```
 
-### フルデプロイ（GitHub Actions から）
+> **Note**: `NEXT_PUBLIC_` 変数は `flake.nix` に記述してください（ビルド時に埋め込まれます）。
 
-アプリケーション込みのデプロイ（x86_64-linux ビルドが必要）：
+### 3. アプリケーションデプロイ (Colmena)
 
 ```bash
 nix run github:zhaofengli/colmena -- apply --on cartographer-prod
 ```
 
-## ファイル構成
+初回は EC2 上でのビルドに数分〜数十分かかります。
 
-| パス | 説明 |
-|------|------|
-| `infra/terraform/` | AWS インフラ定義 |
-| `nixos/infrastructure.nix` | OS 設定（SSH, EFS 等） |
-| `nixos/application.nix` | アプリ設定（systemd サービス） |
-| `.github/workflows/deploy.yml` | CI/CD ワークフロー |
+## 確認
 
-## GitHub Secrets
+デプロイ完了後、ブラウザで `http://<instance_public_ip>/` にアクセスできることを確認してください。
 
-| 名前 | 内容 |
-|------|------|
-| `DEPLOY_SSH_KEY` | SSH 秘密鍵 |
-| `SERVER_IP` | EC2 パブリック IP |
+## 参考
 
-## SSH 鍵の追加
-
-新しい SSH 鍵を追加する場合：
-
-1. `nixos/infrastructure.nix` の `authorizedKeys` に追加
-2. `nix run github:zhaofengli/colmena -- apply --on cartographer-infra`
+- トラブルシューティング: [troubleshooting.md](./troubleshooting.md)

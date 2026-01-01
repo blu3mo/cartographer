@@ -11,9 +11,12 @@ import Network.Wai.Handler.Warp qualified as Warp
 import System.Environment (lookupEnv)
 import Web.Server (AppConfig (..), app)
 import Data.Maybe (fromMaybe)
+import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 
 main :: IO ()
 main = do
+  hSetBuffering stdout LineBuffering
+  hSetBuffering stderr LineBuffering
   putStrLn "Starting server on port 8080..."
 
   -- M36データベース設定（環境変数 M36_DATA_PATH があればそれを使用）

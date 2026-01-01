@@ -27,6 +27,7 @@ resource "aws_instance" "app" {
   key_name               = aws_key_pair.deploy.key_name
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.app.id]
+  ipv6_address_count     = 1
 
   root_block_device {
     volume_size = 30

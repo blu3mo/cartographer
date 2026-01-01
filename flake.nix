@@ -153,32 +153,65 @@
                 '';
               });
 
-          packages.cartographer-frontend =
-            let
-              # Check if the artifact directory exists (populated by CI)
-              artifactSrc = if builtins.pathExists ./frontend-artifact then ./frontend-artifact else ./.; # Fallback for local dev (might fail or be empty)
-            in
-            pkgs.stdenv.mkDerivation {
-              pname = "cartographer-frontend";
-              version = "0.1.0";
-              src = artifactSrc;
+          packages.cartographer-frontend = pkgs.buildNpmPackage {
+            pname = "cartographer-frontend";
+            version = "0.1.0";
+            src = ./.;
 
-              # No build phase needed, just copy
-              dontBuild = true;
+            npmDepsHash = "sha256-XLo0yeTllvEDX38dPKnDV25UGZ/nEa2KuRSpPbebeLU="; # Updated hash
 
-              installPhase = ''
-                mkdir -p $out/app
-                if [ -d ".next/standalone" ]; then
-                  cp -r .next/standalone/* $out/app/
-                  cp -r .next/static $out/app/.next/static
-                  cp -r public $out/app/public
-                else
-                  echo "Warning: No build artifact found. This package expects .next/standalone."
-                  # For safety in local dev without artifact, create dummy
-                  touch $out/app/dummy
-                fi
-              '';
+            # Next.js build needs these
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [ pkgs.vips ];
+
+            # Filter out unnecessary files to avoid unnecessary rebuilds
+            # src = lib.cleanSourceWith {
+            #   filter = name: type:
+            #     let base = baseNameOf name; in
+            #     !(type == "directory" && (base == ".next" || base == "node_modules" || base == ".git"))
+            #     && base != "flake.nix"
+            #     && base != "flake.lock";
+            #   src = ./.;
+            # };
+            # Simplified source filter for now
+
+            # Next.js tries to write to cache
+            npmFlags = [
+              "--legacy-peer-deps"
+              "--ignore-scripts"
+            ];
+
+            # Environment variables for build
+            env = {
+              NEXT_TELEMETRY_DISABLED = "1";
+              # Allow installing devDependencies (typescript) during npm install
+              NODE_ENV = "development";
+
+              # Build-time env vars (using values from .env for now)
+              NEXT_PUBLIC_SUPABASE_URL = "https://uyuyqdhssttxswmflzrx.supabase.co";
+              NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5dXlxZGhzc3R0eHN3bWZsenJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0MjU1MDgsImV4cCI6MjA3NzAwMTUwOH0.u7iVjncFD_p_9CClxEQ4heejvbmEHFDFfDTG2VoyYXM";
             };
+            buildPhase = ''
+              runHook preBuild
+              export NODE_ENV=production
+              npm run build
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p $out
+              # Copy standalone directory as 'app'
+              cp -r .next/standalone $out/app
+
+              # Copy static assets
+              mkdir -p $out/app/.next/static
+              cp -r .next/static/* $out/app/.next/static/
+              cp -r public $out/app/public
+
+              runHook postInstall
+            '';
+          };
 
           # TODO: EventId変更に伴いテストファイルの修正が必要
           # テストファイル修正後に以下のchecksを復活すること
@@ -365,7 +398,15 @@
               deployment = {
                 targetHost = "13.192.44.10";
                 targetUser = "root";
-                buildOnTarget = false; # Build on CI, not on target
+                buildOnTarget = true; # Build on target (EC2) because Mac cannot build aarch64-linux
+
+                keys."env-file" = {
+                  keyFile = "/Users/yui/Developer/plural-reality/cartographer/.env.production";
+                  destDir = "/run/keys";
+                  user = "root";
+                  group = "cartographer";
+                  permissions = "0640";
+                };
               };
 
               imports = [

@@ -31,6 +31,7 @@
       ExecStart = "${lib.getExe cartographer-backend}";
       Restart = "always";
       RestartSec = 5;
+      EnvironmentFile = "/run/keys/env-file";
     };
   };
 
@@ -56,6 +57,7 @@
       ExecStart = "${pkgs.nodejs_20}/bin/node ${cartographer-frontend}/app/server.js";
       Restart = "always";
       RestartSec = 5;
+      EnvironmentFile = "/run/keys/env-file";
     };
   };
 }
