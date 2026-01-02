@@ -1,9 +1,6 @@
-export const dynamic = "force-dynamic";
-
 import { type NextRequest, NextResponse } from "next/server";
 import { getUserIdFromRequest } from "@/lib/auth";
-import { createSession } from "@/lib/api/client";
-import { CreateSessionRequest } from "@/lib/api/types";
+import { ensureEventThreadForSession } from "@/lib/server/event-threads";
 import { supabase } from "@/lib/supabase";
 import { generateSurveyStatements } from "../../../agents/llm";
 
@@ -33,7 +30,6 @@ function mapSession(row: SessionRow) {
     updatedAt: row.updated_at,
   };
 }
-
 
 export async function GET(request: NextRequest) {
   try {
@@ -178,9 +174,49 @@ export async function POST(request: NextRequest) {
     const trimmedGoal = goal.trim();
     const normalizedContext = context.trim();
 
-    // Generate initial 15 questions
-    let statementTexts: string[] = [];
+    const { data: createdSession, error: createSessionError } = await supabase
+      .from("sessions")
+      .insert({
+        title: trimmedTitle,
+        context: normalizedContext,
+        goal: trimmedGoal,
+        is_public: false,
+        host_user_id: userId,
+      })
+      .select(
+        "id, title, context, goal, is_public, host_user_id, admin_access_token, created_at, updated_at",
+      )
+      .single();
+
+    if (createSessionError || !createdSession) {
+      console.error("Failed to create session:", createSessionError);
+      return NextResponse.json(
+        { error: "Failed to create session" },
+        { status: 500 },
+      );
+    }
+
+    let threadId: string;
     try {
+      const thread = await ensureEventThreadForSession({
+        id: createdSession.id,
+        context: normalizedContext,
+        goal: trimmedGoal,
+        host_user_id: userId,
+        title: trimmedTitle,
+      });
+      threadId = thread.id;
+    } catch (threadError) {
+      console.error("Failed to provision event thread:", threadError);
+      return NextResponse.json(
+        { error: "Failed to finalize session bootstrap" },
+        { status: 500 },
+      );
+    }
+
+    // Generate initial 15 questions
+    try {
+      let statementTexts: string[] = [];
       const { initialQuestions } = body as { initialQuestions?: string[] };
 
       if (
@@ -190,35 +226,56 @@ export async function POST(request: NextRequest) {
       ) {
         statementTexts = initialQuestions;
       } else {
-        // Generate with minimal context (since we don't have Supabase thread history anymore)
-        statementTexts = await generateSurveyStatements({
-          sessionTitle: trimmedTitle,
-          sessionGoal: trimmedGoal,
-          initialContext: normalizedContext,
-          eventThreadContext: "[]", // Empty history
-          participantCount: 0,
-        });
+        // Fetch context for LLM (initial user message)
+        const { data: events, error: eventsError } = await supabase
+          .from("events")
+          .select(
+            "id, type, agent_id, user_id, progress, payload, order_index, created_at",
+          )
+          .eq("thread_id", threadId)
+          .order("order_index", { ascending: true });
+
+        if (eventsError) {
+          console.error("Failed to fetch events for context:", eventsError);
+          // Continue without generating questions, or log warning
+        } else {
+          statementTexts = await generateSurveyStatements({
+            sessionTitle: trimmedTitle,
+            sessionGoal: trimmedGoal,
+            initialContext: normalizedContext,
+            eventThreadContext: JSON.stringify(events),
+            participantCount: 0, // Initial creation, no participants yet
+          });
+        }
+      }
+
+      if (statementTexts.length > 0) {
+        const statementsPayload = statementTexts.map(
+          (text: string, index: number) => ({
+            session_id: createdSession.id,
+            text,
+            order_index: index + 1,
+          }),
+        );
+
+        const { error: insertError } = await supabase
+          .from("statements")
+          .insert(statementsPayload);
+
+        if (insertError) {
+          console.error("Failed to insert generated statements:", insertError);
+        }
       }
     } catch (genError) {
       console.error("Failed to generate initial statements:", genError);
-      // Continue without questions if generation fails
+      // We don't fail the request here, just log the error.
+      // The user will see the session created but without questions.
     }
-
-    // Call Haskell Backend
-    const createReq: CreateSessionRequest = {
-      title: trimmedTitle,
-      purpose: trimmedGoal,
-      background: normalizedContext,
-      hostUserId: userId,
-      initialQuestions: statementTexts.length > 0 ? statementTexts : undefined,
-    };
-
-    const backendRes = await createSession(createReq);
 
     return NextResponse.json({
       session: {
-        id: backendRes.sessionId,
-        adminAccessToken: backendRes.adminAccessToken,
+        ...mapSession(createdSession),
+        adminAccessToken: createdSession.admin_access_token,
       },
     });
   } catch (error) {
