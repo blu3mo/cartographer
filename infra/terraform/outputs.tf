@@ -12,3 +12,8 @@ output "ssh_command" {
   description = "SSH command to connect"
   value       = "ssh root@${aws_eip.app.public_ip}"
 }
+
+output "domain_url" {
+  description = "Application URL (after DNS propagation)"
+  value       = "https://${var.domain_name}/"
+}
