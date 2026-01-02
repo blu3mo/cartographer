@@ -1,5 +1,12 @@
 {
   "git": {
-    "deploymentEnabled": false
-  }
+    "deploymentEnabled": true
+  },
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://baisoku-kaigi.com/$1",
+      "permanent": true
+    }
+  ]
 }
