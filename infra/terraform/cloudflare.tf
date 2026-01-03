@@ -5,19 +5,9 @@ provider "cloudflare" {
 }
 
 # DNS Records
-resource "cloudflare_record" "root" {
+resource "cloudflare_record" "app" {
   zone_id         = var.cloudflare_zone_id
-  name            = "@"
-  content         = aws_eip.app.public_ip
-  type            = "A"
-  proxied         = true
-  allow_overwrite = true
-  comment         = "Managed by Terraform"
-}
-
-resource "cloudflare_record" "www" {
-  zone_id         = var.cloudflare_zone_id
-  name            = "www"
+  name            = "app"
   content         = aws_eip.app.public_ip
   type            = "A"
   proxied         = true

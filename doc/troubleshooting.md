@@ -51,3 +51,46 @@ Supabase が IPv6 のみでエンドポイントを提供しているため、�
 - Route Table: `::/0` → Internet Gateway
 - Security Group: IPv6 アウトバウンドルール
 - EC2: `ipv6_address_count = 1`
+
+### EFS マウントターゲットの VPC コンフリクト
+
+`terraform apply` 時に以下のエラーが出る場合：
+
+```
+MountTargetConflict: requested subnet for new mount target is not in the same VPC as existing mount targets
+```
+
+**原因:**
+EFS ファイルシステムに既存のマウントターゲットがあり、それが別の VPC に存在している。EFS は1つのファイルシステムにつき、1つの VPC 内のサブネットにのみマウントターゲットを作成できる。
+
+**診断:**
+
+```bash
+# 既存のマウントターゲットを確認
+aws efs describe-mount-targets --file-system-id <EFS_ID>
+
+# Terraform state の VPC/Subnet を確認
+terraform state show aws_vpc.main
+terraform state show aws_subnet.public
+```
+
+**解決手順:**
+
+1. 古いマウントターゲットを削除:
+   ```bash
+   aws efs delete-mount-target --mount-target-id <MOUNT_TARGET_ID>
+   ```
+
+2. 削除完了を待機（1-2分）:
+   ```bash
+   aws efs describe-mount-targets --file-system-id <EFS_ID>
+   # MountTargets: [] になるまで待つ
+   ```
+
+3. Terraform apply を再実行:
+   ```bash
+   terraform apply
+   ```
+
+> [!NOTE]
+> マウントターゲットを削除しても EFS 上のデータは保持されます。ただし、削除中は EC2 からマウントできなくなるため、サービス停止時間が発生します。

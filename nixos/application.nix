@@ -25,7 +25,7 @@
     recommendedGzipSettings = true;
     recommendedProxySettings = true;
 
-    virtualHosts."baisoku-kaigi.com" = {
+    virtualHosts."app.baisoku-kaigi.com" = {
       forceSSL = true;
       sslCertificate = "/run/keys/origin-cert";
       sslCertificateKey = "/run/keys/origin-key";
@@ -36,12 +36,12 @@
       };
     };
 
-    # Redirect www to non-www
-    virtualHosts."www.baisoku-kaigi.com" = {
+    # Redirect www.app to app
+    virtualHosts."www.app.baisoku-kaigi.com" = {
       forceSSL = true;
       sslCertificate = "/run/keys/origin-cert";
       sslCertificateKey = "/run/keys/origin-key";
-      globalRedirect = "baisoku-kaigi.com";
+      globalRedirect = "app.baisoku-kaigi.com";
     };
   };
 

@@ -15,5 +15,5 @@ output "ssh_command" {
 
 output "domain_url" {
   description = "Application URL (after DNS propagation)"
-  value       = "https://${var.domain_name}/"
+  value       = "https://app.${var.domain_name}/"
 }
