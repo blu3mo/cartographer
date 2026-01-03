@@ -318,6 +318,7 @@
                 awscli2
                 terraform
                 gh # GitHub CLI for workflow management
+                cachix # Cachix CLI for cache management
                 config.haskellProjects.default.outputs.finalPackages.project-m36 # Provides tutd, project-m36-server
               ]
               ++ lib.optionals pkgs.stdenv.isDarwin [ libiconv ];
