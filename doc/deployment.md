@@ -1,124 +1,110 @@
 # Cartographer デプロイメントガイド
 
-AWS ARM インスタンス上の NixOS システムへのデプロイ手順です。
+このガイドでは、以下の3つのレイヤーに分けてデプロイ手順を解説します。
 
-通常は 2. 以降のみで良いと思います(AWS自体をいじる必要がない場合。)
+1.  **Workplace Management (管理者向け)**: Terraform Cloud ワークスペース自体の設定・権限管理
+2.  **Infrastructure Management (開発者向け)**: AWS/Cloudflare リソースの構成管理
+3.  **Application Deployment (開発者向け)**: アプリケーションコードのデプロイ
 
-## 前提条件
+---
 
-- **Nix** (Flakes 有効化済み)
-- **AWS CLI** (`aws configure` 済み)
-- **SSH 鍵** (Terraform で指定したもの)
-- **Cloudflare アカウント** (ドメイン `baisoku-kaigi.com` 管理用)
+## 1. Workspace Management (管理者向け)
 
-## デプロイ手順
+**対象ディレクトリ:** `infra/tfc-bootstrap`
 
-### 1. インフラ構築 (Terraform)
+Terraform Cloud (TFC) のワークスペース設定、環境変数、チームメンバー招待をコード (`tfc-bootstrap`) で管理します。**通常、開発者がここを触る必要はありません。**
 
-```bash
-cd infra/terraform
-cp terraform.tfvars.example terraform.tfvars
-# terraform.tfvars を編集
-```
-
-**terraform.tfvars に設定する値:**
-
-| 変数 | 取得方法 |
-|------|----------|
-| `ssh_public_key` | ローカルの SSH 公開鍵 |
-| `cloudflare_api_token` | 下記参照（2種類の権限が必要） |
-| `cloudflare_zone_id` | Cloudflare ダッシュボード → `baisoku-kaigi.com` → 右サイドバー **Zone ID** |
-
-**Cloudflare API Token の作成:**
-
-1. [API Tokens](https://dash.cloudflare.com/profile/api-tokens) → **Create Token**
-2. **Custom token** を選択
-3. 以下の権限を付与:
-   - `Zone - DNS - Edit`
-   - `Zone - SSL and Certificates - Edit` (Origin Certificate用)
-4. Zone Resources で `baisoku-kaigi.com` を選択
-5. トークンを `terraform.tfvars` に記載
+### 初回セットアップ / 設定変更
 
 ```bash
-terraform init
-terraform plan   # 変更内容を確認
-terraform apply
-```
-
-これにより以下が自動設定されます:
-- EC2 インスタンス + Elastic IP
-- Cloudflare DNS レコード (`app.baisoku-kaigi.com`)
-- Cloudflare Origin Certificate (15年有効、`origin-cert.pem` / `origin-key.pem`)
-- セキュリティグループ (HTTP/HTTPS)
-
-
-```bash
-# 1. TFC Bootstrap (初回のみ / 管理者用)
-# Terraform Cloud のワークスペース設定と変数を管理します
 cd infra/tfc-bootstrap
 cp terraform.tfvars.example terraform.tfvars
-# terraform.tfvars に Cloudflare API Token などを設定
+# terraform.tfvars に管理者用設定（Cloudflareトークンなど）を記述
+
 terraform init
 terraform apply
 ```
 
+### 管理できる項目
+- **AWS認証情報**: 手順内で専用IAMユーザーを作成・設定済み
+- **Cloudflareトークン**: TFCの環境変数として注入
+- **チームメンバー**: `terraform.tfvars` の `team_members` にメールアドレスを追加して apply すると招待が送信されます
+
+---
+
+## 2. Infrastructure Management (開発者向け)
+
+**対象ディレクトリ:** `infra/terraform`
+
+AWS (EC2, EFS, VPC) や Cloudflare (DNS, SSL) のリソースを変更する場合の手順です。
+state は Terraform Cloud で共有されているため、チーム全員が常に同じ最新状態を参照できます。
+
+### 準備
+
+TFC にログインします（初回のみ）。
+
 ```bash
-# 2. インフラ構築 (Terraform Cloud)
-# 通常の運用はこちら（チームメンバー含む）
 cd infra/terraform
-
-# TFCログイン (初回およびトークン期限切れ時)
 terraform login
-
-# プランと適用 (リモート実行)
-terraform init
-terraform plan
-terraform apply
 ```
 
-> **Note**: **`terraform.tfvars` の作成は不要です。**
-> 変数（AWS認証情報、Cloudflareトークン、SSH鍵など）は全て Terraform Cloud 上で管理されており、`terraform login` を行うことで自動的に参照されます。
+### インフラの変更・適用
 
-#### 変数の確認・変更
-変数は `infra/tfc-bootstrap/terraform.tfvars` で管理し、apply することで TFC に反映されます。
-直接 TFC のダッシュボードから変更することも可能ですが、コード管理を推奨します。
-
-
-> **Tip**: リソースIDはAWSコンソールまたは `aws ec2 describe-instances` 等で確認できます。
-
-### 2. 環境変数の設定
-
-プロジェクトルートに `.env.production` を作成し、シークレットを記述します。
+`terraform.tfvars` は不要です（TFC上の変数が自動的に使われます）。
 
 ```bash
-# .env.production (例)
+terraform init
+terraform plan   # 変更内容の確認
+terraform apply  # 変更の適用
+```
+
+### 主な管理リソース
+- **EC2**: インスタンスタイプ、AMI
+- **Networking**: VPC, Subnet, Security Groups
+- **Storage**: EFS Settings
+- **DNS/SSL**: Cloudflare Records, Origin Certificates
+
+---
+
+## 3. Application Deployment (開発者向け)
+
+**対象ツール:** Colmena (Nix)
+
+インフラ（EC2）が立ち上がった後、実際にアプリケーションをデプロイする手順です。
+
+### 準備: 環境変数
+
+プロジェクトルートに `.env.production` を作成し、アプリケーション用シークレットを記述します。
+
+```bash
+# .env.production
 DATABASE_URL=postgresql://postgres:PASSWORD@db.xxx.supabase.co:5432/postgres?sslmode=require
 OPENROUTER_API_KEY=sk-or-xxx
 ```
-
 > **Note**: `NEXT_PUBLIC_` 変数は `flake.nix` に記述してください（ビルド時に埋め込まれます）。
 
-### 3. アプリケーションデプロイ (Colmena)
+### デプロイ実行
 
 ```bash
 nix run github:zhaofengli/colmena -- apply --on cartographer-prod
 ```
 
-初回は EC2 上でのビルドに数分〜数十分かかります。
+Colmena が自動的に以下を行います:
+- ローカル (or リモートビルダ) で NixOS システムをビルド
+- EC2 に SSH 接続して構成を適用 (Switch)
+- systemd サービスの再起動 (Backend, Frontend, Nginx)
 
-Colmena が自動的に以下をデプロイします:
-- Haskell バックエンド
-- Next.js フロントエンド
-- nginx (SSL 終端 + リバースプロキシ)
-- Cloudflare Origin Certificate
+---
 
-## 確認
+## その他
 
-デプロイ完了後、ブラウザで `https://app.baisoku-kaigi.com/` にアクセスできることを確認してください。
+### トラブルシューティング
+- [troubleshooting.md](./troubleshooting.md)
 
-> **Note**: DNS 伝播に数分〜数時間かかる場合があります。
+### 既存リソースの取り込み (Import)
+TFC導入前に作られたリソースを管理下に置く場合のみ必要です。
 
-## 参考
-
-- トラブルシューティング: [troubleshooting.md](./troubleshooting.md)
-
+```bash
+cd infra/terraform
+terraform import aws_vpc.main vpc-xxxxxxxx
+```
