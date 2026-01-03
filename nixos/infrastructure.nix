@@ -12,6 +12,31 @@
   nix.settings = {
     substituters = [ "https://kotto5.cachix.org" ];
     trusted-public-keys = [ "kotto5.cachix.org-1:kIqTVHIxWyPkkiJ24ceZpS6JVvs2BE8GTIA48virk/s=" ];
+
+    # Post-build hook to automatically push to Cachix
+    # Token is fetched from AWS SSM Parameter Store using EC2 IAM Role
+    post-build-hook = pkgs.writeShellScript "cachix-push-hook" ''
+      set -euf
+
+      # Check if we're on EC2 with IAM role (IMDS available)
+      if ${pkgs.curl}/bin/curl -s -m 1 http://169.254.169.254/latest/meta-data/ > /dev/null 2>&1; then
+        # Fetch token from AWS SSM Parameter Store
+        CACHIX_AUTH_TOKEN=$(${pkgs.awscli2}/bin/aws ssm get-parameter \
+          --name "/cartographer/cachix-auth-token" \
+          --with-decryption \
+          --query "Parameter.Value" \
+          --output text \
+          --region ap-northeast-1 2>/dev/null || true)
+
+        if [ -n "$CACHIX_AUTH_TOKEN" ]; then
+          export CACHIX_AUTH_TOKEN
+          echo "Pushing to Cachix: $OUT_PATHS"
+          ${pkgs.cachix}/bin/cachix push kotto5 $OUT_PATHS
+        else
+          echo "Cachix token not available, skipping push"
+        fi
+      fi
+    '';
   };
 
   # System packages
@@ -21,6 +46,7 @@
     git
     nfs-utils
     nodejs_20
+    awscli2  # Required for SSM Parameter Store access
   ];
 
   # Enable SSH
