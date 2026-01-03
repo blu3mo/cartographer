@@ -1,0 +1,32 @@
+# Terraform Cloud Ignored Files
+.git/
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+!*.tfvars.example
+
+# Nix build results (symlinks to /nix/store cause upload errors)
+result
+result-*
+backend/result
+
+# Node modules
+node_modules/
+.next/
+.vercel/
+
+# Haskell/Cabal
+dist-newstyle/
+.ghc.environment.*
+
+# Misc
+.DS_Store
+.env*
+.m36-data/
+
+# Documentation (contains broken symlinks in doc/nix)
+doc/
+
+# Nix Direct Environment
+.direnv/

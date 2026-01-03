@@ -1,0 +1,21 @@
+# TFE Bootstrap Variables
+# このファイルをコピーして terraform.tfvars を作成してください
+# 注意: terraform.tfvars はGitにコミットしないでください
+
+# 初回実行時は空でOK (IAMユーザー作成後に設定)
+aws_access_key_id     = ""
+aws_secret_access_key = ""
+
+# Cloudflare設定 (terraform/terraform.tfvars と同じ値)
+cloudflare_api_token = "<your-cloudflare-token>"
+cloudflare_zone_id   = "61c78d7b8df1ab0fbcd5c1935ca344aa"
+
+# SSH公開鍵
+ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnYOFNcOn+q9TXSZg/PmON97ryakpnkBOvBHBOceELP cartographer-deploy"
+
+# チームメンバー (招待するメールアドレス)
+# team_members = [
+#   "member1@example.com",
+#   "member2@example.com"
+# ]
+

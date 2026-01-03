@@ -1,6 +1,13 @@
 terraform {
   required_version = ">= 1.0"
 
+  cloud {
+    organization = "plural-reality"
+    workspaces {
+      name = "cartographer-prod"
+    }
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -15,14 +22,6 @@ terraform {
       version = "~> 4.0"
     }
   }
-
-  # Uncomment after first apply to enable remote state
-  # backend "s3" {
-  #   bucket         = "cartographer-terraform-state"
-  #   key            = "prod/terraform.tfstate"
-  #   region         = "ap-northeast-1"
-  #   encrypt        = true
-  # }
 }
 
 provider "aws" {

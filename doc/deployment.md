@@ -51,6 +51,47 @@ terraform apply
 - Cloudflare Origin Certificate (15年有効、`origin-cert.pem` / `origin-key.pem`)
 - セキュリティグループ (HTTP/HTTPS)
 
+
+```bash
+# 1. TFC Bootstrap (初回のみ / 管理者用)
+# Terraform Cloud のワークスペース設定と変数を管理します
+cd infra/tfc-bootstrap
+cp terraform.tfvars.example terraform.tfvars
+# terraform.tfvars に Cloudflare API Token などを設定
+terraform init
+terraform apply
+```
+
+```bash
+# 2. インフラ構築 (Terraform Cloud)
+# 通常の運用はこちら
+cd infra/terraform
+
+# TFCログイン (未ログインの場合)
+terraform login
+
+# プランと適用 (リモート実行)
+terraform init
+terraform plan
+terraform apply
+```
+
+これにより以下が自動設定されます:
+- EC2 インスタンス + Elastic IP
+- Cloudflare DNS レコード (`app.baisoku-kaigi.com`)
+- Cloudflare Origin Certificate (15年有効)
+- セキュリティグループ (HTTP/HTTPS)
+
+> **Note**: Terraform Cloud (TFC) 上で state 管理と `terraform plan/apply` の実行が行われます。
+> AWS認証情報やAPIトークンは `tfc-bootstrap` で TFC に設定済みのため、ローカルでの設定は不要です。
+
+#### 変数の確認・変更
+変数は `infra/tfc-bootstrap/terraform.tfvars` で管理し、apply することで TFC に反映されます。
+直接 TFC のダッシュボードから変更することも可能ですが、コード管理を推奨します。
+
+
+> **Tip**: リソースIDはAWSコンソールまたは `aws ec2 describe-instances` 等で確認できます。
+
 ### 2. 環境変数の設定
 
 プロジェクトルートに `.env.production` を作成し、シークレットを記述します。
