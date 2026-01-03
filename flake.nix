@@ -372,7 +372,7 @@
             { pkgs, ... }:
             {
               deployment = {
-                targetHost = "13.192.44.10";
+                targetHost = "13.192.113.189";
                 targetUser = "root";
                 buildOnTarget = true;
               };
@@ -397,7 +397,7 @@
             in
             {
               deployment = {
-                targetHost = "13.192.44.10";
+                targetHost = "13.192.113.189";
                 targetUser = "root";
                 buildOnTarget = true; # Build on target (EC2) because Mac cannot build aarch64-linux
 
