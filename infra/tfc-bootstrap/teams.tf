@@ -13,3 +13,19 @@ resource "tfe_organization_membership" "members" {
   organization = data.tfe_organization.plural_reality.name
   email        = each.value
 }
+
+# Ownersチームの情報を取得 (Freeプランではカスタムチーム作成不可のため)
+data "tfe_team" "owners" {
+  name         = "owners"
+  organization = data.tfe_organization.plural_reality.name
+}
+
+# メンバーをOwnersチームに追加 (管理者権限付与)
+resource "tfe_team_organization_member" "owners" {
+  for_each = tfe_organization_membership.members
+
+  team_id                    = data.tfe_team.owners.id
+  organization_membership_id = each.value.id
+}
+
+
