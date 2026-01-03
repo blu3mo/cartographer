@@ -64,10 +64,10 @@ terraform apply
 
 ```bash
 # 2. インフラ構築 (Terraform Cloud)
-# 通常の運用はこちら
+# 通常の運用はこちら（チームメンバー含む）
 cd infra/terraform
 
-# TFCログイン (未ログインの場合)
+# TFCログイン (初回およびトークン期限切れ時)
 terraform login
 
 # プランと適用 (リモート実行)
@@ -76,14 +76,8 @@ terraform plan
 terraform apply
 ```
 
-これにより以下が自動設定されます:
-- EC2 インスタンス + Elastic IP
-- Cloudflare DNS レコード (`app.baisoku-kaigi.com`)
-- Cloudflare Origin Certificate (15年有効)
-- セキュリティグループ (HTTP/HTTPS)
-
-> **Note**: Terraform Cloud (TFC) 上で state 管理と `terraform plan/apply` の実行が行われます。
-> AWS認証情報やAPIトークンは `tfc-bootstrap` で TFC に設定済みのため、ローカルでの設定は不要です。
+> **Note**: **`terraform.tfvars` の作成は不要です。**
+> 変数（AWS認証情報、Cloudflareトークン、SSH鍵など）は全て Terraform Cloud 上で管理されており、`terraform login` を行うことで自動的に参照されます。
 
 #### 変数の確認・変更
 変数は `infra/tfc-bootstrap/terraform.tfvars` で管理し、apply することで TFC に反映されます。
