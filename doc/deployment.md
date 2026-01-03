@@ -41,12 +41,13 @@ cp terraform.tfvars.example terraform.tfvars
 
 ```bash
 terraform init
+terraform plan   # 変更内容を確認
 terraform apply
 ```
 
 これにより以下が自動設定されます:
 - EC2 インスタンス + Elastic IP
-- Cloudflare DNS レコード (`@` と `www`)
+- Cloudflare DNS レコード (`app.baisoku-kaigi.com`)
 - Cloudflare Origin Certificate (15年有効、`origin-cert.pem` / `origin-key.pem`)
 - セキュリティグループ (HTTP/HTTPS)
 
@@ -78,7 +79,7 @@ Colmena が自動的に以下をデプロイします:
 
 ## 確認
 
-デプロイ完了後、ブラウザで `https://baisoku-kaigi.com/` にアクセスできることを確認してください。
+デプロイ完了後、ブラウザで `https://app.baisoku-kaigi.com/` にアクセスできることを確認してください。
 
 > **Note**: DNS 伝播に数分〜数時間かかる場合があります。
 
