@@ -22,3 +22,7 @@ terraform apply
 - EC2 (NixOS) - Next.js + Haskell backend
 - EFS - M36 data storage
 - Cloudflare - HTTPS/DNS (configured separately)
+
+## implecit context
+SSM Parameter Store
+- /cartographer/cachix-auth-token に cachix authtoken を格納済

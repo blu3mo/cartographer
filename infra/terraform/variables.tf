@@ -38,3 +38,9 @@ variable "domain_name" {
   type        = string
   default     = "baisoku-kaigi.com"
 }
+
+variable "cachix_auth_token" {
+  description = "Cachix authentication token for cache pushing"
+  type        = string
+  sensitive   = true
+}
