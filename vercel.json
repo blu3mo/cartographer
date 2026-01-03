@@ -5,7 +5,7 @@
   "redirects": [
     {
       "source": "/(.*)",
-      "destination": "https://baisoku-kaigi.com/$1",
+      "destination": "https://app.baisoku-kaigi.com/$1",
       "permanent": true
     }
   ]
