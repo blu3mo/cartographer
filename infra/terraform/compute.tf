@@ -34,9 +34,19 @@ resource "aws_instance" "app" {
     volume_type = "gp3"
   }
 
-  # Mount EFS
+  # Initial setup on first boot
   user_data = <<-EOF
     #!/run/current-system/sw/bin/bash
+    
+    # Add SSH authorized keys for root (both deploy keys)
+    mkdir -p /root/.ssh
+    cat >> /root/.ssh/authorized_keys << 'SSHKEYS'
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnYOFNcOn+q9TXSZg/PmON97ryakpnkBOvBHBOceELP cartographer-deploy
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHk5S3FIh2mtFzBZvumg/no+AYrC10zAJVUtteheQTNj cartographer-deploy-akiba
+    SSHKEYS
+    chmod 600 /root/.ssh/authorized_keys
+    
+    # Mount EFS
     mkdir -p /mnt/efs
     mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 ${aws_efs_file_system.m36.dns_name}:/ /mnt/efs
     mkdir -p /mnt/efs/m36-data
