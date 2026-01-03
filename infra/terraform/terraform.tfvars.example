@@ -5,6 +5,8 @@ aws_region           = "ap-northeast-1"
 environment          = "prod"
 instance_type        = "t4g.medium"
 ssh_public_key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnYOFNcOn+q9TXSZg/PmON97ryakpnkBOvBHBOceELP cartographer-deploy"
+# https://dash.cloudflare.com/4b89859ca04ab10a2f2f4e3e77757257/api-tokens
+# アカウント.アカウント: SSL および証明書, ゾーン.DNS on baisoku-kaigi.com
 cloudflare_api_token = "<token>"
 cloudflare_zone_id   = "61c78d7b8df1ab0fbcd5c1935ca344aa"
 domain_name          = "baisoku-kaigi.com"
