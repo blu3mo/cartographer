@@ -75,6 +75,7 @@
   };
 
   # EFS mount point
+  # Uses automount to handle cases where DNS resolution is delayed at boot
   fileSystems."/mnt/efs" = {
     device = "fs-0f72db497533bbfde.efs.ap-northeast-1.amazonaws.com:/";
     fsType = "nfs4";
@@ -86,6 +87,9 @@
       "timeo=600"
       "retrans=2"
       "_netdev"
+      "nofail"                    # Don't fail boot if mount fails
+      "x-systemd.automount"       # Mount on first access
+      "x-systemd.idle-timeout=60" # Unmount after 60s of inactivity (optional)
     ];
   };
 
