@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { createAuthorizationHeader } from "@/lib/auth";
 import { useUserId } from "@/lib/useUserId";
 
@@ -642,12 +643,14 @@ function NewSessionContent() {
                     任意
                   </span>
                 </label>
-                <textarea
+                <Textarea
                   id="backgroundInfo"
                   value={backgroundInfo}
                   onChange={(e) => setBackgroundInfo(e.target.value)}
-                  rows={4}
-                  className={textareaClasses("backgroundInfo")}
+                  autoResize={true}
+                  minRows={4}
+                  maxRows={16}
+                  isHighlighted={highlightedField === "backgroundInfo"}
                   placeholder="例: 社内チャットツールをSlackから新システムへ切り替える検討を開始。導入担当5名、移行時期は来月で、関係部署との調整に課題がある。高木（情シス）が全社導入を担当、青山（CS）はお客様対応で現行チャットが必須、西村（開発）はリリース準備と兼務。部署ごとに導入タイミングや懸念が異なるため、事前に認識合わせが必要..."
                 />
                 {renderFieldAid(
