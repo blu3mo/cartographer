@@ -27,6 +27,9 @@ db-reset:
 	docker exec supabase-db psql -U postgres -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO postgres;"
 	cat supabase/migrations/*.sql | docker exec -i supabase-db psql -U postgres -d postgres
 
+db-reset-local:
+	PGSSLMODE=disable supabase db reset --db-url "postgresql://postgres:your-super-secret-and-long-postgres-password@localhost:54322/postgres"
+
 # Supabase の初期セットアップ (何度実行しても安全な想定)
 supabase-init: supabase-fetch supabase-up db-schema
 
