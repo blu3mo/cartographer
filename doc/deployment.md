@@ -71,13 +71,15 @@ terraform apply  # 変更の適用
 `flake.nix` は、Terraform が出力する JSON ファイル (`infra/terraform/infra-*.json`) を動的に読み込みます。これにより、IP アドレスや EFS ID を手動で修正する必要がなくなります。
 
 ### 同期の仕組み
-1.  **Terraform**: `terraform apply` 実行時に、最新のインフラ情報を JSON 形式で出力します。
-2.  **Nix**: `colmena apply` 実行時に、`builtins.fromJSON` を使って上記のファイルを読み込みます。
+1.  **Terraform**: `terraform apply` 実行時に、機密情報（秘密鍵）を含まない設定 JSON (`infra-*.json`) が自動生成されます。
+2.  **Git**: 生成された JSON をコミットすることで、インフラの状態（IP や EFS ID）をリポジトリ内で共有できます。
+3.  **Nix**: `colmena apply` 実行時に、`builtins.fromJSON` を使って上記のファイルを読み込みます。
 
-> [!NOTE]
-> 設定を強制的に更新したい場合は、以下のコマンドで JSON ファイルのみを再生成できます。
+> [!TIP]
+> インフラに変更がない場合は、JSON の再生成は不要です。インフラを再構築した場合は、以下のコマンドで最新の状態を同期してください。
 > ```bash
-> TF_WORKSPACE=cartographer-staging terraform output -json > infra-cartographer-staging.json
+> # 例: staging の出力を手動同期する場合
+> TF_WORKSPACE=staging terraform output -json infra_metadata > infra-cartographer-staging.json
 > ```
 
 ---
@@ -103,7 +105,12 @@ OPENROUTER_API_KEY=sk-or-xxx
 
 ```bash
 # --impure フラグは $PWD（秘密情報のパス解決）を参照するために必要です
-nix run github:zhaofengli/colmena -- apply --on cartographer-prod --impure
+
+# Staging 環境へのデプロイ
+colmena apply --on cartographer-staging --impure
+
+# Production 環境へのデプロイ
+colmena apply --on cartographer-prod --impure
 ```
 
 Colmena が自動的に以下を行います:
@@ -135,6 +142,28 @@ Colmena が自動的に以下を行います:
 2.  **フェーズ2: 外部シークレットマネージャーの活用 (AWS Secrets Manager)**
     - 本番環境については、AWS Secrets Manager 等のマネージドサービスでの管理に移行します。
     - アプリケーション起動時に AWS SDK を通じてシークレットを取得し、ディスクへの書き出しを最小限に抑えます。
+
+---
+
+## 5. 信頼性と設計の意図 (Architecture & Reliability)
+
+システム全体の安定稼働のため、特に起動順序とファイル権限の管理において以下の設計を採用しています。
+
+### EFS 権限の動的解決 (`ExecStartPre`)
+バックエンドサービス (`cartographer-backend`) では、起動の直前に以下の処理を行っています。
+
+```nix
+serviceConfig.ExecStartPre = "+${pkgs.coreutils}/bin/chown cartographer:cartographer /mnt/efs";
+```
+
+#### なぜこれが必要なのか？
+1.  **マウント時のリセット**: EFS (NFSv4) が Linux にマウントされる際、マウントポイントの所有権が OS によって `root:root` に上書きされる場合があります。
+2.  **依存関係の限界**: Systemd の `after` や `requires` は「いつマウントするか」を制御できますが、「マウントされたディレクトリの所有権が正しいか」までは保証できません。
+3.  **起動エラーの回避**: Haskell バックエンドは `cartographer` ユーザーで動作するため、マウントポイントが `root` 所有のままだと、自身のデータベースディレクトリ (`m36-data`) の作成やアクセスに失敗してクラッシュします。
+
+#### 他の手段との比較
+- **`tmpfiles.d`**: システム起動時に実行されますが、EFS のマウント完了前にローカルディスク側にディレクトリを作ってしまう競合（Race Condition）のリスクがあります。
+- **`ExecStartPre` (採用)**: バイナリが動く **コンマ数秒前** に、root 権限（`+` プレフィックス）で所有権を「矯正」します。これにより、マウントの状態にかかわらず、バックエンドが常に書き込み可能な状態で起動することを保証しています。
 
 ---
 
