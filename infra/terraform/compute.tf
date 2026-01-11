@@ -16,7 +16,7 @@ data "aws_ami" "nixos" {
 
 # SSH Key Pair
 resource "aws_key_pair" "deploy" {
-  key_name   = "cartographer-deploy"
+  key_name   = "${local.name_prefix}-deploy"
   public_key = var.ssh_public_key
 }
 
@@ -43,7 +43,11 @@ resource "aws_instance" "app" {
   EOF
 
   tags = {
-    Name = "cartographer-app"
+    Name = "${local.name_prefix}-app"
+  }
+
+  metadata_options {
+    http_tokens = "optional" # NixOS AMI needs IMDSv1 to fetch SSH keys during bootstrap
   }
 
   depends_on = [aws_efs_mount_target.m36]
@@ -55,6 +59,6 @@ resource "aws_eip" "app" {
   domain   = "vpc"
 
   tags = {
-    Name = "cartographer-eip"
+    Name = "${local.name_prefix}-eip"
   }
 }
