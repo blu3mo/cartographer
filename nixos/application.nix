@@ -4,71 +4,75 @@
 {
   pkgs,
   lib,
+  config,
   cartographer-backend,
   cartographer-frontend,
   ...
 }:
 
 {
-  # SSL certificates from Cloudflare Origin CA (deployed via Colmena keys)
-  # These are populated by `terraform output` and stored in .env.production
-  security.acme.acceptTerms = true; # Required even though we don't use ACME
+  options.cartographer.domain = lib.mkOption {
+    type = lib.types.str;
+    description = "The domain name for the application.";
+  };
 
-  # Add nginx user to keys group so it can access /run/keys/
-  users.users.nginx.extraGroups = [ "keys" ];
+  config = {
+    # SSL certificates from Cloudflare Origin CA (deployed via Colmena keys)
+    # These are populated by `terraform output` and stored in .env.production
+    security.acme.acceptTerms = true; # Required even though we don't use ACME
 
-  # nginx reverse proxy with SSL
-  services.nginx = {
-    enable = true;
-    recommendedTlsSettings = true;
-    recommendedOptimisation = true;
-    recommendedGzipSettings = true;
-    recommendedProxySettings = true;
+    # Add nginx user to keys group so it can access /run/keys/
+    users.users.nginx.extraGroups = [ "keys" ];
 
-    virtualHosts."app.baisoku-kaigi.com" = {
-      forceSSL = true;
-      sslCertificate = "/run/keys/origin-cert";
-      sslCertificateKey = "/run/keys/origin-key";
+    # nginx reverse proxy with SSL
+    services.nginx = {
+      enable = true;
+      recommendedTlsSettings = true;
+      recommendedOptimisation = true;
+      recommendedGzipSettings = true;
+      recommendedProxySettings = true;
 
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:3000";
-        proxyWebsockets = true;
+      virtualHosts."${config.cartographer.domain}" = {
+        forceSSL = true;
+        sslCertificate = "/run/keys/origin-cert";
+        sslCertificateKey = "/run/keys/origin-key";
+
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:3000";
+          proxyWebsockets = true;
+        };
+      };
+
+      # Redirect www to root (only if not staging, but manageable later)
+      # For now, simplistic approach
+    };
+
+    # Haskell backend service
+    systemd.services.cartographer-backend = {
+      description = "Cartographer Haskell Backend";
+      requires = [ "mnt-efs.mount" ];
+      after = [
+        "network.target"
+        "mnt-efs.mount"
+      ];
+      wantedBy = [ "multi-user.target" ];
+
+      environment = {
+        M36_DATA_PATH = "/mnt/efs/m36-data";
+      };
+
+      serviceConfig = {
+        Type = "simple";
+        User = "cartographer";
+        Group = "cartographer";
+        WorkingDirectory = "/var/lib/cartographer";
+        ExecStartPre = "+${pkgs.coreutils}/bin/chown cartographer:cartographer /mnt/efs";
+        ExecStart = "${lib.getExe cartographer-backend}";
+        Restart = "always";
+        RestartSec = 5;
+        EnvironmentFile = "/run/keys/env-file";
       };
     };
-
-    # Redirect www.app to app
-    virtualHosts."www.app.baisoku-kaigi.com" = {
-      forceSSL = true;
-      sslCertificate = "/run/keys/origin-cert";
-      sslCertificateKey = "/run/keys/origin-key";
-      globalRedirect = "app.baisoku-kaigi.com";
-    };
-  };
-
-  # Haskell backend service
-  systemd.services.cartographer-backend = {
-    description = "Cartographer Haskell Backend";
-    after = [
-      "network.target"
-      "mnt-efs.mount"
-    ];
-    wantedBy = [ "multi-user.target" ];
-
-    environment = {
-      M36_DATA_PATH = "/mnt/efs/m36-data";
-    };
-
-    serviceConfig = {
-      Type = "simple";
-      User = "cartographer";
-      Group = "cartographer";
-      WorkingDirectory = "/var/lib/cartographer";
-      ExecStart = "${lib.getExe cartographer-backend}";
-      Restart = "always";
-      RestartSec = 5;
-      EnvironmentFile = "/run/keys/env-file";
-    };
-  };
 
   # Next.js frontend service (port 3000, behind nginx)
   systemd.services.cartographer-frontend = {
@@ -107,9 +111,9 @@
     "origin-key-key.service"
   ];
 
-  # Open firewall for HTTP/HTTPS
-  networking.firewall.allowedTCPPorts = [
-    80
-    443
-  ];
+    networking.firewall.allowedTCPPorts = [
+      80
+      443
+    ];
+  };
 }
