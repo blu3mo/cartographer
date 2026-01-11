@@ -285,15 +285,18 @@
 
           process-compose.default = {
             settings = {
+              environment = [ 
+                "PC_PORT_NUM=9999"
+               ];
               processes = {
                 backend = {
                   command = "${lib.getExe self'.packages.cartographer-backend}";
                 };
-
+ 
                 frontend = {
                   command = "npm run dev";
                 };
-              };
+               };
             };
           };
 
