@@ -45,6 +45,9 @@ resource "aws_instance" "app" {
   tags = {
     Name = "${local.name_prefix}-app"
   }
+
+  metadata_options {
+    http_tokens = "optional" # NixOS AMI needs IMDSv1 to fetch SSH keys during bootstrap
   }
 
   depends_on = [aws_efs_mount_target.m36]
