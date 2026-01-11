@@ -379,6 +379,9 @@
               imports = [
                 ./nixos/infrastructure.nix
               ];
+
+              cartographer.efsFileSystemId = "fs-0f72db497533bbfde";
+              cartographer.domain = "app.baisoku-kaigi.com";
             };
 
           # Full deployment with applications - now works from Mac (aarch64)
