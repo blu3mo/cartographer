@@ -66,6 +66,8 @@ tfplan.*
 .terraform.lock.hcl
 *.tfvars
 !*.tfvars.example
+!infra/terraform/prod.tfvars
+!infra/terraform/staging.tfvars
 crash.log
 crash.*.log
 override.tf

@@ -4,7 +4,7 @@ terraform {
   cloud {
     organization = "plural-reality"
     workspaces {
-      name = "cartographer-prod"
+      tags = ["cartographer"]
     }
   }
 
@@ -22,6 +22,12 @@ terraform {
       version = "~> 4.0"
     }
   }
+}
+
+locals {
+  # 環境ごとのリソース名プレフィックス
+  # prod: "cartographer", staging: "cartographer-staging"
+  name_prefix = var.environment == "prod" ? "cartographer" : "cartographer-${var.environment}"
 }
 
 provider "aws" {

@@ -1,0 +1,6 @@
+{
+  "domain": "staging.baisoku-kaigi.com",
+  "domain_url": "https://staging.baisoku-kaigi.com/",
+  "efs_dns_name": "fs-0a3f1c8ae1d63c51b.efs.ap-northeast-1.amazonaws.com",
+  "instance_public_ip": "3.113.176.251"
+}

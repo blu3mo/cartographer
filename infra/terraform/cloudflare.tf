@@ -7,7 +7,7 @@ provider "cloudflare" {
 # DNS Records
 resource "cloudflare_record" "app" {
   zone_id         = var.cloudflare_zone_id
-  name            = "app"
+  name            = var.dns_subdomain
   content         = aws_eip.app.public_ip
   type            = "A"
   proxied         = true

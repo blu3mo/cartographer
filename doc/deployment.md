@@ -66,7 +66,25 @@ terraform apply  # 変更の適用
 
 ---
 
-## 3. Application Deployment (開発者向け)
+## 3. インフラ設定の自動同期 (Infrastructure Sync)
+
+`flake.nix` は、Terraform が出力する JSON ファイル (`infra/terraform/infra-*.json`) を動的に読み込みます。これにより、IP アドレスや EFS ID を手動で修正する必要がなくなります。
+
+### 同期の仕組み
+1.  **Terraform**: `terraform apply` 実行時に、機密情報（秘密鍵）を含まない設定 JSON (`infra-*.json`) が自動生成されます。
+2.  **Git**: 生成された JSON をコミットすることで、インフラの状態（IP や EFS ID）をリポジトリ内で共有できます。
+3.  **Nix**: `colmena apply` 実行時に、`builtins.fromJSON` を使って上記のファイルを読み込みます。
+
+> [!TIP]
+> インフラに変更がない場合は、JSON の再生成は不要です。インフラを再構築した場合は、以下のコマンドで最新の状態を同期してください。
+> ```bash
+> # 例: staging の出力を手動同期する場合
+> TF_WORKSPACE=staging terraform output -json infra_metadata > infra-cartographer-staging.json
+> ```
+
+---
+
+## 4. デプロイの実行 (Deployment) (開発者向け)
 
 **対象ツール:** Colmena (Nix)
 
@@ -86,7 +104,13 @@ OPENROUTER_API_KEY=sk-or-xxx
 ### デプロイ実行
 
 ```bash
-nix run github:zhaofengli/colmena -- apply --on cartographer-prod
+# --impure フラグは $PWD（秘密情報のパス解決）を参照するために必要です
+
+# Staging 環境へのデプロイ
+colmena apply --on cartographer-staging --impure
+
+# Production 環境へのデプロイ
+colmena apply --on cartographer-prod --impure
 ```
 
 Colmena が自動的に以下を行います:
@@ -96,7 +120,15 @@ Colmena が自動的に以下を行います:
 
 ---
 
-## その他
+
+#### EFS のマウントと権限管理
+バックエンドサービスが正しい権限で起動することを保証するため、`application.nix` 内で `ExecStartPre` による所有権の自動修復を行っています。
+
+より詳細な背景や、将来的な改善計画については [Infrastructure Roadmap](./infrastructure-roadmap.md) を参照してください。
+
+---
+
+## 5. その他
 
 ### トラブルシューティング
 - [troubleshooting.md](./troubleshooting.md)
