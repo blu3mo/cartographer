@@ -15,5 +15,16 @@ output "ssh_command" {
 
 output "domain_url" {
   description = "Application URL (after DNS propagation)"
-  value       = "https://app.${var.domain_name}/"
+  value       = "https://${var.dns_subdomain}.${var.domain_name}/"
+}
+
+output "efs_id" {
+  description = "EFS File System ID"
+  value       = aws_efs_file_system.m36.id
+}
+
+output "domain" {
+  description = "Fully qualified domain name"
+  value       = "${var.dns_subdomain}.${var.domain_name}"
+}
 }

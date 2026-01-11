@@ -38,3 +38,15 @@ variable "domain_name" {
   type        = string
   default     = "baisoku-kaigi.com"
 }
+
+variable "efs_creation_token" {
+  description = "EFS creation token (unique per workspace)"
+  type        = string
+  default     = "cartographer-m36"
+}
+
+variable "dns_subdomain" {
+  description = "DNS subdomain (e.g., 'app' or 'staging')"
+  type        = string
+  default     = "app"
+}

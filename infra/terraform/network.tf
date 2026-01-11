@@ -6,7 +6,7 @@ resource "aws_vpc" "main" {
   enable_dns_support               = true
 
   tags = {
-    Name = "cartographer-vpc"
+    Name = "${local.name_prefix}-vpc"
   }
 }
 
@@ -15,7 +15,7 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "cartographer-igw"
+    Name = "${local.name_prefix}-igw"
   }
 }
 
@@ -29,7 +29,7 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch         = true
 
   tags = {
-    Name = "cartographer-public"
+    Name = "${local.name_prefix}-public"
   }
 }
 
@@ -48,7 +48,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "cartographer-rt"
+    Name = "${local.name_prefix}-rt"
   }
 }
 
@@ -59,7 +59,7 @@ resource "aws_route_table_association" "public" {
 
 # Security Group
 resource "aws_security_group" "app" {
-  name        = "cartographer-app"
+  name        = "${local.name_prefix}-app"
   description = "Security group for Cartographer app"
   vpc_id      = aws_vpc.main.id
 
@@ -104,13 +104,13 @@ resource "aws_security_group" "app" {
   }
 
   tags = {
-    Name = "cartographer-sg"
+    Name = "${local.name_prefix}-sg"
   }
 }
 
 # Security Group for EFS
 resource "aws_security_group" "efs" {
-  name        = "cartographer-efs"
+  name        = "${local.name_prefix}-efs"
   description = "Security group for EFS"
   vpc_id      = aws_vpc.main.id
 
@@ -122,6 +122,6 @@ resource "aws_security_group" "efs" {
   }
 
   tags = {
-    Name = "cartographer-efs-sg"
+    Name = "${local.name_prefix}-efs-sg"
   }
 }

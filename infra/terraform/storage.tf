@@ -1,6 +1,6 @@
 # EFS File System
 resource "aws_efs_file_system" "m36" {
-  creation_token   = "cartographer-m36"
+  creation_token   = var.efs_creation_token
   performance_mode = "generalPurpose"
   throughput_mode  = "bursting"
   encrypted        = true
@@ -10,7 +10,7 @@ resource "aws_efs_file_system" "m36" {
   }
 
   tags = {
-    Name = "cartographer-m36"
+    Name = "${local.name_prefix}-m36"
   }
 }
 
@@ -40,6 +40,6 @@ resource "aws_efs_access_point" "m36" {
   }
 
   tags = {
-    Name = "cartographer-m36-ap"
+    Name = "${local.name_prefix}-m36-ap"
   }
 }
