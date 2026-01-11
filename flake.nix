@@ -398,10 +398,11 @@
               frontendPackage = self.packages.aarch64-linux.cartographer-frontend;
               # ポータビリティのためのベースパス取得。--impure 指定時に $PWD を参照可能。
               prjRoot = let env = builtins.getEnv "PWD"; in if env == "" then abort "Environment variable PWD is not set. Please run colmena with --impure" else env;
+              infra = builtins.fromJSON (builtins.readFile (prjRoot + "/infra/terraform/infra-cartographer-prod.json"));
             in
             {
               deployment = {
-                targetHost = "13.192.44.10";
+                targetHost = infra.instance_public_ip;
                 targetUser = "root";
                 buildOnTarget = false; # Try local build first - may need Linux builder
 
@@ -436,8 +437,8 @@
                 ./nixos/application.nix
               ];
 
-              cartographer.efsFileSystemId = "fs-0f72db497533bbfde";
-              cartographer.domain = "app.baisoku-kaigi.com";
+              cartographer.efsFileSystemId = pkgs.lib.head (pkgs.lib.splitString "." infra.efs_dns_name);
+              cartographer.domain = pkgs.lib.removePrefix "https://" (pkgs.lib.removeSuffix "/" infra.domain_url);
 
               _module.args = {
                 cartographer-backend = backendPackage;
@@ -458,11 +459,12 @@
               backendPackage = self.packages.aarch64-linux.cartographer-backend;
               frontendPackage = self.packages.aarch64-linux.cartographer-frontend;
               # ポータビリティのためのベースパス取得。--impure 指定時に $PWD を参照可能。
-              prjRoot = let env = builtins.getEnv "PWD"; in if env == "" then "/Volumes/External/Develop/cartographer" else env;
+              prjRoot = let env = builtins.getEnv "PWD"; in if env == "" then abort "Environment variable PWD is not set. Please run colmena with --impure" else env;
+              infra = builtins.fromJSON (builtins.readFile (prjRoot + "/infra/terraform/infra-cartographer-staging.json"));
             in
             {
               deployment = {
-                targetHost = "3.113.176.251";
+                targetHost = infra.instance_public_ip;
                 targetUser = "root";
                 buildOnTarget = false;
 
@@ -497,8 +499,8 @@
                 ./nixos/application.nix
               ];
 
-              cartographer.efsFileSystemId = "fs-0a3f1c8ae1d63c51b";
-              cartographer.domain = "staging.baisoku-kaigi.com";
+              cartographer.efsFileSystemId = pkgs.lib.head (pkgs.lib.splitString "." infra.efs_dns_name);
+              cartographer.domain = pkgs.lib.removePrefix "https://" (pkgs.lib.removeSuffix "/" infra.domain_url);
 
               _module.args = {
                 cartographer-backend = backendPackage;

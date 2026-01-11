@@ -66,7 +66,23 @@ terraform apply  # 変更の適用
 
 ---
 
-## 3. Application Deployment (開発者向け)
+## 3. インフラ設定の自動同期 (Infrastructure Sync)
+
+`flake.nix` は、Terraform が出力する JSON ファイル (`infra/terraform/infra-*.json`) を動的に読み込みます。これにより、IP アドレスや EFS ID を手動で修正する必要がなくなります。
+
+### 同期の仕組み
+1.  **Terraform**: `terraform apply` 実行時に、最新のインフラ情報を JSON 形式で出力します。
+2.  **Nix**: `colmena apply` 実行時に、`builtins.fromJSON` を使って上記のファイルを読み込みます。
+
+> [!NOTE]
+> 設定を強制的に更新したい場合は、以下のコマンドで JSON ファイルのみを再生成できます。
+> ```bash
+> TF_WORKSPACE=cartographer-staging terraform output -json > infra-cartographer-staging.json
+> ```
+
+---
+
+## 4. デプロイの実行 (Deployment) (開発者向け)
 
 **対象ツール:** Colmena (Nix)
 
